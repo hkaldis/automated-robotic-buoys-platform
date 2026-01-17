@@ -152,9 +152,21 @@ npm run db:push      # Push database schema (when using PostgreSQL)
   - Creates both event and course in backend
   
 - **Course Controls**: Transform entire course shape as a unit
-  - Scale slider (0.5x to 3x) to resize course
-  - Rotation control (0-360°) to orient course to wind
+  - Button-based scaling: "Smaller" (-20%) and "Larger" (+20%) buttons
+  - Button-based rotation: "Left" (-15°) and "Right" (+15°) buttons
+  - "Align to Wind" button: Auto-rotates starting line perpendicular to wind direction (90° offset per sailing race rules)
+  - Move Course grid: Arrow buttons (up/down/left/right) to translate entire course
   - All marks transform together maintaining relative positions
+  
+- **Draggable Marks**: Marks can be repositioned directly on the map via drag-and-drop
+  - Immediate position updates on drag end
+  - Mark edit panel shows updated coordinates
+
+- **Geolocation**: "Use My Location" button centers map on user's GPS position
+
+- **Demo Location**: Changed default to Mikrolimano, Greece (37.9376, 23.6917)
+  - Marina near Athens/Piraeus, suitable for sailing demonstrations
+  - All 7 demo buoys positioned around this harbor
 
 - **React Query Integration**: Migrated from mock data to full backend integration
   - All data now fetched from API endpoints
