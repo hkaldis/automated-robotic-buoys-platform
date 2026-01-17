@@ -165,6 +165,21 @@ export function useDeleteMark(courseId?: string) {
   });
 }
 
+export function useDeleteAllMarks() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (courseId: string) => {
+      const res = await apiRequest("DELETE", `/api/courses/${courseId}/marks`);
+      return res.json();
+    },
+    onSuccess: (_, courseId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+    },
+  });
+}
+
 export function useCreateEvent() {
   const queryClient = useQueryClient();
   

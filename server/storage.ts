@@ -33,6 +33,7 @@ export interface IStorage {
   createMark(mark: InsertMark): Promise<Mark>;
   updateMark(id: string, mark: Partial<InsertMark>): Promise<Mark | undefined>;
   deleteMark(id: string): Promise<boolean>;
+  deleteMarksByCourse(courseId: string): Promise<number>;
 
   getBuoy(id: string): Promise<Buoy | undefined>;
   getBuoys(sailClubId?: string): Promise<Buoy[]>;
@@ -251,6 +252,18 @@ export class MemStorage implements IStorage {
 
   async deleteMark(id: string): Promise<boolean> {
     return this.marks.delete(id);
+  }
+
+  async deleteMarksByCourse(courseId: string): Promise<number> {
+    let count = 0;
+    const entries = Array.from(this.marks.entries());
+    for (const [id, mark] of entries) {
+      if (mark.courseId === courseId) {
+        this.marks.delete(id);
+        count++;
+      }
+    }
+    return count;
   }
 
   async getBuoy(id: string): Promise<Buoy | undefined> {

@@ -187,6 +187,15 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/courses/:id/marks", async (req, res) => {
+    try {
+      const count = await storage.deleteMarksByCourse(req.params.id);
+      res.json({ deleted: count });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete marks" });
+    }
+  });
+
   app.get("/api/buoys", async (req, res) => {
     try {
       const sailClubId = req.query.sailClubId as string | undefined;

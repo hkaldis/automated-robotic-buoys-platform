@@ -16,6 +16,7 @@ import {
   useUpdateMark,
   useCreateMark,
   useDeleteMark,
+  useDeleteAllMarks,
   useUpdateCourse,
   useCreateEvent,
   useCreateCourse,
@@ -25,6 +26,40 @@ import { useToast } from "@/hooks/use-toast";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
+
+function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: number): Array<{ name: string; role: MarkRole; lat: number; lng: number; order: number }> {
+  const offset = 0.003;
+  
+  switch (shape) {
+    case "triangle":
+      return [
+        { name: "Start Boat", role: "start_boat", lat: centerLat - offset, lng: centerLng - offset * 0.5, order: 0 },
+        { name: "Pin End", role: "pin", lat: centerLat - offset, lng: centerLng + offset * 0.5, order: 1 },
+        { name: "Windward Mark", role: "windward", lat: centerLat + offset * 1.5, lng: centerLng, order: 2 },
+        { name: "Leeward Mark", role: "leeward", lat: centerLat - offset * 0.5, lng: centerLng + offset, order: 3 },
+      ];
+    case "trapezoid":
+      return [
+        { name: "Start Boat", role: "start_boat", lat: centerLat - offset, lng: centerLng - offset * 0.5, order: 0 },
+        { name: "Pin End", role: "pin", lat: centerLat - offset, lng: centerLng + offset * 0.5, order: 1 },
+        { name: "Windward Mark", role: "windward", lat: centerLat + offset * 1.5, lng: centerLng, order: 2 },
+        { name: "Offset Mark", role: "offset", lat: centerLat + offset, lng: centerLng + offset, order: 3 },
+        { name: "Gate Left", role: "gate", lat: centerLat - offset * 0.3, lng: centerLng - offset * 0.3, order: 4 },
+        { name: "Gate Right", role: "gate", lat: centerLat - offset * 0.3, lng: centerLng + offset * 0.3, order: 5 },
+      ];
+    case "windward_leeward":
+      return [
+        { name: "Start Boat", role: "start_boat", lat: centerLat - offset, lng: centerLng - offset * 0.5, order: 0 },
+        { name: "Pin End", role: "pin", lat: centerLat - offset, lng: centerLng + offset * 0.5, order: 1 },
+        { name: "Windward Mark", role: "windward", lat: centerLat + offset * 2, lng: centerLng, order: 2 },
+        { name: "Gate Left", role: "gate", lat: centerLat - offset * 0.5, lng: centerLng - offset * 0.3, order: 3 },
+        { name: "Gate Right", role: "gate", lat: centerLat - offset * 0.5, lng: centerLng + offset * 0.3, order: 4 },
+      ];
+    case "custom":
+    default:
+      return [];
+  }
+}
 
 export default function RaceControl() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -55,6 +90,7 @@ export default function RaceControl() {
   const updateCourse = useUpdateCourse();
   const createEvent = useCreateEvent();
   const createCourse = useCreateCourse();
+  const deleteAllMarks = useDeleteAllMarks();
 
   const buoys = demoMode ? demoBuoys : apiBuoys;
 
@@ -260,6 +296,10 @@ export default function RaceControl() {
     courseName: string;
   }) => {
     try {
+      if (currentCourse) {
+        await deleteAllMarks.mutateAsync(currentCourse.id);
+      }
+      
       const course = await createCourse.mutateAsync({
         name: data.courseName,
         shape: data.courseShape,
@@ -278,10 +318,31 @@ export default function RaceControl() {
         courseId: course.id,
       });
 
-      toast({
-        title: "Race Created",
-        description: `${data.name} has been created with a ${data.courseShape} course.`,
-      });
+      const shapeMarks = generateShapeMarks(data.courseShape, DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
+      for (const mark of shapeMarks) {
+        await createMark.mutateAsync({
+          courseId: course.id,
+          name: mark.name,
+          role: mark.role,
+          order: mark.order,
+          lat: mark.lat,
+          lng: mark.lng,
+        });
+      }
+
+      if (data.courseShape === "custom") {
+        setIsPlacingMark(true);
+        setPendingMarkData({ name: "Mark 1", role: "other" });
+        toast({
+          title: "Custom Course",
+          description: "Click on the map to add marks to your course.",
+        });
+      } else {
+        toast({
+          title: "Race Created",
+          description: `${data.name} has been created with a ${data.courseShape} course.`,
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -289,7 +350,7 @@ export default function RaceControl() {
         variant: "destructive",
       });
     }
-  }, [createCourse, createEvent, toast]);
+  }, [createCourse, createEvent, createMark, deleteAllMarks, currentCourse, toast]);
 
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 

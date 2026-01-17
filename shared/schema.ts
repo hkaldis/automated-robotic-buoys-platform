@@ -21,7 +21,7 @@ export const buoyStateSchema = z.enum([
 ]);
 export type BuoyState = z.infer<typeof buoyStateSchema>;
 
-export const markRoleSchema = z.enum(["start_boat", "pin", "turning_mark", "finish"]);
+export const markRoleSchema = z.enum(["start_boat", "pin", "turning_mark", "finish", "windward", "leeward", "gate", "offset", "other"]);
 export type MarkRole = z.infer<typeof markRoleSchema>;
 
 export const courseShapeSchema = z.enum(["triangle", "trapezoid", "windward_leeward", "custom"]);
