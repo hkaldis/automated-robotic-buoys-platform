@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
@@ -23,11 +23,13 @@ interface LeafletMapProps {
   onBuoyClick?: (buoyId: string) => void;
   onMarkClick?: (markId: string) => void;
   onMapClick?: (lat: number, lng: number) => void;
+  onMarkDragEnd?: (markId: string, lat: number, lng: number) => void;
   className?: string;
   isPlacingMark?: boolean;
 }
 
-const DEFAULT_CENTER: [number, number] = [37.8044, -122.2712];
+const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
+const DEFAULT_CENTER: [number, number] = MIKROLIMANO_CENTER;
 const DEFAULT_ZOOM = 15;
 
 function calculateDistance(pos1: GeoPosition, pos2: GeoPosition): number {
@@ -202,6 +204,7 @@ export function LeafletMap({
   onBuoyClick, 
   onMarkClick,
   onMapClick,
+  onMarkDragEnd,
   className,
   isPlacingMark,
 }: LeafletMapProps) {
@@ -222,6 +225,21 @@ export function LeafletMap({
   const handleZoomIn = () => mapRef.current?.zoomIn();
   const handleZoomOut = () => mapRef.current?.zoomOut();
   const handleResetView = () => mapRef.current?.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+  
+  const handleLocate = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        mapRef.current?.setView(
+          [position.coords.latitude, position.coords.longitude],
+          DEFAULT_ZOOM
+        );
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+      }
+    );
+  };
 
   return (
     <div className={cn("relative w-full h-full", className)} data-testid="leaflet-map">
@@ -263,8 +281,14 @@ export function LeafletMap({
             key={mark.id}
             position={[mark.lat, mark.lng]}
             icon={createMarkIcon(mark, selectedMarkId === mark.id)}
+            draggable={!isPlacingMark}
             eventHandlers={{
               click: () => onMarkClick?.(mark.id),
+              dragend: (e) => {
+                const marker = e.target;
+                const position = marker.getLatLng();
+                onMarkDragEnd?.(mark.id, position.lat, position.lng);
+              },
             }}
           />
         ))}
@@ -307,6 +331,11 @@ export function LeafletMap({
         <Card className="p-1">
           <Button variant="ghost" size="icon" onClick={handleResetView} data-testid="button-reset-view">
             <RotateCcw className="w-4 h-4" />
+          </Button>
+        </Card>
+        <Card className="p-1">
+          <Button variant="ghost" size="icon" onClick={handleLocate} data-testid="button-locate">
+            <LocateFixed className="w-4 h-4" />
           </Button>
         </Card>
       </div>

@@ -1,16 +1,27 @@
 import { useState, useEffect } from "react";
-import { RotateCw, Maximize2, Minimize2, RotateCcw } from "lucide-react";
+import { 
+  RotateCw, 
+  RotateCcw, 
+  Plus, 
+  Minus, 
+  ArrowUp, 
+  ArrowDown, 
+  ArrowLeft, 
+  ArrowRight,
+  Wind,
+  Navigation
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import type { Course, Mark } from "@shared/schema";
 
 interface CourseControlsProps {
   course: Course;
   marks: Mark[];
+  windDirection?: number;
   onUpdateCourse: (data: Partial<Course>) => void;
   onUpdateMarks: (marks: Mark[]) => void;
 }
@@ -42,15 +53,25 @@ function scalePoint(lat: number, lng: number, centerLat: number, centerLng: numb
   };
 }
 
-export function CourseControls({ course, marks, onUpdateCourse, onUpdateMarks }: CourseControlsProps) {
+function translatePoint(lat: number, lng: number, dLat: number, dLng: number): { lat: number; lng: number } {
+  return {
+    lat: lat + dLat,
+    lng: lng + dLng,
+  };
+}
+
+const MOVE_STEP = 0.0005;
+const ROTATION_STEP = 15;
+const SCALE_FACTOR_UP = 1.2;
+const SCALE_FACTOR_DOWN = 0.8;
+
+export function CourseControls({ course, marks, windDirection, onUpdateCourse, onUpdateMarks }: CourseControlsProps) {
   const [rotation, setRotation] = useState(course.rotation);
   const [scale, setScale] = useState(course.scale);
-  const [rotationInput, setRotationInput] = useState(course.rotation.toString());
 
   useEffect(() => {
     setRotation(course.rotation);
     setScale(course.scale);
-    setRotationInput(course.rotation.toString());
   }, [course]);
 
   const centerLat = course.centerLat;
@@ -59,7 +80,6 @@ export function CourseControls({ course, marks, onUpdateCourse, onUpdateMarks }:
   const handleRotationChange = (newRotation: number) => {
     const rotationDelta = newRotation - rotation;
     setRotation(newRotation);
-    setRotationInput(newRotation.toString());
     
     const rotatedMarks = marks.map(mark => {
       const { lat, lng } = rotatePoint(mark.lat, mark.lng, centerLat, centerLng, rotationDelta);
@@ -70,24 +90,17 @@ export function CourseControls({ course, marks, onUpdateCourse, onUpdateMarks }:
     onUpdateMarks(rotatedMarks);
   };
 
-  const handleRotationInputChange = (value: string) => {
-    setRotationInput(value);
-    const num = parseFloat(value);
-    if (!isNaN(num) && num >= 0 && num <= 360) {
-      handleRotationChange(num);
-    }
-  };
-
   const handleScaleChange = (newScale: number) => {
-    const scaleFactor = newScale / scale;
-    setScale(newScale);
+    const clampedScale = Math.max(0.5, Math.min(3, newScale));
+    const scaleFactor = clampedScale / scale;
+    setScale(clampedScale);
     
     const scaledMarks = marks.map(mark => {
       const { lat, lng } = scalePoint(mark.lat, mark.lng, centerLat, centerLng, scaleFactor);
       return { ...mark, lat, lng };
     });
     
-    onUpdateCourse({ scale: newScale });
+    onUpdateCourse({ scale: clampedScale });
     onUpdateMarks(scaledMarks);
   };
 
@@ -97,107 +110,168 @@ export function CourseControls({ course, marks, onUpdateCourse, onUpdateMarks }:
   };
 
   const handleScaleBy = (factor: number) => {
-    const newScale = Math.max(0.5, Math.min(3, scale * factor));
-    handleScaleChange(newScale);
+    handleScaleChange(scale * factor);
+  };
+
+  const handleMove = (direction: "up" | "down" | "left" | "right") => {
+    let dLat = 0;
+    let dLng = 0;
+    
+    switch (direction) {
+      case "up": dLat = MOVE_STEP; break;
+      case "down": dLat = -MOVE_STEP; break;
+      case "left": dLng = -MOVE_STEP; break;
+      case "right": dLng = MOVE_STEP; break;
+    }
+    
+    const movedMarks = marks.map(mark => {
+      const { lat, lng } = translatePoint(mark.lat, mark.lng, dLat, dLng);
+      return { ...mark, lat, lng };
+    });
+    
+    onUpdateCourse({ 
+      centerLat: centerLat + dLat, 
+      centerLng: centerLng + dLng 
+    });
+    onUpdateMarks(movedMarks);
+  };
+
+  const handleAlignToWind = () => {
+    if (windDirection === undefined) return;
+    
+    const targetRotation = (windDirection + 180) % 360;
+    const rotationDelta = targetRotation - rotation;
+    
+    setRotation(targetRotation);
+    
+    const rotatedMarks = marks.map(mark => {
+      const { lat, lng } = rotatePoint(mark.lat, mark.lng, centerLat, centerLng, rotationDelta);
+      return { ...mark, lat, lng };
+    });
+    
+    onUpdateCourse({ rotation: targetRotation });
+    onUpdateMarks(rotatedMarks);
   };
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
           Course Controls
+          <Badge variant="secondary" className="text-xs font-mono">
+            {rotation.toFixed(0)}° / {scale.toFixed(1)}x
+          </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">Rotation</Label>
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                value={rotationInput}
-                onChange={(e) => handleRotationInputChange(e.target.value)}
-                className="w-16 h-7 text-xs font-mono text-right"
-                min={0}
-                max={360}
-                data-testid="input-rotation"
-              />
-              <span className="text-xs text-muted-foreground">°</span>
-            </div>
-          </div>
-          
-          <Slider
-            value={[rotation]}
-            onValueChange={([val]) => handleRotationChange(val)}
-            min={0}
-            max={360}
-            step={1}
-            className="w-full"
-            data-testid="slider-rotation"
-          />
-          
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Size</Label>
           <div className="flex gap-2">
             <Button 
               variant="outline" 
               size="sm" 
               className="flex-1 gap-1"
-              onClick={() => handleRotateBy(-15)}
-              data-testid="button-rotate-ccw"
-            >
-              <RotateCcw className="w-3 h-3" />
-              -15°
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1 gap-1"
-              onClick={() => handleRotateBy(15)}
-              data-testid="button-rotate-cw"
-            >
-              <RotateCw className="w-3 h-3" />
-              +15°
-            </Button>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">Scale</Label>
-            <span className="text-xs font-mono">{scale.toFixed(2)}x</span>
-          </div>
-          
-          <Slider
-            value={[scale]}
-            onValueChange={([val]) => handleScaleChange(val)}
-            min={0.5}
-            max={3}
-            step={0.1}
-            className="w-full"
-            data-testid="slider-scale"
-          />
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="flex-1 gap-1"
-              onClick={() => handleScaleBy(0.8)}
+              onClick={() => handleScaleBy(SCALE_FACTOR_DOWN)}
+              disabled={scale <= 0.5}
               data-testid="button-scale-down"
             >
-              <Minimize2 className="w-3 h-3" />
+              <Minus className="w-4 h-4" />
               Smaller
             </Button>
             <Button 
               variant="outline" 
               size="sm" 
               className="flex-1 gap-1"
-              onClick={() => handleScaleBy(1.25)}
+              onClick={() => handleScaleBy(SCALE_FACTOR_UP)}
+              disabled={scale >= 3}
               data-testid="button-scale-up"
             >
-              <Maximize2 className="w-3 h-3" />
+              <Plus className="w-4 h-4" />
               Larger
+            </Button>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Rotation</Label>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1 gap-1"
+              onClick={() => handleRotateBy(-ROTATION_STEP)}
+              data-testid="button-rotate-ccw"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Left
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex-1 gap-1"
+              onClick={() => handleRotateBy(ROTATION_STEP)}
+              data-testid="button-rotate-cw"
+            >
+              <RotateCw className="w-4 h-4" />
+              Right
+            </Button>
+          </div>
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="w-full gap-2"
+            onClick={handleAlignToWind}
+            disabled={windDirection === undefined}
+            data-testid="button-align-wind"
+          >
+            <Wind className="w-4 h-4" />
+            Align to Wind
+            {windDirection !== undefined && (
+              <span className="text-xs opacity-75">({windDirection.toFixed(0)}°)</span>
+            )}
+          </Button>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Move Course</Label>
+          <div className="grid grid-cols-3 gap-1">
+            <div />
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => handleMove("up")}
+              data-testid="button-move-up"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </Button>
+            <div />
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => handleMove("left")}
+              data-testid="button-move-left"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => handleMove("down")}
+              data-testid="button-move-down"
+            >
+              <ArrowDown className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => handleMove("right")}
+              data-testid="button-move-right"
+            >
+              <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         </div>

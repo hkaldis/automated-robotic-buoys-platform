@@ -23,7 +23,8 @@ import {
 import { useDemoMode } from "@/hooks/use-demo-mode";
 import { useToast } from "@/hooks/use-toast";
 
-const DEFAULT_CENTER = { lat: 37.8044, lng: -122.2712 };
+const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
+const DEFAULT_CENTER = MIKROLIMANO_CENTER;
 
 export default function RaceControl() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -361,6 +362,9 @@ export default function RaceControl() {
             onBuoyClick={handleBuoyClick}
             onMarkClick={handleMarkClick}
             onMapClick={handleMapClick}
+            onMarkDragEnd={(markId, lat, lng) => {
+              updateMark.mutate({ id: markId, data: { lat, lng } });
+            }}
             isPlacingMark={isPlacingMark || !!repositioningMarkId}
           />
         </main>

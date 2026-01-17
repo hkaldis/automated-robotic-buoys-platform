@@ -126,6 +126,7 @@ export function SidePanel({
             <CourseControls
               course={course}
               marks={marks}
+              windDirection={weatherData?.windDirection}
               onUpdateCourse={onUpdateCourse}
               onUpdateMarks={onUpdateMarks}
             />
