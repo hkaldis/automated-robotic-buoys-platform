@@ -128,6 +128,15 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 ## Recent Changes
 
 ### January 17, 2026 (Latest)
+- **Extended Mark Roles**: Added windward, leeward, gate, offset, other roles to schema for comprehensive course design
+- **Bulk Mark Delete**: Added DELETE /api/courses/:id/marks endpoint to clear all marks from a course
+- **Predefined Shape Marks**: New race creation now generates appropriate marks based on selected shape:
+  - Triangle: 4 marks (Start Boat, Pin End, Windward, Leeward)
+  - Trapezoid: 6 marks (Start Boat, Pin End, Windward, Offset, Gate Left, Gate Right)
+  - Windward-Leeward: 5 marks (Start Boat, Pin End, Windward, Gate Left, Gate Right)
+  - Custom: 0 marks (user clicks on map to add)
+- **Race Creation Flow**: Creating a new race clears existing marks, creates course/event, then generates shape marks
+
 - **Leaflet + OpenSeaMap Integration**: Replaced canvas-based map with real GPS mapping
   - OpenStreetMap base layer with OpenSeaMap nautical overlay (0.8 opacity)
   - Custom markers for buoys (colored circles with initials) and marks (triangles/circles)
