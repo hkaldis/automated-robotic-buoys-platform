@@ -127,7 +127,35 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 
 ## Recent Changes
 
-### January 17, 2026
+### January 17, 2026 (Latest)
+- **Leaflet + OpenSeaMap Integration**: Replaced canvas-based map with real GPS mapping
+  - OpenStreetMap base layer with OpenSeaMap nautical overlay (0.8 opacity)
+  - Custom markers for buoys (colored circles with initials) and marks (triangles/circles)
+  - Interactive zoom controls with reset view functionality
+  - Click-to-place marks on map with coordinate display
+  
+- **Demo Mode**: Added simulation mode for testing without real buoys
+  - 7 simulated buoys (Alpha through Golf) with realistic telemetry
+  - Buoys move at 3-3.5 knots when deployed to target positions
+  - Demo state persisted in localStorage
+  - Toggle via "Demo" button in TopBar
+  
+- **Mark Management**: Full CRUD for course marks
+  - MarkEditPanel: Edit name, role, position, and assigned buoy
+  - AddMarkDialog: Create marks via map click or coordinate entry
+  - Delete marks with confirmation dialog
+  - Proper React Query cache invalidation for immediate UI updates
+  
+- **Race Creation Wizard**: 2-step dialog for creating new races
+  - Step 1: Race details (name, type, boat class, target duration)
+  - Step 2: Course setup (name, shape selection)
+  - Creates both event and course in backend
+  
+- **Course Controls**: Transform entire course shape as a unit
+  - Scale slider (0.5x to 3x) to resize course
+  - Rotation control (0-360°) to orient course to wind
+  - All marks transform together maintaining relative positions
+
 - **React Query Integration**: Migrated from mock data to full backend integration
   - All data now fetched from API endpoints
   - Settings persist via /api/settings endpoints
