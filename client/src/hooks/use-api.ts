@@ -108,12 +108,97 @@ export function useBuoyCommand() {
   });
 }
 
-export function useUpdateMark() {
+export function useUpdateMark(courseId?: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Mark> }) => {
       const res = await apiRequest("PATCH", `/api/marks/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      if (courseId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      }
+    },
+  });
+}
+
+export function useCreateMark(courseId?: string) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      courseId: string;
+      name: string;
+      role: string;
+      order: number;
+      lat: number;
+      lng: number;
+      assignedBuoyId?: string | null;
+    }) => {
+      const res = await apiRequest("POST", "/api/marks", data);
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", variables.courseId, "marks"] });
+    },
+  });
+}
+
+export function useDeleteMark(courseId?: string) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/marks/${id}`);
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      if (courseId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      }
+    },
+  });
+}
+
+export function useCreateEvent() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      type: string;
+      sailClubId: string;
+      boatClass: string;
+      targetDuration: number;
+      courseId?: string;
+    }) => {
+      const res = await apiRequest("POST", "/api/events", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+    },
+  });
+}
+
+export function useCreateCourse() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      shape: string;
+      centerLat: number;
+      centerLng: number;
+      rotation?: number;
+      scale?: number;
+    }) => {
+      const res = await apiRequest("POST", "/api/courses", data);
       return res.json();
     },
     onSuccess: () => {

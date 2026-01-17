@@ -1,9 +1,10 @@
-import { Wind, Battery, Wifi, AlertTriangle, Settings, Menu } from "lucide-react";
+import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSettings } from "@/hooks/use-settings";
-import { cn } from "@/lib/utils";
+import { CreateRaceDialog } from "./CreateRaceDialog";
+import type { CourseShape, EventType } from "@shared/schema";
 
 interface WeatherData {
   windSpeed: number;
@@ -17,11 +18,30 @@ interface TopBarProps {
   eventName: string;
   clubName: string;
   weatherData?: WeatherData | null;
+  demoMode?: boolean;
   onMenuClick?: () => void;
   onSettingsClick?: () => void;
+  onToggleDemoMode?: () => void;
+  onCreateRace?: (data: {
+    name: string;
+    type: EventType;
+    boatClass: string;
+    targetDuration: number;
+    courseShape: CourseShape;
+    courseName: string;
+  }) => void;
 }
 
-export function TopBar({ eventName, clubName, weatherData, onMenuClick, onSettingsClick }: TopBarProps) {
+export function TopBar({ 
+  eventName, 
+  clubName, 
+  weatherData, 
+  demoMode,
+  onMenuClick, 
+  onSettingsClick,
+  onToggleDemoMode,
+  onCreateRace,
+}: TopBarProps) {
   const { formatSpeed, formatBearing } = useSettings();
 
   return (
@@ -64,14 +84,50 @@ export function TopBar({ eventName, clubName, weatherData, onMenuClick, onSettin
       </div>
 
       <div className="flex items-center gap-2">
+        {onToggleDemoMode && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant={demoMode ? "default" : "outline"} 
+                size="sm"
+                onClick={onToggleDemoMode}
+                className="gap-2"
+                data-testid="button-demo-toggle"
+              >
+                {demoMode ? (
+                  <ToggleRight className="w-4 h-4" />
+                ) : (
+                  <ToggleLeft className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">Demo</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {demoMode ? "Demo mode ON - using simulated buoys" : "Enable demo mode"}
+            </TooltipContent>
+          </Tooltip>
+        )}
+
+        {demoMode && (
+          <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+            DEMO
+          </Badge>
+        )}
+
+        {onCreateRace && (
+          <CreateRaceDialog onCreateRace={onCreateRace} />
+        )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Wifi className="w-4 h-4 text-green-500" />
-              <span className="hidden sm:inline">Connected</span>
+              <Wifi className={`w-4 h-4 ${demoMode ? "text-yellow-500" : "text-green-500"}`} />
+              <span className="hidden sm:inline">{demoMode ? "Simulated" : "Connected"}</span>
             </div>
           </TooltipTrigger>
-          <TooltipContent>All buoys connected</TooltipContent>
+          <TooltipContent>
+            {demoMode ? "Using simulated buoys" : "All buoys connected"}
+          </TooltipContent>
         </Tooltip>
 
         <Button 

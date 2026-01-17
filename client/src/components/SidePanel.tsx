@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Play, Anchor, ChevronDown, ChevronUp } from "lucide-react";
+import { Play, Anchor, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,10 @@ import { MarksList } from "./MarksList";
 import { BuoyCard } from "./BuoyCard";
 import { WindIndicator } from "./WindIndicator";
 import { BuoyDetailPanel } from "./BuoyDetailPanel";
-import type { CourseShape, Event, Buoy, Mark } from "@shared/schema";
+import { MarkEditPanel } from "./MarkEditPanel";
+import { AddMarkDialog } from "./AddMarkDialog";
+import { CourseControls } from "./CourseControls";
+import type { CourseShape, Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
 interface WeatherData {
@@ -22,17 +25,46 @@ interface WeatherData {
 
 interface SidePanelProps {
   event: Event;
+  course?: Course | null;
   buoys: Buoy[];
   marks: Mark[];
   selectedBuoy: Buoy | null;
+  selectedMark: Mark | null;
   weatherData?: WeatherData | null;
+  isRepositioningMark?: boolean;
   onBuoySelect?: (buoyId: string | null) => void;
+  onMarkSelect?: (markId: string | null) => void;
   onDeployCourse?: () => void;
+  onSaveMark?: (id: string, data: Partial<Mark>) => void;
+  onDeleteMark?: (id: string) => void;
+  onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number }) => void;
+  onPlaceMarkOnMap?: (data: { name: string; role: MarkRole }) => void;
+  onRepositionMark?: (markId: string) => void;
+  onUpdateCourse?: (data: Partial<Course>) => void;
+  onUpdateMarks?: (marks: Mark[]) => void;
 }
 
-export function SidePanel({ event, buoys, marks, selectedBuoy, weatherData, onBuoySelect, onDeployCourse }: SidePanelProps) {
-  const [selectedShape, setSelectedShape] = useState<CourseShape>("triangle");
-  const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
+export function SidePanel({ 
+  event, 
+  course,
+  buoys, 
+  marks, 
+  selectedBuoy, 
+  selectedMark,
+  weatherData, 
+  isRepositioningMark,
+  onBuoySelect, 
+  onMarkSelect,
+  onDeployCourse,
+  onSaveMark,
+  onDeleteMark,
+  onAddMark,
+  onPlaceMarkOnMap,
+  onRepositionMark,
+  onUpdateCourse,
+  onUpdateMarks,
+}: SidePanelProps) {
+  const [selectedShape, setSelectedShape] = useState<CourseShape>(course?.shape as CourseShape || "triangle");
   const [buoysExpanded, setBuoysExpanded] = useState(true);
 
   if (selectedBuoy) {
@@ -40,6 +72,20 @@ export function SidePanel({ event, buoys, marks, selectedBuoy, weatherData, onBu
       <BuoyDetailPanel 
         buoy={selectedBuoy} 
         onClose={() => onBuoySelect?.(null)} 
+      />
+    );
+  }
+
+  if (selectedMark) {
+    return (
+      <MarkEditPanel
+        mark={selectedMark}
+        buoys={buoys}
+        onClose={() => onMarkSelect?.(null)}
+        onSave={(data) => onSaveMark?.(selectedMark.id, data)}
+        onDelete={() => onDeleteMark?.(selectedMark.id)}
+        onReposition={() => onRepositionMark?.(selectedMark.id)}
+        isRepositioning={isRepositioningMark}
       />
     );
   }
@@ -76,12 +122,44 @@ export function SidePanel({ event, buoys, marks, selectedBuoy, weatherData, onBu
             onSelect={setSelectedShape} 
           />
 
-          <MarksList 
-            marks={marks}
-            buoys={buoys}
-            selectedMarkId={selectedMarkId}
-            onSelectMark={setSelectedMarkId}
-          />
+          {course && onUpdateCourse && onUpdateMarks && (
+            <CourseControls
+              course={course}
+              marks={marks}
+              onUpdateCourse={onUpdateCourse}
+              onUpdateMarks={onUpdateMarks}
+            />
+          )}
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center justify-between">
+                <span>Course Marks</span>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs">{marks.length}</Badge>
+                  {onAddMark && onPlaceMarkOnMap && (
+                    <AddMarkDialog 
+                      onAdd={onAddMark} 
+                      onPlaceOnMap={onPlaceMarkOnMap}
+                      trigger={
+                        <Button variant="ghost" size="icon" className="h-6 w-6" data-testid="button-add-mark-header">
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <MarksList 
+                marks={marks}
+                buoys={buoys}
+                selectedMarkId={null}
+                onSelectMark={(id) => onMarkSelect?.(id)}
+              />
+            </CardContent>
+          </Card>
 
           <Collapsible open={buoysExpanded} onOpenChange={setBuoysExpanded}>
             <Card>
@@ -101,7 +179,7 @@ export function SidePanel({ event, buoys, marks, selectedBuoy, weatherData, onBu
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="pt-0 space-y-2">
-                  {buoys.slice(0, 5).map((buoy) => (
+                  {buoys.slice(0, 7).map((buoy) => (
                     <BuoyCard
                       key={buoy.id}
                       buoy={buoy}
@@ -115,7 +193,7 @@ export function SidePanel({ event, buoys, marks, selectedBuoy, weatherData, onBu
                       No buoys available
                     </p>
                   )}
-                  {buoys.length > 5 && (
+                  {buoys.length > 7 && (
                     <Button variant="ghost" className="w-full text-sm">
                       View all {buoys.length} buoys
                     </Button>
