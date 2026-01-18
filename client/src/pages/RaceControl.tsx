@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { TopBar } from "@/components/TopBar";
 import { LeafletMap } from "@/components/LeafletMap";
 import { SetupPanel } from "@/components/SetupPanel";
@@ -279,7 +279,7 @@ export default function RaceControl() {
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
-  const [roundingSequence, setRoundingSequence] = useState<string[]>([]);
+  const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
@@ -332,6 +332,28 @@ export default function RaceControl() {
     if (!selectedMarkId) return null;
     return marks.find(m => m.id === selectedMarkId) ?? null;
   }, [marks, selectedMarkId]);
+
+  // Derive roundingSequence from course data, fallback to local state
+  const roundingSequence = useMemo(() => {
+    return currentCourse?.roundingSequence ?? localRoundingSequence;
+  }, [currentCourse?.roundingSequence, localRoundingSequence]);
+
+  // Sync local sequence when course or its roundingSequence changes
+  useEffect(() => {
+    if (currentCourse?.roundingSequence) {
+      setLocalRoundingSequence(currentCourse.roundingSequence);
+    } else {
+      setLocalRoundingSequence([]);
+    }
+  }, [currentCourse?.id, currentCourse?.roundingSequence]);
+
+  // Handler to update sequence (persists to course)
+  const handleUpdateSequence = useCallback((newSequence: string[]) => {
+    setLocalRoundingSequence(newSequence);
+    if (currentCourse) {
+      updateCourse.mutate({ id: currentCourse.id, data: { roundingSequence: newSequence } });
+    }
+  }, [currentCourse, updateCourse]);
 
   const handleDeployCourse = useCallback(() => {
     toast({
@@ -1021,7 +1043,7 @@ export default function RaceControl() {
               onLoadCourse={handleLoadCourse}
               onTransformCourse={handleTransformCourse}
               onFinishLinePreview={handleFinishLinePreview}
-              onUpdateSequence={setRoundingSequence}
+              onUpdateSequence={handleUpdateSequence}
             />
           )}
         </aside>

@@ -82,8 +82,12 @@ export function SetupPanel({
   // Phase order for comparison - with sequence step
   const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "sequence", "summary", "assign_buoys", "ready"];
   
-  // Check if sequence is defined (has at least start + 1 mark + finish)
-  const hasSequence = roundingSequence.length >= 3;
+  // Check if sequence is valid (has start, finish, and at least one course mark)
+  const hasCourseMarkInSequence = roundingSequence.filter(e => e !== "start" && e !== "finish").length > 0;
+  const hasSequence = roundingSequence.length >= 3 && 
+    roundingSequence.includes("start") && 
+    roundingSequence.includes("finish") &&
+    hasCourseMarkInSequence;
   
   // Get minimum required phase based on completion status
   const getMinPhase = (): SetupPhase => {
@@ -817,6 +821,27 @@ export function SetupPanel({
                   Auto-Generate Simple Route
                 </Button>
               )}
+              {/* Validation messages */}
+              {roundingSequence.length > 0 && (
+                <>
+                  {!roundingSequence.includes("start") && (
+                    <p className="text-center text-amber-600 text-sm">
+                      Route must include Start
+                    </p>
+                  )}
+                  {!roundingSequence.includes("finish") && (
+                    <p className="text-center text-amber-600 text-sm">
+                      Route must include Finish
+                    </p>
+                  )}
+                  {roundingSequence.includes("start") && roundingSequence.includes("finish") && 
+                   roundingSequence.filter(e => e !== "start" && e !== "finish").length === 0 && (
+                    <p className="text-center text-amber-600 text-sm">
+                      Add at least one course mark
+                    </p>
+                  )}
+                </>
+              )}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -831,7 +856,12 @@ export function SetupPanel({
                 <Button
                   size="lg"
                   className="flex-1 text-lg gap-2"
-                  disabled={roundingSequence.length < 3}
+                  disabled={
+                    roundingSequence.length < 3 || 
+                    !roundingSequence.includes("start") || 
+                    !roundingSequence.includes("finish") ||
+                    roundingSequence.filter(e => e !== "start" && e !== "finish").length === 0
+                  }
                   onClick={() => setPhase("summary")}
                   data-testid="button-continue-summary"
                 >
