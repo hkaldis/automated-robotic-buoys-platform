@@ -82,6 +82,7 @@ export const courses = pgTable("courses", {
   centerLng: real("center_lng").notNull(),
   rotation: real("rotation").notNull().default(0),
   scale: real("scale").notNull().default(1),
+  roundingSequence: text("rounding_sequence").array(),
 });
 
 export const marks = pgTable("marks", {
@@ -163,6 +164,7 @@ export const insertCourseSchema = createInsertSchema(courses).pick({
   centerLng: true,
   rotation: true,
   scale: true,
+  roundingSequence: true,
 });
 
 export const insertMarkSchema = createInsertSchema(marks).pick({
