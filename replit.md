@@ -48,12 +48,13 @@ Key UI components include:
 - `WindIndicator`: Visual compass for wind direction.
 
 ### Setup Workflow Phases
-The `SetupPanel` orchestrates a 5-phase course creation process:
+The `SetupPanel` orchestrates a 6-phase course creation process:
 1.  **Set Start Line**: Placing Pin End (Port) and Committee Boat (Starboard) marks using dedicated buttons.
 2.  **Add Course Marks**: Adding course marks (M1, M2, M3, etc.) to define the racing route. Marks can be converted to Gates.
 3.  **Set Finish Line**: Selecting any 2 marks for the finish line, with flexibility to reuse start line marks. During selection, a dashed red preview line appears on the map between selected marks before confirmation.
-4.  **Course Summary (Review)**: Displays course statistics (total distance, estimated race time, line lengths) and provides course transformation tools.
-5.  **Assign Buoys**: Assigning physical robotic buoys to each mark. Gates require 2 buoys (Port and Starboard).
+4.  **Set Route (Sequence)**: Defining the rounding sequence - the order in which sailors round each mark. Supports custom sequences where marks can be passed multiple times (e.g., windward-leeward courses).
+5.  **Course Summary (Review)**: Displays course statistics (total distance, estimated race time, line lengths), leg-by-leg breakdown, and provides course transformation tools.
+6.  **Assign Buoys**: Assigning physical robotic buoys to each mark. Gates require 2 buoys (Port and Starboard).
 
 The system ensures robust state management, auto-correcting the phase based on data changes and preventing invalid progress. Phase gating requires completing start line before adding course marks, and course marks before setting finish line. Large, touch-friendly controls (48px minimum) are integrated for tablet use.
 
@@ -77,13 +78,21 @@ The Summary phase provides tools to adjust the entire course layout:
 ### Save/Load Course
 Courses can be saved with custom names for later reuse. The Save Course dialog allows naming and persisting course configurations, while Load Course displays available saved courses for selection.
 
-### Distance/Bearing Calculations
-Course distances and bearings are calculated using line centers:
-- Start leg: From center of start line (average of Pin End + Committee Boat positions) to M1
-- Course legs: Between consecutive course marks (M1→M2, M2→M3, etc.)
-- Finish leg: From last course mark to center of finish line
+### Course Rounding Sequence
+The sequence step allows defining a custom rounding order:
+- **Waypoint Types**: "start" (start line center), mark IDs (course marks), "finish" (finish line center)
+- **Flexible Routing**: Same mark can appear multiple times (e.g., M1 → M2 → M1 for windward-leeward)
+- **Auto-Generate**: Simple sequential route can be auto-generated (Start → M1 → M2 → ... → Finish)
+- **Undo/Clear**: Easy sequence editing with undo last and clear all functions
+- **Minimum Requirement**: Sequence needs at least 3 entries (start + 1 mark + finish)
 
-This provides accurate course length calculations that reflect the actual sailing path.
+### Distance/Bearing Calculations
+Course distances and bearings are calculated based on the rounding sequence:
+- **Sequence-Based**: Distance is calculated leg-by-leg following the defined route
+- **Leg Breakdown**: Each leg (e.g., Start→M1, M1→M2, M2→Finish) shows individual distance
+- **Line Centers**: Start and finish entries use the center of their respective lines
+
+This provides accurate course length calculations that reflect the actual sailing path through the defined sequence.
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express 5.

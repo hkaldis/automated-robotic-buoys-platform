@@ -279,6 +279,7 @@ export default function RaceControl() {
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
+  const [roundingSequence, setRoundingSequence] = useState<string[]>([]);
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
@@ -981,6 +982,7 @@ export default function RaceControl() {
             onFetchWeatherAtLocation={handleFetchWeatherAtLocation}
             isWeatherLoading={weatherByLocation.isPending}
             onAlignCourseToWind={handleAlignCourseToWind}
+            roundingSequence={roundingSequence}
           />
         </main>
 
@@ -1008,6 +1010,7 @@ export default function RaceControl() {
               buoys={buoys}
               marks={marks}
               savedCourses={courses}
+              roundingSequence={roundingSequence}
               onMarkSelect={handleMarkSelectFromPanel}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}
@@ -1018,6 +1021,7 @@ export default function RaceControl() {
               onLoadCourse={handleLoadCourse}
               onTransformCourse={handleTransformCourse}
               onFinishLinePreview={handleFinishLinePreview}
+              onUpdateSequence={setRoundingSequence}
             />
           )}
         </aside>

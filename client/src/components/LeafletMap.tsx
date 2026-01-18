@@ -39,6 +39,7 @@ interface LeafletMapProps {
   onFetchWeatherAtLocation?: (lat: number, lng: number) => void;
   isWeatherLoading?: boolean;
   onAlignCourseToWind?: () => void;
+  roundingSequence?: string[];
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -652,6 +653,7 @@ export function LeafletMap({
   onFetchWeatherAtLocation,
   isWeatherLoading,
   onAlignCourseToWind,
+  roundingSequence = [],
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -675,8 +677,29 @@ export function LeafletMap({
     lng: finishLineMarks.reduce((sum, m) => sum + m.lng, 0) / finishLineMarks.length,
   } : null, [finishLineMarks]);
   
-  // Course path: start center → course marks → finish center
+  // Course path based on rounding sequence (or fallback to simple sequential path)
   const coursePositions: [number, number][] = useMemo(() => {
+    // If we have a rounding sequence, use it
+    if (roundingSequence.length >= 2) {
+      const positions: [number, number][] = [];
+      
+      roundingSequence.forEach(entry => {
+        if (entry === "start" && startLineCenter) {
+          positions.push([startLineCenter.lat, startLineCenter.lng]);
+        } else if (entry === "finish" && finishLineCenter) {
+          positions.push([finishLineCenter.lat, finishLineCenter.lng]);
+        } else {
+          const mark = marks.find(m => m.id === entry);
+          if (mark) {
+            positions.push([mark.lat, mark.lng]);
+          }
+        }
+      });
+      
+      return positions;
+    }
+    
+    // Fallback: simple sequential path (start → course marks → finish)
     const positions: [number, number][] = [];
     
     // Add start line center
@@ -695,7 +718,7 @@ export function LeafletMap({
     }
     
     return positions;
-  }, [startLineCenter, finishLineCenter, courseMarks]);
+  }, [startLineCenter, finishLineCenter, courseMarks, roundingSequence, marks]);
   
   // Start line polyline (between Pin End and Committee Boat)
   const startLinePositions: [number, number][] = useMemo(() => {
