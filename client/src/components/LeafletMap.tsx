@@ -76,7 +76,7 @@ function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
   return L.divIcon({
     className: "custom-buoy-marker",
     html: `
-      <div style="position:relative;width:40px;height:40px;">
+      <div style="position:relative;width:40px;height:40px;z-index:1000;pointer-events:auto;">
         ${ring}
         <div style="width:40px;height:40px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
           ${initial}
@@ -112,9 +112,9 @@ function createMarkIcon(mark: Mark, isSelected: boolean): L.DivIcon {
   return L.divIcon({
     className: "custom-mark-marker",
     html: `
-      <div style="display:flex;flex-direction:column;align-items:center;">
+      <div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto;">
         ${shapeHtml}
-        <span style="margin-top:4px;font-size:11px;font-weight:600;color:#1f2937;background:white;padding:1px 4px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2);">${mark.name}</span>
+        <span style="margin-top:4px;font-size:11px;font-weight:600;color:#1f2937;background:white;padding:1px 4px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2);pointer-events:none;">${mark.name}</span>
       </div>
     `,
     iconSize: [60, 50],
@@ -302,6 +302,7 @@ export function LeafletMap({
             key={buoy.id}
             position={[buoy.lat, buoy.lng]}
             icon={createBuoyIcon(buoy, selectedBuoyId === buoy.id)}
+            zIndexOffset={1000}
             eventHandlers={{
               click: () => onBuoyClick?.(buoy.id),
             }}

@@ -26,6 +26,18 @@ interface CourseControlsProps {
   onUpdateMarks: (marks: Mark[]) => void;
 }
 
+function calculateBearing(pos1: { lat: number; lng: number }, pos2: { lat: number; lng: number }): number {
+  const lat1 = pos1.lat * Math.PI / 180;
+  const lat2 = pos2.lat * Math.PI / 180;
+  const dLng = (pos2.lng - pos1.lng) * Math.PI / 180;
+
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) -
+            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+}
+
 function rotatePoint(lat: number, lng: number, centerLat: number, centerLng: number, angleDeg: number): { lat: number; lng: number } {
   const angleRad = (angleDeg * Math.PI) / 180;
   const cosA = Math.cos(angleRad);
@@ -155,17 +167,39 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
   const handleAlignToWind = () => {
     if (windDirection === undefined) return;
     
-    const targetRotation = (windDirection + 180) % 360;
-    const rotationDelta = targetRotation - rotation;
+    // Find the start line marks
+    const startBoat = marks.find(m => m.role === "start_boat");
+    const pinEnd = marks.find(m => m.role === "pin");
     
-    setRotation(targetRotation);
+    if (!startBoat || !pinEnd) return;
+    
+    // Calculate current start line bearing (from start boat to pin)
+    const currentStartLineBearing = calculateBearing(
+      { lat: startBoat.lat, lng: startBoat.lng },
+      { lat: pinEnd.lat, lng: pinEnd.lng }
+    );
+    
+    // Per sailing race rules, the starting line should be perpendicular to the wind direction
+    // Wind comes FROM windDirection, boats sail INTO the wind (upwind)
+    // The start line bearing should be 90° offset from wind direction
+    const desiredStartLineBearing = (windDirection + 90) % 360;
+    
+    // Calculate the rotation needed to align the start line
+    let rotationDelta = desiredStartLineBearing - currentStartLineBearing;
+    
+    // Normalize to -180 to 180 range for shortest rotation
+    if (rotationDelta > 180) rotationDelta -= 360;
+    if (rotationDelta < -180) rotationDelta += 360;
+    
+    const newRotation = ((rotation + rotationDelta) % 360 + 360) % 360;
+    setRotation(newRotation);
     
     const rotatedMarks = marks.map(mark => {
       const { lat, lng } = rotatePoint(mark.lat, mark.lng, centerLat, centerLng, rotationDelta);
       return { ...mark, lat, lng };
     });
     
-    onUpdateCourse({ rotation: targetRotation });
+    onUpdateCourse({ rotation: newRotation });
     onUpdateMarks(rotatedMarks);
   };
 
