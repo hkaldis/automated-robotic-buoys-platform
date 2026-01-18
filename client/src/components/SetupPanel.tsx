@@ -951,7 +951,7 @@ export function SetupPanel({
   };
 
   return (
-    <div className="h-full flex flex-col bg-card" data-testid="setup-panel">
+    <div className="h-full flex flex-col overflow-hidden bg-card" data-testid="setup-panel">
       {/* Header with event info */}
       <div className="p-4 border-b">
         <div className="flex items-center justify-between">
