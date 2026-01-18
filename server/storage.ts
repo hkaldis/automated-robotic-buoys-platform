@@ -118,23 +118,10 @@ export class MemStorage implements IStorage {
       } as Buoy);
     });
 
-    const markData = [
-      { name: "Committee Boat", role: "start_boat", order: 0, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.0015, isStartLine: true, isFinishLine: true, isCourseMark: false },
-      { name: "Pin Mark", role: "pin", order: 1, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng - 0.0015, isStartLine: true, isFinishLine: true, isCourseMark: false },
-      { name: "Mark 1 (Windward)", role: "windward", order: 2, lat: MIKROLIMANO_CENTER.lat + 0.0045, lng: MIKROLIMANO_CENTER.lng, isStartLine: false, isFinishLine: false, isCourseMark: true },
-      { name: "Mark 3 (Leeward)", role: "leeward", order: 3, lat: MIKROLIMANO_CENTER.lat - 0.0015, lng: MIKROLIMANO_CENTER.lng + 0.003, isStartLine: false, isFinishLine: false, isCourseMark: true },
-    ];
-
-    markData.forEach((data, index) => {
-      const id = randomUUID();
-      const buoyIds = Array.from(this.buoys.keys());
-      this.marks.set(id, {
-        id,
-        courseId,
-        ...data,
-        assignedBuoyId: index < 3 ? buoyIds[index] : null,
-      } as Mark);
-    });
+    // No pre-seeded marks - users start fresh with the new workflow:
+    // 1. Set Start Line (Pin End + Committee Boat)
+    // 2. Add Course Marks (M1, M2, M3, etc.)
+    // 3. Set Finish Line (can reuse start line marks)
   }
 
   async getUser(id: string): Promise<User | undefined> {

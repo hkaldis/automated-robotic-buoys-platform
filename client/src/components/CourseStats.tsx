@@ -22,38 +22,43 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 function calculateCourseDistance(marks: Mark[]): number {
-  if (marks.length < 2) return 0;
+  // Separate marks by type
+  const startLineMarks = marks.filter(m => m.isStartLine);
+  const finishLineMarks = marks.filter(m => m.isFinishLine);
+  const courseMarks = marks.filter(m => m.isCourseMark === true).sort((a, b) => a.order - b.order);
   
-  // Sort marks by order to get the sailing sequence
-  const sortedMarks = [...marks].sort((a, b) => a.order - b.order);
+  if (courseMarks.length === 0) return 0;
   
-  // Find start line marks (committee boat and pin)
-  const startBoat = sortedMarks.find(m => m.role === 'start_boat');
-  const pinMark = sortedMarks.find(m => m.role === 'pin');
+  // Calculate line centers
+  const startLineCenter = startLineMarks.length >= 2 ? {
+    lat: startLineMarks.reduce((sum, m) => sum + m.lat, 0) / startLineMarks.length,
+    lng: startLineMarks.reduce((sum, m) => sum + m.lng, 0) / startLineMarks.length,
+  } : null;
   
-  // Get course marks (non-start-line marks) in sailing order
-  const courseMarks = sortedMarks.filter(m => !m.isStartLine || m.role === 'start_boat');
+  const finishLineCenter = finishLineMarks.length >= 2 ? {
+    lat: finishLineMarks.reduce((sum, m) => sum + m.lat, 0) / finishLineMarks.length,
+    lng: finishLineMarks.reduce((sum, m) => sum + m.lng, 0) / finishLineMarks.length,
+  } : null;
   
   let totalDistance = 0;
   
-  // Calculate distance between consecutive marks in sailing order
+  // Distance from start line center to first course mark (M1)
+  if (startLineCenter && courseMarks.length > 0) {
+    const firstMark = courseMarks[0];
+    totalDistance += haversineDistance(startLineCenter.lat, startLineCenter.lng, firstMark.lat, firstMark.lng);
+  }
+  
+  // Distance between consecutive course marks
   for (let i = 0; i < courseMarks.length - 1; i++) {
     const from = courseMarks[i];
     const to = courseMarks[i + 1];
     totalDistance += haversineDistance(from.lat, from.lng, to.lat, to.lng);
   }
   
-  // Add start line length (committee boat to pin)
-  if (startBoat && pinMark) {
-    totalDistance += haversineDistance(startBoat.lat, startBoat.lng, pinMark.lat, pinMark.lng);
-  }
-  
-  // Add closing leg (last mark back to finish - typically start line)
-  if (courseMarks.length > 1 && startBoat) {
+  // Distance from last course mark to finish line center
+  if (finishLineCenter && courseMarks.length > 0) {
     const lastMark = courseMarks[courseMarks.length - 1];
-    if (lastMark.id !== startBoat.id) {
-      totalDistance += haversineDistance(lastMark.lat, lastMark.lng, startBoat.lat, startBoat.lng);
-    }
+    totalDistance += haversineDistance(lastMark.lat, lastMark.lng, finishLineCenter.lat, finishLineCenter.lng);
   }
   
   return totalDistance;

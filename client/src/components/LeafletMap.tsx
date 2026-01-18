@@ -182,14 +182,55 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
   formatDistance: (nm: number) => string;
   formatBearing: (deg: number) => string;
 }) {
-  const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
+  // Separate marks by type
+  const startLineMarks = marks.filter(m => m.isStartLine);
+  const finishLineMarks = marks.filter(m => m.isFinishLine);
+  const courseMarks = marks.filter(m => m.isCourseMark === true).sort((a, b) => a.order - b.order);
   
-  if (sortedMarks.length < 2) return null;
+  // Calculate line centers
+  const startLineCenter = startLineMarks.length >= 2 ? {
+    lat: startLineMarks.reduce((sum, m) => sum + m.lat, 0) / startLineMarks.length,
+    lng: startLineMarks.reduce((sum, m) => sum + m.lng, 0) / startLineMarks.length,
+  } : null;
+  
+  const finishLineCenter = finishLineMarks.length >= 2 ? {
+    lat: finishLineMarks.reduce((sum, m) => sum + m.lat, 0) / finishLineMarks.length,
+    lng: finishLineMarks.reduce((sum, m) => sum + m.lng, 0) / finishLineMarks.length,
+  } : null;
+  
+  if (courseMarks.length === 0 && !startLineCenter) return null;
   
   const legs = [];
-  for (let i = 0; i < sortedMarks.length - 1; i++) {
-    const from = sortedMarks[i];
-    const to = sortedMarks[i + 1];
+  
+  // Leg from start line center to first course mark (M1)
+  if (startLineCenter && courseMarks.length > 0) {
+    const firstMark = courseMarks[0];
+    const midLat = (startLineCenter.lat + firstMark.lat) / 2;
+    const midLng = (startLineCenter.lng + firstMark.lng) / 2;
+    const distance = calculateDistance(startLineCenter, { lat: firstMark.lat, lng: firstMark.lng });
+    const bearing = calculateBearing(startLineCenter, { lat: firstMark.lat, lng: firstMark.lng });
+    
+    legs.push(
+      <CircleMarker
+        key="leg-start-m1"
+        center={[midLat, midLng]}
+        radius={0}
+        pathOptions={{ opacity: 0 }}
+      >
+        <Tooltip permanent direction="center" className="leg-label-tooltip">
+          <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
+            <div>{formatDistance(distance)}</div>
+            <div>{formatBearing(bearing)}</div>
+          </div>
+        </Tooltip>
+      </CircleMarker>
+    );
+  }
+  
+  // Legs between course marks (M1 to M2, M2 to M3, etc.)
+  for (let i = 0; i < courseMarks.length - 1; i++) {
+    const from = courseMarks[i];
+    const to = courseMarks[i + 1];
     const midLat = (from.lat + to.lat) / 2;
     const midLng = (from.lng + to.lng) / 2;
     const distance = calculateDistance({ lat: from.lat, lng: from.lng }, { lat: to.lat, lng: to.lng });
@@ -198,6 +239,31 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
     legs.push(
       <CircleMarker
         key={`leg-${i}`}
+        center={[midLat, midLng]}
+        radius={0}
+        pathOptions={{ opacity: 0 }}
+      >
+        <Tooltip permanent direction="center" className="leg-label-tooltip">
+          <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
+            <div>{formatDistance(distance)}</div>
+            <div>{formatBearing(bearing)}</div>
+          </div>
+        </Tooltip>
+      </CircleMarker>
+    );
+  }
+  
+  // Leg from last course mark to finish line center
+  if (finishLineCenter && courseMarks.length > 0) {
+    const lastMark = courseMarks[courseMarks.length - 1];
+    const midLat = (lastMark.lat + finishLineCenter.lat) / 2;
+    const midLng = (lastMark.lng + finishLineCenter.lng) / 2;
+    const distance = calculateDistance({ lat: lastMark.lat, lng: lastMark.lng }, finishLineCenter);
+    const bearing = calculateBearing({ lat: lastMark.lat, lng: lastMark.lng }, finishLineCenter);
+    
+    legs.push(
+      <CircleMarker
+        key="leg-last-finish"
         center={[midLat, midLng]}
         radius={0}
         pathOptions={{ opacity: 0 }}
