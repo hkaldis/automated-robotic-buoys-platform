@@ -39,7 +39,7 @@ A dedicated hook handles unit formatting and settings management, providing func
 
 ### Components
 Key UI components include:
-- `TopBar`: Displays event name, wind indicator, and settings access.
+- `TopBar`: Displays event name, wind indicator, fullscreen toggle, and settings access.
 - `MapView`: Leaflet-based map with OpenSeaMap overlay for interactive course management.
 - `SetupPanel`: A 4-step wizard guiding users through course setup: Add Marks, Select Start Line, Select Finish Line, and Assign Buoys.
 - `BuoyCard` and `BuoyDetailPanel`: For displaying and controlling buoy status and commands.
@@ -57,6 +57,22 @@ The `SetupPanel` orchestrates a 6-phase course creation process:
 6.  **Assign Buoys**: Assigning physical robotic buoys to each mark. Gates require 2 buoys (Port and Starboard).
 
 The system ensures robust state management, auto-correcting the phase based on data changes and preventing invalid progress. Phase gating requires completing start line before adding course marks, and course marks before setting finish line. Large, touch-friendly controls (48px minimum) are integrated for tablet use.
+
+### Auto-Assign Buoys
+The Assign Buoys phase includes an "Auto" button that uses a greedy optimization algorithm to automatically assign the closest available buoys to all unassigned marks. The algorithm minimizes maximum deployment time by:
+- Sorting marks by difficulty (hardest-to-reach first)
+- Assigning the closest available buoy to each mark/gate slot
+- Dispatching all buoys to their target positions
+
+### Fullscreen Mode
+A fullscreen toggle button in the TopBar allows the app to enter browser fullscreen mode, hiding the browser chrome for an immersive tablet experience. Users can exit with the Escape key or by clicking the button again.
+
+### Progressive Web App (PWA)
+The application is installable as a PWA:
+- **manifest.json**: Defines app name, icons, theme colors, and standalone display mode
+- **Service Worker**: Provides basic offline support
+- **Apple Web App Tags**: Optimized for iOS Safari "Add to Home Screen"
+When installed, the app opens in standalone mode without browser UI, providing a native app-like experience on tablets.
 
 ### Sailing Gates Support
 Course marks can be converted to Gates (leeward gates) via the MarkEditPanel:

@@ -1,4 +1,5 @@
-import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight, ArrowUp } from "lucide-react";
+import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight, ArrowUp, Maximize, Minimize } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -43,6 +44,49 @@ export function TopBar({
   onCreateRace,
 }: TopBarProps) {
   const { formatSpeed, formatBearing } = useSettings();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const getFullscreenElement = useCallback(() => {
+    const doc = document as any;
+    return document.fullscreenElement || doc.webkitFullscreenElement;
+  }, []);
+
+  const updateFullscreenState = useCallback(() => {
+    setIsFullscreen(!!getFullscreenElement());
+  }, [getFullscreenElement]);
+
+  useEffect(() => {
+    updateFullscreenState();
+    document.addEventListener('fullscreenchange', updateFullscreenState);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenState);
+    return () => {
+      document.removeEventListener('fullscreenchange', updateFullscreenState);
+      document.removeEventListener('webkitfullscreenchange', updateFullscreenState);
+    };
+  }, [updateFullscreenState]);
+
+  const toggleFullscreen = useCallback(() => {
+    const docEl = document.documentElement as any;
+    const doc = document as any;
+    
+    if (!getFullscreenElement()) {
+      const requestFs = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+      if (requestFs) {
+        const promise = requestFs.call(docEl);
+        if (promise && promise.then) {
+          promise.then(updateFullscreenState).catch(() => {});
+        }
+      }
+    } else {
+      const exitFs = document.exitFullscreen || doc.webkitExitFullscreen;
+      if (exitFs) {
+        const promise = exitFs.call(document);
+        if (promise && promise.then) {
+          promise.then(updateFullscreenState).catch(() => {});
+        }
+      }
+    }
+  }, [getFullscreenElement, updateFullscreenState]);
 
   return (
     <header className="h-16 border-b bg-card flex items-center px-4 gap-4 shrink-0 sticky top-0 z-50" data-testid="topbar">
@@ -137,6 +181,22 @@ export function TopBar({
           </TooltipTrigger>
           <TooltipContent>
             {demoMode ? "Using simulated buoys" : "All buoys connected"}
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={toggleFullscreen}
+              data-testid="button-fullscreen"
+            >
+              {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           </TooltipContent>
         </Tooltip>
 
