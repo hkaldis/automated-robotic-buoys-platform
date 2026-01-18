@@ -266,6 +266,7 @@ function DraggableMarker({ mark, isSelected, isDraggable, onMarkClick, onMarkDra
       position={[mark.lat, mark.lng]}
       icon={icon}
       draggable={isDraggable}
+      zIndexOffset={2000}
       eventHandlers={{
         click: () => onMarkClick?.(mark.id),
         dragstart: () => setIsDragging(true),
@@ -362,6 +363,7 @@ function GateMarkers({ mark, isSelected, isDraggable, windDirection, onMarkClick
         position={[positions.port.lat, positions.port.lng]}
         icon={portIcon}
         draggable={isDraggable}
+        zIndexOffset={2000}
         eventHandlers={{
           click: () => onMarkClick?.(mark.id),
           dragstart: () => setIsDraggingPort(true),
@@ -376,6 +378,7 @@ function GateMarkers({ mark, isSelected, isDraggable, windDirection, onMarkClick
         position={[positions.starboard.lat, positions.starboard.lng]}
         icon={starboardIcon}
         draggable={isDraggable}
+        zIndexOffset={2000}
         eventHandlers={{
           click: () => onMarkClick?.(mark.id),
           dragstart: () => setIsDraggingStarboard(true),
