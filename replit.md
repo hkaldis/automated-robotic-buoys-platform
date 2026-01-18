@@ -52,15 +52,22 @@ Provides unit formatting and settings management:
 ### Components
 Key UI components in `client/src/components/`:
 - `TopBar` - Event name, wind indicator, settings button
-- `MapView` - Canvas-based map with Web Mercator projection
-- `SidePanel` - Event info, wind indicator, course shapes, marks list, buoys list
+- `MapView` - Leaflet-based map with OpenSeaMap overlay
+- `SetupPanel` - Phase-driven 4-step wizard for course setup (marks → start line → finish line → assign buoys)
 - `BuoyCard` - Compact buoy status display
 - `BuoyDetailPanel` - Full buoy details with command controls
-- `CourseShapeSelector` - Select triangle, trapezoid, windward/leeward, custom
-- `MarksList` - List of course marks with assigned buoys
+- `MarkEditPanel` - Edit mark details and assign buoys
 - `SettingsDialog` - Configure units and wind source
 - `AlertBanner` - Course validity alerts
 - `WindIndicator` - Visual compass with wind direction
+
+### Setup Workflow Phases
+The SetupPanel guides users through 4 phases:
+1. **Add Marks** - Place marks on map, shows progress stepper (1/4)
+2. **Select Start Line** - Tap 2+ marks to form start line (2/4)
+3. **Select Finish Line** - Tap 2+ marks to form finish line (3/4)
+4. **Assign Buoys** - Assign physical buoys to each mark (4/4)
+5. **Ready** - Deploy course button enabled
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express 5
@@ -128,6 +135,28 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 ## Recent Changes
 
 ### January 18, 2026 (Latest)
+- **Complete UX Rewrite for Tablet Use**: Simplified race setup into 4-phase wizard
+  - Replaced complex SidePanel with focused SetupPanel component
+  - Phase 1: Add Marks - Large "Add Mark on Map" button with marks list
+  - Phase 2: Select Start Line - Tap marks to select, 2+ required
+  - Phase 3: Select Finish Line - Same selection UI with blue theme
+  - Phase 4: Assign Buoys - Shows assignment status with S/F badges
+  - Ready state shows course summary with Deploy button
+  
+- **Visual Progress Stepper**: 4-step indicator showing current phase
+  - Steps 1-2-3-4 with completed checkmarks
+  - Current step highlighted, labels under each step
+  
+- **Phase Synchronization**: Robust state management
+  - Auto-corrects phase when data changes (marks deleted, lines unset)
+  - Uses phase order comparison to determine valid phase
+  - Prevents invalid forward progress without required data
+  
+- **Large Touch-Friendly Controls**: Optimized for tablet at sea
+  - All buttons use standard size="lg" variant
+  - Minimum 48px touch targets throughout
+  - Large icons (w-6/w-8) and bold headings (text-2xl/text-3xl)
+
 - **Start/Finish Line Management**: Enhanced course configuration with dedicated line markers
   - Added `isStartLine` and `isFinishLine` boolean fields to Mark schema
   - Committee Boat and Pin marks automatically assigned as both start AND finish lines (standard racing)
