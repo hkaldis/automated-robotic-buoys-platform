@@ -529,7 +529,10 @@ export function LeafletMap({
 
   const mapRotation = useMemo(() => {
     if (mapOrientation === "head-to-wind" && weatherData) {
-      return -weatherData.windDirection;
+      // Wind direction is where wind comes FROM
+      // Head-to-wind means facing INTO the wind (toward where it comes from)
+      // So we rotate the map so that wind direction is at the top
+      return weatherData.windDirection;
     }
     return 0;
   }, [mapOrientation, weatherData]);
