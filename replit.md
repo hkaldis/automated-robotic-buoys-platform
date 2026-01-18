@@ -49,11 +49,20 @@ Key UI components include:
 
 ### Setup Workflow Phases
 The `SetupPanel` orchestrates a 4-phase course creation process:
-1.  **Add Marks**: Placing marks on the map.
-2.  **Select Start Line**: Defining the start line using existing marks.
-3.  **Select Finish Line**: Defining the finish line.
-4.  **Assign Buoys**: Assigning physical buoys to each mark.
-The system ensures robust state management, auto-correcting the phase based on data changes and preventing invalid progress. Large, touch-friendly controls are integrated for tablet use.
+1.  **Set Start Line**: Placing Pin End (Port) and Committee Boat (Starboard) marks using dedicated buttons.
+2.  **Add Course Marks**: Adding course marks (M1, M2, M3, etc.) to define the racing route.
+3.  **Set Finish Line**: Selecting any 2 marks for the finish line, with flexibility to reuse start line marks (e.g., Pin End + Committee Boat for same start/finish).
+4.  **Assign Buoys**: Assigning physical robotic buoys to each mark.
+
+The system ensures robust state management, auto-correcting the phase based on data changes and preventing invalid progress. Phase gating requires completing start line before adding course marks, and course marks before setting finish line. Large, touch-friendly controls (48px minimum) are integrated for tablet use.
+
+### Distance/Bearing Calculations
+Course distances and bearings are calculated using line centers:
+- Start leg: From center of start line (average of Pin End + Committee Boat positions) to M1
+- Course legs: Between consecutive course marks (M1→M2, M2→M3, etc.)
+- Finish leg: From last course mark to center of finish line
+
+This provides accurate course length calculations that reflect the actual sailing path.
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express 5.
