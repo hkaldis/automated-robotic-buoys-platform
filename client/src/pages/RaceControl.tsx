@@ -281,7 +281,7 @@ export default function RaceControl() {
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const { toast } = useToast();
 
-  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand } = useDemoMode();
+  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
 
   const { data: apiBuoys = [], isLoading: buoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
@@ -365,6 +365,10 @@ export default function RaceControl() {
   const handleFetchWeatherAtLocation = useCallback((lat: number, lng: number) => {
     weatherByLocation.mutate({ lat, lng }, {
       onSuccess: (data) => {
+        // In demo mode, update demo buoys with the fetched weather so everything stays in sync
+        if (demoMode && data.windSpeed !== undefined && data.windDirection !== undefined) {
+          updateDemoWeather(data.windSpeed, data.windDirection);
+        }
         toast({
           title: "Weather Updated",
           description: `Wind: ${data.windSpeed?.toFixed(1) ?? '--'} kn from ${data.windDirection?.toFixed(0) ?? '--'}° (Open-Meteo)`,
@@ -378,7 +382,7 @@ export default function RaceControl() {
         });
       },
     });
-  }, [weatherByLocation, toast]);
+  }, [weatherByLocation, toast, demoMode, updateDemoWeather]);
 
   const handleBuoyClick = useCallback((buoyId: string) => {
     setSelectedBuoyId(buoyId);

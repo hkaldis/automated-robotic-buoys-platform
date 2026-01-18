@@ -275,6 +275,14 @@ export function useDemoMode() {
     setDemoBuoys(DEMO_BUOYS_INITIAL);
   }, []);
 
+  const updateDemoWeather = useCallback((windSpeed: number, windDirection: number) => {
+    setDemoBuoys(prev => prev.map(buoy => ({
+      ...buoy,
+      windSpeed: windSpeed + (Math.random() - 0.5) * 2, // Add slight variation
+      windDirection: windDirection + (Math.random() - 0.5) * 10, // Add slight variation
+    })));
+  }, []);
+
   const toggleDemoMode = useCallback(() => {
     setEnabled(prev => !prev);
   }, []);
@@ -286,5 +294,6 @@ export function useDemoMode() {
     demoBuoys,
     sendCommand,
     resetDemoBuoys,
+    updateDemoWeather,
   };
 }
