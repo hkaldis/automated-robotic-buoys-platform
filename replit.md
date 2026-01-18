@@ -135,6 +135,15 @@ npm run db:push      # Push database schema (when using PostgreSQL)
   - Visual S/F badges in MarksList showing which marks form start/finish lines
   - Deploy Course button disabled until start/finish lines are properly defined
   - Validation alert in CourseStats when lines are missing
+  
+- **Line Setup Workflow**: New dedicated mode for selecting start/finish line marks
+  - "Set Start Line" and "Set Finish Line" buttons in Start/Finish Lines card
+  - Line setup mode shows list of marks with checkboxes for selection
+  - Minimum 2 marks required per line with validation message
+  - Done button persists selections, Cancel exits without saving
+  - Marks remain editable during line setup (click mark name to edit)
+  - Course shape selector now persists shape changes to backend
+  - Custom courses default to "Custom" shape (not Triangle)
 
 - **Course Statistics Component**: New CourseStats card showing race metrics
   - Total course distance calculated using Haversine formula (in nautical miles)

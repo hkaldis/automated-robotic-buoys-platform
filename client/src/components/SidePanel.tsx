@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Play, Anchor, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Play, Anchor, ChevronDown, ChevronUp, Plus, Flag, FlagTriangleRight, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ import { CourseControls } from "./CourseControls";
 import { CourseStats } from "./CourseStats";
 import type { CourseShape, Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
+
+type LineSetupMode = "none" | "start" | "finish";
 
 interface WeatherData {
   windSpeed: number;
@@ -65,8 +67,64 @@ export function SidePanel({
   onUpdateCourse,
   onUpdateMarks,
 }: SidePanelProps) {
-  const [selectedShape, setSelectedShape] = useState<CourseShape>(course?.shape as CourseShape || "triangle");
+  // Use the actual course shape, default to "custom" if no course or shape is unset
+  const [selectedShape, setSelectedShape] = useState<CourseShape>(
+    (course?.shape as CourseShape) || "custom"
+  );
   const [buoysExpanded, setBuoysExpanded] = useState(true);
+  const [lineSetupMode, setLineSetupMode] = useState<LineSetupMode>("none");
+  const [selectedLineMarkIds, setSelectedLineMarkIds] = useState<Set<string>>(new Set());
+
+  // Sync selectedShape with course.shape when course changes
+  useEffect(() => {
+    if (course?.shape) {
+      setSelectedShape(course.shape as CourseShape);
+    }
+  }, [course?.shape]);
+
+  // Initialize selected marks when entering line setup mode
+  useEffect(() => {
+    if (lineSetupMode === "start") {
+      setSelectedLineMarkIds(new Set(marks.filter(m => m.isStartLine).map(m => m.id)));
+    } else if (lineSetupMode === "finish") {
+      setSelectedLineMarkIds(new Set(marks.filter(m => m.isFinishLine).map(m => m.id)));
+    } else {
+      setSelectedLineMarkIds(new Set());
+    }
+  }, [lineSetupMode, marks]);
+
+  const toggleMarkForLine = (markId: string) => {
+    setSelectedLineMarkIds(prev => {
+      const next = new Set(prev);
+      if (next.has(markId)) {
+        next.delete(markId);
+      } else {
+        next.add(markId);
+      }
+      return next;
+    });
+  };
+
+  const handleLineSetupDone = () => {
+    // Update all marks' start/finish line flags based on selection
+    marks.forEach(mark => {
+      const isSelected = selectedLineMarkIds.has(mark.id);
+      if (lineSetupMode === "start") {
+        if (mark.isStartLine !== isSelected) {
+          onSaveMark?.(mark.id, { isStartLine: isSelected });
+        }
+      } else if (lineSetupMode === "finish") {
+        if (mark.isFinishLine !== isSelected) {
+          onSaveMark?.(mark.id, { isFinishLine: isSelected });
+        }
+      }
+    });
+    setLineSetupMode("none");
+  };
+
+  const handleCancelLineSetup = () => {
+    setLineSetupMode("none");
+  };
 
   if (selectedBuoy) {
     return (
@@ -124,7 +182,12 @@ export function SidePanel({
 
           <CourseShapeSelector 
             selectedShape={selectedShape} 
-            onSelect={setSelectedShape} 
+            onSelect={(shape) => {
+              setSelectedShape(shape);
+              if (course && onUpdateCourse) {
+                onUpdateCourse({ shape });
+              }
+            }} 
           />
 
           {course && onUpdateCourse && onUpdateMarks && (
@@ -142,6 +205,148 @@ export function SidePanel({
             boatClass={event.boatClass}
             targetDuration={event.targetDuration}
           />
+
+          {/* Line Setup Section */}
+          {lineSetupMode !== "none" ? (
+            <Card className="border-primary">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  {lineSetupMode === "start" ? (
+                    <>
+                      <Flag className="w-4 h-4 text-green-600" />
+                      Set Start Line
+                    </>
+                  ) : (
+                    <>
+                      <FlagTriangleRight className="w-4 h-4 text-blue-600" />
+                      Set Finish Line
+                    </>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Select marks that form the {lineSetupMode} line:
+                </p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {marks.map(mark => (
+                    <div
+                      key={mark.id}
+                      className={cn(
+                        "w-full flex items-center gap-2 p-2 rounded-md text-sm border",
+                        selectedLineMarkIds.has(mark.id)
+                          ? "border-primary bg-primary/10"
+                          : "border-transparent"
+                      )}
+                    >
+                      <button
+                        onClick={() => toggleMarkForLine(mark.id)}
+                        className={cn(
+                          "w-5 h-5 rounded border flex items-center justify-center shrink-0 hover-elevate",
+                          selectedLineMarkIds.has(mark.id)
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground"
+                        )}
+                        data-testid={`button-line-mark-${mark.id}`}
+                      >
+                        {selectedLineMarkIds.has(mark.id) && <Check className="w-3 h-3" />}
+                      </button>
+                      <button
+                        onClick={() => onMarkSelect?.(mark.id)}
+                        className="flex-1 text-left hover-elevate rounded px-1"
+                        data-testid={`button-edit-mark-${mark.id}`}
+                      >
+                        {mark.name}
+                      </button>
+                      <Badge variant="outline" className="text-xs">{mark.role}</Badge>
+                    </div>
+                  ))}
+                </div>
+                {selectedLineMarkIds.size < 2 && (
+                  <p className="text-xs text-amber-600">Select at least 2 marks for the line</p>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelLineSetup}
+                    className="flex-1"
+                    data-testid="button-cancel-line-setup"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleLineSetupDone}
+                    disabled={selectedLineMarkIds.size < 2}
+                    className="flex-1"
+                    data-testid="button-done-line-setup"
+                  >
+                    <Check className="w-4 h-4 mr-1" />
+                    Done
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Start/Finish Lines</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Flag className="w-4 h-4 text-green-600" />
+                    <span className="text-sm">Start Line</span>
+                  </div>
+                  {hasStartLine ? (
+                    <Badge variant="outline" className="text-green-600 border-green-300">
+                      {marks.filter(m => m.isStartLine).length} marks
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">Not set</Badge>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setLineSetupMode("start")}
+                  disabled={marks.length === 0}
+                  data-testid="button-set-start-line"
+                >
+                  {hasStartLine ? "Edit Start Line" : "Set Start Line"}
+                </Button>
+                
+                <Separator className="my-2" />
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FlagTriangleRight className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm">Finish Line</span>
+                  </div>
+                  {hasFinishLine ? (
+                    <Badge variant="outline" className="text-blue-600 border-blue-300">
+                      {marks.filter(m => m.isFinishLine).length} marks
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground">Not set</Badge>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setLineSetupMode("finish")}
+                  disabled={marks.length === 0}
+                  data-testid="button-set-finish-line"
+                >
+                  {hasFinishLine ? "Edit Finish Line" : "Set Finish Line"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-3">
