@@ -119,10 +119,10 @@ export class MemStorage implements IStorage {
     });
 
     const markData = [
-      { name: "Start Boat", role: "start_boat", order: 0, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng - 0.0015 },
-      { name: "Pin End", role: "pin", order: 1, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.0015 },
-      { name: "Windward Mark", role: "windward", order: 2, lat: MIKROLIMANO_CENTER.lat + 0.0045, lng: MIKROLIMANO_CENTER.lng },
-      { name: "Leeward Mark", role: "leeward", order: 3, lat: MIKROLIMANO_CENTER.lat - 0.0015, lng: MIKROLIMANO_CENTER.lng + 0.003 },
+      { name: "Committee Boat", role: "start_boat", order: 0, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.0015, isStartLine: true, isFinishLine: true },
+      { name: "Pin Mark", role: "pin", order: 1, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng - 0.0015, isStartLine: true, isFinishLine: true },
+      { name: "Mark 1 (Windward)", role: "windward", order: 2, lat: MIKROLIMANO_CENTER.lat + 0.0045, lng: MIKROLIMANO_CENTER.lng, isStartLine: false, isFinishLine: false },
+      { name: "Mark 3 (Leeward)", role: "leeward", order: 3, lat: MIKROLIMANO_CENTER.lat - 0.0015, lng: MIKROLIMANO_CENTER.lng + 0.003, isStartLine: false, isFinishLine: false },
     ];
 
     markData.forEach((data, index) => {
@@ -184,6 +184,7 @@ export class MemStorage implements IStorage {
     const newEvent: Event = { 
       id, 
       ...event, 
+      type: event.type ?? "race",
       targetDuration: event.targetDuration ?? 40,
       courseId: event.courseId ?? null,
       createdAt: new Date() 
@@ -213,6 +214,7 @@ export class MemStorage implements IStorage {
     const newCourse: Course = { 
       id, 
       ...course,
+      shape: course.shape ?? "triangle",
       rotation: course.rotation ?? 0,
       scale: course.scale ?? 1,
     };
@@ -240,7 +242,13 @@ export class MemStorage implements IStorage {
 
   async createMark(mark: InsertMark): Promise<Mark> {
     const id = randomUUID();
-    const newMark: Mark = { id, ...mark, assignedBuoyId: mark.assignedBuoyId ?? null };
+    const newMark: Mark = { 
+      id, 
+      ...mark, 
+      assignedBuoyId: mark.assignedBuoyId ?? null,
+      isStartLine: mark.isStartLine ?? false,
+      isFinishLine: mark.isFinishLine ?? false,
+    };
     this.marks.set(id, newMark);
     return newMark;
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, X, Trash2, Save, Navigation } from "lucide-react";
+import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
 
@@ -47,6 +48,8 @@ export function MarkEditPanel({
   const [lat, setLat] = useState(mark.lat.toString());
   const [lng, setLng] = useState(mark.lng.toString());
   const [assignedBuoyId, setAssignedBuoyId] = useState<string>(mark.assignedBuoyId || "");
+  const [isStartLine, setIsStartLine] = useState(mark.isStartLine ?? false);
+  const [isFinishLine, setIsFinishLine] = useState(mark.isFinishLine ?? false);
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
@@ -55,9 +58,11 @@ export function MarkEditPanel({
       role !== mark.role ||
       lat !== mark.lat.toString() ||
       lng !== mark.lng.toString() ||
-      assignedBuoyId !== (mark.assignedBuoyId || "");
+      assignedBuoyId !== (mark.assignedBuoyId || "") ||
+      isStartLine !== (mark.isStartLine ?? false) ||
+      isFinishLine !== (mark.isFinishLine ?? false);
     setHasChanges(changed);
-  }, [name, role, lat, lng, assignedBuoyId, mark]);
+  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, mark]);
 
   useEffect(() => {
     setLat(mark.lat.toString());
@@ -78,6 +83,8 @@ export function MarkEditPanel({
       lat: latNum,
       lng: lngNum,
       assignedBuoyId: assignedBuoyId || null,
+      isStartLine,
+      isFinishLine,
     });
   };
 
@@ -133,6 +140,44 @@ export function MarkEditPanel({
             </SelectContent>
           </Select>
         </div>
+
+        <Card className="bg-muted/30">
+          <CardContent className="p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FlagTriangleRight className="w-4 h-4 text-green-500" />
+                <Label htmlFor="start-line" className="text-sm font-medium cursor-pointer">
+                  Start Line Mark
+                </Label>
+              </div>
+              <Switch
+                id="start-line"
+                checked={isStartLine}
+                onCheckedChange={setIsStartLine}
+                data-testid="switch-start-line"
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Flag className="w-4 h-4 text-blue-500" />
+                <Label htmlFor="finish-line" className="text-sm font-medium cursor-pointer">
+                  Finish Line Mark
+                </Label>
+              </div>
+              <Switch
+                id="finish-line"
+                checked={isFinishLine}
+                onCheckedChange={setIsFinishLine}
+                data-testid="switch-finish-line"
+              />
+            </div>
+            {isStartLine && isFinishLine && (
+              <p className="text-xs text-muted-foreground">
+                This mark is used for both start and finish lines.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         <Separator />
 

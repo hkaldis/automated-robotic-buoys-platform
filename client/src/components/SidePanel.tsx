@@ -14,6 +14,7 @@ import { BuoyDetailPanel } from "./BuoyDetailPanel";
 import { MarkEditPanel } from "./MarkEditPanel";
 import { AddMarkDialog } from "./AddMarkDialog";
 import { CourseControls } from "./CourseControls";
+import { CourseStats } from "./CourseStats";
 import type { CourseShape, Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +133,12 @@ export function SidePanel({
             />
           )}
 
+          <CourseStats 
+            marks={marks}
+            boatClass={event.boatClass}
+            targetDuration={event.targetDuration}
+          />
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center justify-between">
@@ -185,7 +192,7 @@ export function SidePanel({
                       key={buoy.id}
                       buoy={buoy}
                       compact
-                      isSelected={selectedBuoy?.id === buoy.id}
+                      isSelected={false}
                       onClick={() => onBuoySelect?.(buoy.id)}
                     />
                   ))}

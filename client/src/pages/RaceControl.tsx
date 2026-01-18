@@ -63,7 +63,7 @@ const DEFAULT_CENTER = MIKROLIMANO_CENTER;
  * - Mark 3: Leeward mark or Gate (3s=starboard half, 3p=port half)
  * - Offset: Spreader mark near windward for tactical downwind sailing
  */
-function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: number): Array<{ name: string; role: MarkRole; lat: number; lng: number; order: number }> {
+function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: number): Array<{ name: string; role: MarkRole; lat: number; lng: number; order: number; isStartLine: boolean; isFinishLine: boolean }> {
   // Course leg length in degrees (approximately 400-500 meters)
   const legLength = 0.004;
   // Start line half-width (approximately 150 meters total line)
@@ -86,18 +86,20 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
       // Course: Start → Mark 1 (Windward) → Mark 2 (Wing) → Mark 3 (Leeward) → repeat/Finish
       // All three legs are equal length, forming a true equilateral triangle
       // Rounding to port (counter-clockwise): windward→wing is broad reach, wing→leeward is close reach
+      // Start and Finish lines use same marks (Committee Boat + Pin)
       return [
         // Start line - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
-        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0 },
-        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1 },
+        // Both marks serve as start AND finish line
+        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true },
+        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true },
         // Mark 1 - Windward mark (one leg length directly upwind from start)
-        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2 },
+        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2, isStartLine: false, isFinishLine: false },
         // Mark 2 - Wing mark (60° to STARBOARD, equal leg length from windward)
         // Position: halfway up in lat, offset to starboard by sin(60°)*legLength
-        { name: "Mark 2 (Wing)", role: "wing", lat: startLat + legLength * cos60, lng: startLng + legLength * sin60, order: 3 },
+        { name: "Mark 2 (Wing)", role: "wing", lat: startLat + legLength * cos60, lng: startLng + legLength * sin60, order: 3, isStartLine: false, isFinishLine: false },
         // Mark 3 - Leeward mark (at bottom/downwind, on centerline near start)
         // Equal leg length from wing mark back to leeward completes the equilateral
-        { name: "Mark 3 (Leeward)", role: "leeward", lat: startLat, lng: startLng, order: 4 },
+        { name: "Mark 3 (Leeward)", role: "leeward", lat: startLat, lng: startLng, order: 4, isStartLine: false, isFinishLine: false },
       ];
       
     case "trapezoid":
@@ -105,19 +107,21 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
       // Course: Start → Mark 1 (Windward) → Mark 2 (Wing) → Gate → repeat
       // Standard ILCA/Olympic format with reaching legs at 60° angles
       // Creates upwind beat, reaching leg to wing, run to gate
+      // Start and Finish lines use same marks (Committee Boat + Pin)
       return [
         // Start line - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
-        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0 },
-        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1 },
+        // Both marks serve as start AND finish line
+        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true },
+        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true },
         // Mark 1 - Windward mark (one leg length directly upwind)
-        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2 },
+        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2, isStartLine: false, isFinishLine: false },
         // Offset mark - slightly below windward, offset to starboard for tactical options
-        { name: "Offset Mark", role: "offset", lat: startLat + legLength * 0.9, lng: startLng + legLength * 0.15, order: 3 },
+        { name: "Offset Mark", role: "offset", lat: startLat + legLength * 0.9, lng: startLng + legLength * 0.15, order: 3, isStartLine: false, isFinishLine: false },
         // Mark 2 - Wing mark (60° reaching leg to starboard from windward)
-        { name: "Mark 2 (Wing)", role: "wing", lat: startLat + legLength * 0.5, lng: startLng + legLength * sin60, order: 4 },
+        { name: "Mark 2 (Wing)", role: "wing", lat: startLat + legLength * 0.5, lng: startLng + legLength * sin60, order: 4, isStartLine: false, isFinishLine: false },
         // Gate marks at leeward end - starboard mark at +lng, port at -lng
-        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: startLat, lng: startLng + gateHalfWidth, order: 5 },
-        { name: "Mark 3p (Gate Port)", role: "gate", lat: startLat, lng: startLng - gateHalfWidth, order: 6 },
+        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: startLat, lng: startLng + gateHalfWidth, order: 5, isStartLine: false, isFinishLine: false },
+        { name: "Mark 3p (Gate Port)", role: "gate", lat: startLat, lng: startLng - gateHalfWidth, order: 6, isStartLine: false, isFinishLine: false },
       ];
       
     case "windward_leeward":
@@ -125,23 +129,98 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
       // Course: Start → Mark 1 (Windward) → Gate → repeat → Finish at leeward
       // Pure upwind/downwind racing - most common modern format
       // Simplest course: beat to windward, run through gate, repeat
+      // Start and Finish lines use same marks (Committee Boat + Pin)
       return [
         // Start line - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
-        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0 },
-        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1 },
+        // Both marks serve as start AND finish line
+        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true },
+        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true },
         // Mark 1 - Windward mark (one leg length directly upwind from start line center)
-        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2 },
+        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2, isStartLine: false, isFinishLine: false },
         // Gate marks at leeward end (at start line latitude, straddling centerline)
         // Starboard mark at +lng, Port at -lng
-        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: startLat, lng: startLng + gateHalfWidth, order: 3 },
-        { name: "Mark 3p (Gate Port)", role: "gate", lat: startLat, lng: startLng - gateHalfWidth, order: 4 },
+        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: startLat, lng: startLng + gateHalfWidth, order: 3, isStartLine: false, isFinishLine: false },
+        { name: "Mark 3p (Gate Port)", role: "gate", lat: startLat, lng: startLng - gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false },
       ];
       
     case "custom":
     default:
       // Custom courses - user places marks manually on the map
+      // Return empty array, user adds marks via map clicks
       return [];
   }
+}
+
+/**
+ * Calculates the total distance of a course based on mark positions.
+ * Returns distance in nautical miles.
+ */
+function calculateCourseDistance(marks: Mark[]): number {
+  if (marks.length < 2) return 0;
+  
+  // Sort marks by order to get the correct sailing sequence
+  const sortedMarks = [...marks].sort((a, b) => a.order - b.order);
+  
+  // Find course marks (excluding start line marks for initial leg calculation)
+  const startLineMarks = sortedMarks.filter(m => m.isStartLine);
+  const courseMarks = sortedMarks.filter(m => !m.isStartLine || m.role === 'start_boat');
+  
+  let totalDistance = 0;
+  
+  // Calculate distance between consecutive marks
+  for (let i = 0; i < courseMarks.length - 1; i++) {
+    const from = courseMarks[i];
+    const to = courseMarks[i + 1];
+    totalDistance += haversineDistance(from.lat, from.lng, to.lat, to.lng);
+  }
+  
+  // Add distance from last course mark back to finish (if finish is start line)
+  if (courseMarks.length > 0) {
+    const lastMark = courseMarks[courseMarks.length - 1];
+    const finishMark = startLineMarks.find(m => m.role === 'start_boat') || courseMarks[0];
+    if (lastMark.id !== finishMark.id) {
+      totalDistance += haversineDistance(lastMark.lat, lastMark.lng, finishMark.lat, finishMark.lng);
+    }
+  }
+  
+  return totalDistance;
+}
+
+/**
+ * Haversine formula to calculate distance between two lat/lng points.
+ * Returns distance in nautical miles.
+ */
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3440.065; // Earth's radius in nautical miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Estimates race time based on course distance and typical boat speeds.
+ * Returns estimated time in minutes.
+ */
+function estimateRaceTime(distanceNm: number, boatClass: string): number {
+  // Average speed estimates by boat class (knots)
+  const avgSpeeds: Record<string, number> = {
+    'Laser': 4.5,
+    'Optimist': 3.5,
+    '420': 5.0,
+    '470': 5.5,
+    '49er': 8.0,
+    'Finn': 5.0,
+    'RS Feva': 4.0,
+    'default': 4.5,
+  };
+  
+  const speed = avgSpeeds[boatClass] || avgSpeeds['default'];
+  // Time = Distance / Speed, convert to minutes
+  return (distanceNm / speed) * 60;
 }
 
 export default function RaceControl() {
