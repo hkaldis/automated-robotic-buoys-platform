@@ -400,7 +400,7 @@ function WindArrowsLayer({ windDirection, windSpeed }: { windDirection: number; 
               <div style="
                 width: ${arrowSize}px;
                 height: ${arrowSize}px;
-                transform: rotate(${windDirection}deg);
+                transform: rotate(${windDirection + 180}deg);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -529,10 +529,11 @@ export function LeafletMap({
 
   const mapRotation = useMemo(() => {
     if (mapOrientation === "head-to-wind" && weatherData) {
-      // Wind direction is where wind comes FROM
-      // Head-to-wind means facing INTO the wind (toward where it comes from)
-      // So we rotate the map so that wind direction is at the top
-      return weatherData.windDirection;
+      // Wind direction is where wind comes FROM (meteorological convention)
+      // Head-to-wind: we want to look TOWARD where wind comes from (upwind)
+      // To face upwind, we need the wind source direction at screen top
+      // Formula: 180 - windDirection rotates so wind direction points up
+      return 180 - weatherData.windDirection;
     }
     return 0;
   }, [mapOrientation, weatherData]);
