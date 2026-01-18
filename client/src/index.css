@@ -7,12 +7,25 @@
 .leaflet-container {
   font-family: Inter, sans-serif;
   z-index: 1;
+  touch-action: none;
+}
+
+.leaflet-dragging .leaflet-grab {
+  cursor: grabbing !important;
 }
 
 .custom-buoy-marker,
 .custom-mark-marker {
   background: transparent !important;
   border: none !important;
+}
+
+.custom-mark-marker {
+  cursor: grab;
+}
+
+.custom-mark-marker:active {
+  cursor: grabbing;
 }
 
 .leg-label-tooltip {

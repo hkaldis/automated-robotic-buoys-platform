@@ -100,59 +100,48 @@ function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
 }
 
 function createMarkIcon(mark: Mark, isSelected: boolean): L.DivIcon {
-  // Mark role color coding per World Sailing standards
   const roleColors: Record<string, string> = {
-    start_boat: "#22c55e",    // Green - Committee boat
-    pin: "#22c55e",           // Green - Pin end
-    windward: "#ef4444",      // Red - Mark 1 (windward)
-    wing: "#8b5cf6",          // Purple - Mark 2 (wing/gybe)
-    leeward: "#3b82f6",       // Blue - Mark 3 (leeward)
-    gate: "#06b6d4",          // Cyan - Gate marks (3s/3p)
-    offset: "#f59e0b",        // Amber - Offset mark
-    finish: "#f97316",        // Orange - Finish
-    turning_mark: "#3b82f6",  // Blue - Generic turning mark
-    other: "#6b7280",         // Gray - Other marks
+    start_boat: "#22c55e",
+    pin: "#22c55e",
+    windward: "#ef4444",
+    wing: "#8b5cf6",
+    leeward: "#3b82f6",
+    gate: "#06b6d4",
+    offset: "#f59e0b",
+    finish: "#f97316",
+    turning_mark: "#3b82f6",
+    other: "#6b7280",
   };
   
-  // Visual shape by role
   const isStart = mark.role === "start_boat" || mark.role === "pin";
   const isWindward = mark.role === "windward";
   const isWing = mark.role === "wing";
   
   const color = roleColors[mark.role] || "#3b82f6";
-  const ring = isSelected ? `border:3px solid #3b82f6;` : "";
-  const scale = isSelected ? "transform:scale(1.15);" : "";
+  const size = isSelected ? 1.2 : 1;
+  const border = isSelected ? "3px solid #3b82f6" : "none";
 
-  let shapeHtml: string;
-  
+  let shape: string;
   if (isStart) {
-    // Triangle for start line marks (pointing up)
-    shapeHtml = `<div style="width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:20px solid ${color};${ring}${scale}"></div>`;
-  } else if (isWindward) {
-    // Diamond for windward mark (most important mark)
-    shapeHtml = `<div style="width:20px;height:20px;background:${color};transform:rotate(45deg)${isSelected ? ' scale(1.15)' : ''};${ring}"></div>`;
-  } else if (isWing) {
-    // Diamond for wing mark (similar importance to windward)
-    shapeHtml = `<div style="width:18px;height:18px;background:${color};transform:rotate(45deg)${isSelected ? ' scale(1.15)' : ''};${ring}"></div>`;
+    const h = Math.round(20 * size);
+    const w = Math.round(12 * size);
+    shape = `<div style="width:0;height:0;border-left:${w}px solid transparent;border-right:${w}px solid transparent;border-bottom:${h}px solid ${color};"></div>`;
+  } else if (isWindward || isWing) {
+    const s = Math.round((isWindward ? 20 : 18) * size);
+    shape = `<div style="width:${s}px;height:${s}px;background:${color};transform:rotate(45deg);border:${border};"></div>`;
   } else {
-    // Circle for other marks (leeward, gate, offset, finish)
-    shapeHtml = `<div style="width:24px;height:24px;background:${color};border-radius:50%;${ring}${scale}"></div>`;
+    const s = Math.round(24 * size);
+    shape = `<div style="width:${s}px;height:${s}px;background:${color};border-radius:50%;border:${border};"></div>`;
   }
 
-  // Leaflet handles pointer events on the marker icon automatically
-  // Keep the structure simple to let Leaflet's dragging work properly
   return L.divIcon({
     className: "custom-mark-marker",
-    html: `
-      <div style="display:flex;flex-direction:column;align-items:center;cursor:grab;">
-        <div style="padding:8px;">
-          ${shapeHtml}
-        </div>
-        <span style="font-size:11px;font-weight:600;color:#1f2937;background:white;padding:1px 4px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2);pointer-events:none;">${mark.name}</span>
-      </div>
-    `,
-    iconSize: [60, 60],
-    iconAnchor: [30, 28],
+    html: `<div style="display:flex;flex-direction:column;align-items:center;">
+      ${shape}
+      <span style="margin-top:2px;font-size:11px;font-weight:600;color:#1f2937;background:white;padding:1px 4px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2);pointer-events:none;">${mark.name}</span>
+    </div>`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 20],
   });
 }
 
@@ -183,29 +172,25 @@ function MapClickHandler({ onMapClick, isPlacingMark }: { onMapClick?: (lat: num
   return null;
 }
 
-function TouchOptimizer() {
+function TouchConfig() {
   const map = useMap();
-
+  
   useEffect(() => {
-    const mapInstance = map as L.Map & { 
-      tap?: { _holdTimeout?: number; enable?: () => void };
+    const m = map as L.Map & { 
+      tap?: { enable?: () => void };
       options: L.MapOptions & { tapHoldDelay?: number; tapTolerance?: number };
     };
-    
-    // Configure touch options on the map
-    mapInstance.options.tapHoldDelay = 300; // Reduce from default 500ms
-    mapInstance.options.tapTolerance = 15;
-    
-    // Enable touch support if available
-    if (mapInstance.tap && typeof mapInstance.tap.enable === 'function') {
-      mapInstance.tap.enable();
+    m.options.tapHoldDelay = 250;
+    m.options.tapTolerance = 15;
+    if (m.tap?.enable) {
+      m.tap.enable();
     }
   }, [map]);
-
+  
   return null;
 }
 
-interface DraggableMarkMarkerProps {
+interface DraggableMarkerProps {
   mark: Mark;
   isSelected: boolean;
   isDraggable: boolean;
@@ -213,86 +198,21 @@ interface DraggableMarkMarkerProps {
   onMarkDragEnd?: (id: string, lat: number, lng: number) => void;
 }
 
-function DraggableMarkMarker({ mark, isSelected, isDraggable, onMarkClick, onMarkDragEnd }: DraggableMarkMarkerProps) {
+function DraggableMarker({ mark, isSelected, isDraggable, onMarkClick, onMarkDragEnd }: DraggableMarkerProps) {
   const markerRef = useRef<L.Marker | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const lastDragPositionRef = useRef<{ lat: number; lng: number } | null>(null);
-  const dragTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Fallback: if drag events stop but no dragend, finalize after timeout
-  const scheduleDragFallback = useCallback(() => {
-    if (dragTimeoutRef.current) {
-      clearTimeout(dragTimeoutRef.current);
-    }
-    dragTimeoutRef.current = setTimeout(() => {
-      if (lastDragPositionRef.current && isDragging) {
-        console.log('Mark drag fallback:', mark.id, lastDragPositionRef.current.lat, lastDragPositionRef.current.lng);
-        onMarkDragEnd?.(mark.id, lastDragPositionRef.current.lat, lastDragPositionRef.current.lng);
-        setIsDragging(false);
-        lastDragPositionRef.current = null;
-      }
-    }, 500);
-  }, [mark.id, onMarkDragEnd, isDragging]);
-  
-  const eventHandlers = useMemo(() => ({
-    click: () => {
-      // Only trigger click if not in the middle of a drag
-      if (!isDragging) {
-        onMarkClick?.(mark.id);
-      }
-    },
-    dragstart: () => {
-      setIsDragging(true);
-      lastDragPositionRef.current = null;
-    },
-    drag: (e: L.LeafletEvent) => {
-      const marker = e.target as L.Marker;
-      const position = marker.getLatLng();
-      lastDragPositionRef.current = { lat: position.lat, lng: position.lng };
-    },
-    dragend: (e: L.DragEndEvent) => {
-      // Clear any fallback timeout since we got proper dragend
-      if (dragTimeoutRef.current) {
-        clearTimeout(dragTimeoutRef.current);
-        dragTimeoutRef.current = null;
-      }
-      const marker = e.target as L.Marker;
-      const position = marker.getLatLng();
-      onMarkDragEnd?.(mark.id, position.lat, position.lng);
-      lastDragPositionRef.current = null;
-      // Reset dragging state after a short delay to prevent click from firing
-      setTimeout(() => setIsDragging(false), 100);
-    },
-  }), [mark.id, onMarkClick, onMarkDragEnd, isDragging]);
-
-  // Setup fallback listener on marker for pointerup/touchend
   useEffect(() => {
     const marker = markerRef.current;
-    if (!marker || !isDragging) return;
+    if (!marker) return;
     
-    const handlePointerUp = () => {
-      scheduleDragFallback();
-    };
-    
-    // Listen on document for pointer/mouse up as fallback
-    document.addEventListener('pointerup', handlePointerUp, { once: true });
-    document.addEventListener('mouseup', handlePointerUp, { once: true });
-    document.addEventListener('touchend', handlePointerUp, { once: true });
-    
-    return () => {
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('mouseup', handlePointerUp);
-      document.removeEventListener('touchend', handlePointerUp);
-      if (dragTimeoutRef.current) {
-        clearTimeout(dragTimeoutRef.current);
-      }
-    };
-  }, [isDragging, scheduleDragFallback]);
+    if (isDraggable && marker.dragging) {
+      marker.dragging.enable();
+    } else if (!isDraggable && marker.dragging) {
+      marker.dragging.disable();
+    }
+  }, [isDraggable]);
   
-  // Create icon with dragging state visual feedback
-  const icon = useMemo(() => {
-    return createMarkIcon(mark, isSelected || isDragging);
-  }, [mark, isSelected, isDragging]);
+  const icon = useMemo(() => createMarkIcon(mark, isSelected), [mark, isSelected]);
   
   return (
     <Marker
@@ -300,9 +220,13 @@ function DraggableMarkMarker({ mark, isSelected, isDraggable, onMarkClick, onMar
       position={[mark.lat, mark.lng]}
       icon={icon}
       draggable={isDraggable}
-      autoPan={true}
-      bubblingMouseEvents={false}
-      eventHandlers={eventHandlers}
+      eventHandlers={{
+        click: () => onMarkClick?.(mark.id),
+        dragend: (e) => {
+          const position = e.target.getLatLng();
+          onMarkDragEnd?.(mark.id, position.lat, position.lng);
+        },
+      }}
     />
   );
 }
@@ -701,7 +625,7 @@ export function LeafletMap({
         />
         
         <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} />
-        <TouchOptimizer />
+        <TouchConfig />
         
         {/* Start line (solid green line between Pin End and Committee Boat) */}
         {startLinePositions.length >= 2 && (
@@ -760,7 +684,7 @@ export function LeafletMap({
         )}
         
         {sortedMarks.map((mark) => (
-          <DraggableMarkMarker
+          <DraggableMarker
             key={mark.id}
             mark={mark}
             isSelected={selectedMarkId === mark.id}
