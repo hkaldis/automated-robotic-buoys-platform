@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 interface WeatherData {
   windSpeed: number;
   windDirection: number;
+  source: string;
 }
 
 type MapOrientation = "north" | "head-to-wind";
@@ -796,18 +797,19 @@ export function LeafletMap({
       </div>
 
       {weatherData && (
-        <Card className="absolute top-4 right-4 p-3 z-[1000]">
+        <Card className="absolute top-4 right-4 p-3 z-[1000]" data-testid="map-wind-badge">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
+              <Wind className="w-4 h-4 text-chart-1 shrink-0" />
               <div 
-                className="w-6 h-6 text-blue-500"
+                className="w-5 h-5 text-chart-1"
                 style={{ transform: `rotate(${(weatherData.windDirection + 180)}deg)` }}
+                title={`Wind blows toward ${((weatherData.windDirection + 180) % 360).toFixed(0)}°`}
               >
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L8 10H16L12 2Z M10 10V22H14V10H10Z" />
-                </svg>
+                <ArrowUp className="w-5 h-5" />
               </div>
               <div className="text-sm">
+                <span className="text-muted-foreground text-xs">from </span>
                 <span className="font-mono">{weatherData.windDirection.toFixed(0)}°</span>
                 <span className="text-muted-foreground ml-1">@ {weatherData.windSpeed.toFixed(1)} kts</span>
               </div>
@@ -819,6 +821,7 @@ export function LeafletMap({
               {showWindArrows && (
                 <Badge variant="outline" className="text-xs">Arrows On</Badge>
               )}
+              <Badge variant="outline" className="text-xs capitalize">{weatherData.source}</Badge>
             </div>
           </div>
         </Card>

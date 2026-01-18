@@ -663,9 +663,9 @@ export default function RaceControl() {
   }, [marks, updateMark, toast]);
 
   const handleAlignCourseToWind = useCallback(() => {
-    if (!weatherData || marks.length === 0) return;
+    if (!activeWeatherData || marks.length === 0) return;
     
-    const windDirection = weatherData.windDirection;
+    const windDirection = activeWeatherData.windDirection;
     
     const startMarks = marks.filter(m => m.isStartLine);
     const windwardMark = marks.find(m => m.role === "windward" || (m.isCourseMark && m.name === "M1"));
@@ -690,7 +690,7 @@ export default function RaceControl() {
       title: "Course Aligned to Wind",
       description: `Course rotated to align with wind from ${windDirection.toFixed(0)}°`,
     });
-  }, [weatherData, marks, handleTransformCourse, toast]);
+  }, [activeWeatherData, marks, handleTransformCourse, toast]);
 
   // Handle finish line preview callback
   const handleFinishLinePreview = useCallback((selectedMarkIds: Set<string>) => {

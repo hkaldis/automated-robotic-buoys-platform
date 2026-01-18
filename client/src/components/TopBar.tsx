@@ -1,4 +1,4 @@
-import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight } from "lucide-react";
+import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -66,21 +66,31 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-background border">
-        <div 
-          className="transition-transform"
-          style={{ transform: `rotate(${(weatherData?.windDirection ?? 0) + 180}deg)` }}
-        >
-          <Wind className="w-5 h-5 text-chart-1" />
+      <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-background border" data-testid="weather-widget">
+        <Wind className="w-5 h-5 text-chart-1 shrink-0" />
+        <div className="flex items-center gap-2">
+          <div 
+            className="transition-transform"
+            style={{ transform: `rotate(${(weatherData?.windDirection ?? 0) + 180}deg)` }}
+            title={weatherData ? `Wind blows toward ${((weatherData.windDirection + 180) % 360).toFixed(0)}°` : "No wind data"}
+          >
+            <ArrowUp className="w-4 h-4 text-chart-1" />
+          </div>
+          <div className="text-sm">
+            <span className="font-mono font-medium" data-testid="text-wind-speed">
+              {weatherData ? formatSpeed(weatherData.windSpeed) : "--"}
+            </span>
+            <span className="text-muted-foreground ml-1 text-xs">from</span>
+            <span className="text-muted-foreground ml-1 font-mono" data-testid="text-wind-direction">
+              {weatherData ? formatBearing(weatherData.windDirection) : "--"}
+            </span>
+          </div>
         </div>
-        <div className="text-sm">
-          <span className="font-mono font-medium" data-testid="text-wind-speed">
-            {weatherData ? formatSpeed(weatherData.windSpeed) : "--"}
+        {weatherData && (
+          <span className="text-xs text-muted-foreground capitalize hidden sm:inline">
+            ({weatherData.source})
           </span>
-          <span className="text-muted-foreground ml-2 font-mono" data-testid="text-wind-direction">
-            {weatherData ? formatBearing(weatherData.windDirection) : "--"}
-          </span>
-        </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

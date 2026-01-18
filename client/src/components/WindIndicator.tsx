@@ -1,4 +1,4 @@
-import { Navigation } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { useSettings } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
 
@@ -63,8 +63,9 @@ export function WindIndicator({ size = "md", showLabel = true, weatherData, clas
         <div
           className="transition-transform duration-300"
           style={{ transform: `rotate(${direction + 180}deg)` }}
+          title={`Wind blows toward ${((direction + 180) % 360).toFixed(0)}°`}
         >
-          <Navigation className={cn(iconSizes[size], "text-chart-1 fill-chart-1/30")} />
+          <ArrowUp className={cn(iconSizes[size], "text-chart-1")} />
         </div>
       </div>
 
@@ -73,11 +74,12 @@ export function WindIndicator({ size = "md", showLabel = true, weatherData, clas
           <div className="font-mono text-lg font-medium" data-testid="text-wind-speed-indicator">
             {weatherData ? formatSpeed(weatherData.windSpeed) : "--"}
           </div>
-          <div className="text-xs text-muted-foreground font-mono" data-testid="text-wind-direction-indicator">
-            {weatherData ? formatBearing(direction) : "--"}
+          <div className="text-xs text-muted-foreground" data-testid="text-wind-direction-indicator">
+            <span>from </span>
+            <span className="font-mono">{weatherData ? formatBearing(direction) : "--"}</span>
           </div>
           <div className="text-xs text-muted-foreground capitalize mt-1">
-            Source: {weatherData?.source ?? "unknown"}
+            {weatherData?.source ?? "unknown"}
           </div>
         </div>
       )}
