@@ -70,6 +70,32 @@ function calculateBearing(pos1: GeoPosition, pos2: GeoPosition): number {
   return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
 }
 
+function calculateGatePositions(
+  centerLat: number, 
+  centerLng: number, 
+  windDirection: number, 
+  gateWidthMeters: number
+): { port: GeoPosition; starboard: GeoPosition } {
+  const perpendicularAngle = (windDirection + 90) % 360;
+  const halfWidthDegrees = (gateWidthMeters / 2) / 111320;
+  
+  const portAngleRad = (perpendicularAngle + 180) * Math.PI / 180;
+  const starboardAngleRad = perpendicularAngle * Math.PI / 180;
+  
+  const latCorrection = Math.cos(centerLat * Math.PI / 180);
+  
+  return {
+    port: {
+      lat: centerLat + halfWidthDegrees * Math.cos(portAngleRad),
+      lng: centerLng + (halfWidthDegrees / latCorrection) * Math.sin(portAngleRad),
+    },
+    starboard: {
+      lat: centerLat + halfWidthDegrees * Math.cos(starboardAngleRad),
+      lng: centerLng + (halfWidthDegrees / latCorrection) * Math.sin(starboardAngleRad),
+    },
+  };
+}
+
 function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
   const stateColors: Record<string, string> = {
     idle: "#94a3b8",
@@ -200,6 +226,7 @@ interface DraggableMarkerProps {
 
 function DraggableMarker({ mark, isSelected, isDraggable, onMarkClick, onMarkDragEnd }: DraggableMarkerProps) {
   const markerRef = useRef<L.Marker | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   useEffect(() => {
     const marker = markerRef.current;
@@ -212,6 +239,24 @@ function DraggableMarker({ mark, isSelected, isDraggable, onMarkClick, onMarkDra
     }
   }, [isDraggable]);
   
+  // Update icon when dragging state changes
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+    
+    const iconElement = marker.getElement();
+    if (iconElement) {
+      const markElement = iconElement.querySelector('.custom-mark-marker');
+      if (markElement) {
+        if (isDragging) {
+          markElement.classList.add('dragging');
+        } else {
+          markElement.classList.remove('dragging');
+        }
+      }
+    }
+  }, [isDragging]);
+  
   const icon = useMemo(() => createMarkIcon(mark, isSelected), [mark, isSelected]);
   
   return (
@@ -222,12 +267,124 @@ function DraggableMarker({ mark, isSelected, isDraggable, onMarkClick, onMarkDra
       draggable={isDraggable}
       eventHandlers={{
         click: () => onMarkClick?.(mark.id),
+        dragstart: () => setIsDragging(true),
         dragend: (e) => {
+          setIsDragging(false);
           const position = e.target.getLatLng();
           onMarkDragEnd?.(mark.id, position.lat, position.lng);
         },
       }}
     />
+  );
+}
+
+function createGateMarkIcon(mark: Mark, side: "port" | "starboard", isSelected: boolean): L.DivIcon {
+  const color = "#f97316";
+  const size = isSelected ? 1.2 : 1;
+  const border = isSelected ? "3px solid #3b82f6" : "none";
+  const s = Math.round(20 * size);
+  const sideLabel = side === "port" ? "P" : "S";
+  
+  const shape = `<div style="width:${s}px;height:${s}px;background:${color};border-radius:50%;border:${border};display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:10px;">${sideLabel}</div>`;
+
+  return L.divIcon({
+    className: "custom-mark-marker",
+    html: `<div style="display:flex;flex-direction:column;align-items:center;">
+      ${shape}
+      <span style="margin-top:2px;font-size:10px;font-weight:600;color:#1f2937;background:white;padding:1px 4px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.2);pointer-events:none;">${mark.name}-${sideLabel}</span>
+    </div>`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 20],
+  });
+}
+
+interface GateMarkersProps {
+  mark: Mark;
+  isSelected: boolean;
+  isDraggable: boolean;
+  windDirection: number;
+  onMarkClick?: (id: string) => void;
+  onMarkDragEnd?: (id: string, lat: number, lng: number) => void;
+}
+
+function GateMarkers({ mark, isSelected, isDraggable, windDirection, onMarkClick, onMarkDragEnd }: GateMarkersProps) {
+  const gateWidthMeters = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+  const positions = useMemo(
+    () => calculateGatePositions(mark.lat, mark.lng, windDirection, gateWidthMeters),
+    [mark.lat, mark.lng, windDirection, gateWidthMeters]
+  );
+  
+  const portMarkerRef = useRef<L.Marker | null>(null);
+  const starboardMarkerRef = useRef<L.Marker | null>(null);
+  const [isDraggingPort, setIsDraggingPort] = useState(false);
+  const [isDraggingStarboard, setIsDraggingStarboard] = useState(false);
+  
+  useEffect(() => {
+    [portMarkerRef, starboardMarkerRef].forEach(ref => {
+      const marker = ref.current;
+      if (!marker) return;
+      if (isDraggable && marker.dragging) {
+        marker.dragging.enable();
+      } else if (!isDraggable && marker.dragging) {
+        marker.dragging.disable();
+      }
+    });
+  }, [isDraggable]);
+  
+  const portIcon = useMemo(() => createGateMarkIcon(mark, "port", isSelected), [mark, isSelected]);
+  const starboardIcon = useMemo(() => createGateMarkIcon(mark, "starboard", isSelected), [mark, isSelected]);
+  
+  const handleGateDragEnd = (side: "port" | "starboard", e: L.LeafletEvent) => {
+    const target = e.target as L.Marker;
+    const newPos = target.getLatLng();
+    const otherPos = side === "port" ? positions.starboard : positions.port;
+    const newCenter = {
+      lat: (newPos.lat + otherPos.lat) / 2,
+      lng: (newPos.lng + otherPos.lng) / 2,
+    };
+    onMarkDragEnd?.(mark.id, newCenter.lat, newCenter.lng);
+  };
+  
+  return (
+    <>
+      <Polyline
+        positions={[[positions.port.lat, positions.port.lng], [positions.starboard.lat, positions.starboard.lng]]}
+        pathOptions={{ 
+          color: "#f97316", 
+          weight: 3, 
+          opacity: 0.6,
+          dashArray: "6, 4"
+        }}
+      />
+      <Marker
+        ref={portMarkerRef}
+        position={[positions.port.lat, positions.port.lng]}
+        icon={portIcon}
+        draggable={isDraggable}
+        eventHandlers={{
+          click: () => onMarkClick?.(mark.id),
+          dragstart: () => setIsDraggingPort(true),
+          dragend: (e) => {
+            setIsDraggingPort(false);
+            handleGateDragEnd("port", e);
+          },
+        }}
+      />
+      <Marker
+        ref={starboardMarkerRef}
+        position={[positions.starboard.lat, positions.starboard.lng]}
+        icon={starboardIcon}
+        draggable={isDraggable}
+        eventHandlers={{
+          click: () => onMarkClick?.(mark.id),
+          dragstart: () => setIsDraggingStarboard(true),
+          dragend: (e) => {
+            setIsDraggingStarboard(false);
+            handleGateDragEnd("starboard", e);
+          },
+        }}
+      />
+    </>
   );
 }
 
@@ -683,16 +840,28 @@ export function LeafletMap({
           <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} />
         )}
         
-        {sortedMarks.map((mark) => (
-          <DraggableMarker
-            key={mark.id}
-            mark={mark}
-            isSelected={selectedMarkId === mark.id}
-            isDraggable={!isPlacingMark}
-            onMarkClick={onMarkClick}
-            onMarkDragEnd={onMarkDragEnd}
-          />
-        ))}
+        {sortedMarks.map((mark) => 
+          mark.isGate ? (
+            <GateMarkers
+              key={mark.id}
+              mark={mark}
+              isSelected={selectedMarkId === mark.id}
+              isDraggable={!isPlacingMark}
+              windDirection={weatherData?.windDirection ?? 225}
+              onMarkClick={onMarkClick}
+              onMarkDragEnd={onMarkDragEnd}
+            />
+          ) : (
+            <DraggableMarker
+              key={mark.id}
+              mark={mark}
+              isSelected={selectedMarkId === mark.id}
+              isDraggable={!isPlacingMark}
+              onMarkClick={onMarkClick}
+              onMarkDragEnd={onMarkDragEnd}
+            />
+          )
+        )}
         
         {buoys.map((buoy) => (
           <Marker

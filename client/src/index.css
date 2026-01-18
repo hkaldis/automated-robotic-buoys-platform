@@ -22,10 +22,24 @@
 
 .custom-mark-marker {
   cursor: grab;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
 }
 
 .custom-mark-marker:active {
   cursor: grabbing;
+}
+
+.custom-mark-marker.dragging {
+  cursor: grabbing;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6)) drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
+  z-index: 10000 !important;
+}
+
+.leaflet-marker-dragging .custom-mark-marker {
+  cursor: grabbing;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6)) drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
 }
 
 .leg-label-tooltip {

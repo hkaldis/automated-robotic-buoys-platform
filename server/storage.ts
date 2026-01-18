@@ -236,6 +236,13 @@ export class MemStorage implements IStorage {
       isStartLine: mark.isStartLine ?? false,
       isFinishLine: mark.isFinishLine ?? false,
       isCourseMark: mark.isCourseMark ?? true,
+      isGate: mark.isGate ?? false,
+      gateWidthBoatLengths: mark.gateWidthBoatLengths ?? null,
+      boatLengthMeters: mark.boatLengthMeters ?? null,
+      gatePartnerId: mark.gatePartnerId ?? null,
+      gateSide: mark.gateSide ?? null,
+      gatePortBuoyId: mark.gatePortBuoyId ?? null,
+      gateStarboardBuoyId: mark.gateStarboardBuoyId ?? null,
     };
     this.marks.set(id, newMark);
     return newMark;

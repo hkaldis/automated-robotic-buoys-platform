@@ -52,7 +52,28 @@ export function SetupPanel({
   const hasStartLine = startLineMarks.length >= 2;
   const hasCourseMarks = courseMarks.length >= 1;
   const hasFinishLine = finishLineMarks.length >= 2;
-  const allAssigned = marks.length > 0 && marks.every(m => m.assignedBuoyId);
+  
+  // Check if all buoys are assigned (gates need 2 buoys, regular marks need 1)
+  const allAssigned = marks.length > 0 && marks.every(m => {
+    if (m.isGate) {
+      return m.gatePortBuoyId && m.gateStarboardBuoyId;
+    }
+    return m.assignedBuoyId;
+  });
+  
+  // Count unassigned marks (gates count as 2 if neither assigned, 1 if partially assigned)
+  const getUnassignedCount = () => {
+    let count = 0;
+    for (const m of marks) {
+      if (m.isGate) {
+        if (!m.gatePortBuoyId) count++;
+        if (!m.gateStarboardBuoyId) count++;
+      } else {
+        if (!m.assignedBuoyId) count++;
+      }
+    }
+    return count;
+  };
 
   // Phase order for comparison - NEW ORDER with summary
   const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "summary", "assign_buoys", "ready"];
@@ -828,6 +849,90 @@ export function SetupPanel({
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-2">
                 {marks.map((mark) => {
+                  if (mark.isGate) {
+                    const portBuoy = buoys.find(b => b.id === mark.gatePortBuoyId);
+                    const starboardBuoy = buoys.find(b => b.id === mark.gateStarboardBuoyId);
+                    const bothAssigned = portBuoy && starboardBuoy;
+                    const partialAssigned = portBuoy || starboardBuoy;
+                    
+                    return (
+                      <div
+                        key={mark.id}
+                        className={cn(
+                          "w-full p-4 rounded-xl space-y-3",
+                          bothAssigned ? "bg-green-50 dark:bg-green-900/20" : 
+                          partialAssigned ? "bg-amber-50 dark:bg-amber-900/20" : "bg-muted/50"
+                        )}
+                        data-testid={`gate-assign-${mark.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full flex items-center justify-center",
+                            bothAssigned ? "bg-green-500 text-white" : 
+                            partialAssigned ? "bg-amber-500 text-white" : "bg-muted-foreground/20"
+                          )}>
+                            {bothAssigned ? <Check className="w-5 h-5" /> : <Anchor className="w-5 h-5" />}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-lg">{mark.name}</p>
+                            <p className="text-xs text-orange-600">Gate (2 buoys required)</p>
+                          </div>
+                          <div className="flex gap-1">
+                            {mark.isStartLine && <Badge className="bg-green-500">S</Badge>}
+                            {mark.isFinishLine && <Badge className="bg-blue-500">F</Badge>}
+                            <Badge className="bg-orange-500">Gate</Badge>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => onMarkSelect?.(`${mark.id}:port`)}
+                            className={cn(
+                              "flex items-center gap-2 p-3 rounded-lg text-left hover-elevate",
+                              portBuoy ? "bg-green-100 dark:bg-green-900/30" : "bg-background"
+                            )}
+                            data-testid={`button-assign-gate-port-${mark.id}`}
+                          >
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                              portBuoy ? "bg-green-500 text-white" : "bg-muted-foreground/20"
+                            )}>
+                              P
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">Port</p>
+                              <p className={cn("text-sm font-medium truncate", portBuoy ? "text-green-600" : "text-amber-600")}>
+                                {portBuoy ? portBuoy.name : "Tap to assign"}
+                              </p>
+                            </div>
+                          </button>
+                          
+                          <button
+                            onClick={() => onMarkSelect?.(`${mark.id}:starboard`)}
+                            className={cn(
+                              "flex items-center gap-2 p-3 rounded-lg text-left hover-elevate",
+                              starboardBuoy ? "bg-green-100 dark:bg-green-900/30" : "bg-background"
+                            )}
+                            data-testid={`button-assign-gate-starboard-${mark.id}`}
+                          >
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                              starboardBuoy ? "bg-green-500 text-white" : "bg-muted-foreground/20"
+                            )}>
+                              S
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-muted-foreground">Starboard</p>
+                              <p className={cn("text-sm font-medium truncate", starboardBuoy ? "text-green-600" : "text-amber-600")}>
+                                {starboardBuoy ? starboardBuoy.name : "Tap to assign"}
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
                   const assignedBuoy = buoys.find(b => b.id === mark.assignedBuoyId);
                   return (
                     <button
@@ -897,7 +1002,7 @@ export function SetupPanel({
               </div>
               {!allAssigned && (
                 <p className="text-center text-sm text-muted-foreground">
-                  {marks.filter(m => !m.assignedBuoyId).length} marks still need buoys
+                  {getUnassignedCount()} buoy assignments remaining
                 </p>
               )}
             </div>

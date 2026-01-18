@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Move } from "lucide-react";
+import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Move, Columns2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,14 @@ export function MarkEditPanel({
   const [assignedBuoyId, setAssignedBuoyId] = useState<string>(mark.assignedBuoyId || "");
   const [isStartLine, setIsStartLine] = useState(mark.isStartLine ?? false);
   const [isFinishLine, setIsFinishLine] = useState(mark.isFinishLine ?? false);
+  const [isGate, setIsGate] = useState(mark.isGate ?? false);
+  const [gateWidthBoatLengths, setGateWidthBoatLengths] = useState(mark.gateWidthBoatLengths ?? 8);
+  const [boatLengthMeters, setBoatLengthMeters] = useState(mark.boatLengthMeters ?? 6);
+  const [gatePortBuoyId, setGatePortBuoyId] = useState<string>(mark.gatePortBuoyId || "");
+  const [gateStarboardBuoyId, setGateStarboardBuoyId] = useState<string>(mark.gateStarboardBuoyId || "");
   const [hasChanges, setHasChanges] = useState(false);
+
+  const gateWidthMeters = gateWidthBoatLengths * boatLengthMeters;
 
   useEffect(() => {
     const changed = 
@@ -62,14 +69,26 @@ export function MarkEditPanel({
       lng !== mark.lng.toString() ||
       assignedBuoyId !== (mark.assignedBuoyId || "") ||
       isStartLine !== (mark.isStartLine ?? false) ||
-      isFinishLine !== (mark.isFinishLine ?? false);
+      isFinishLine !== (mark.isFinishLine ?? false) ||
+      isGate !== (mark.isGate ?? false) ||
+      gateWidthBoatLengths !== (mark.gateWidthBoatLengths ?? 8) ||
+      boatLengthMeters !== (mark.boatLengthMeters ?? 6) ||
+      gatePortBuoyId !== (mark.gatePortBuoyId || "") ||
+      gateStarboardBuoyId !== (mark.gateStarboardBuoyId || "");
     setHasChanges(changed);
-  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, mark]);
+  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, mark]);
 
   useEffect(() => {
     setLat(mark.lat.toString());
     setLng(mark.lng.toString());
   }, [mark.lat, mark.lng]);
+
+  // Clear assignedBuoyId when isGate is toggled on
+  useEffect(() => {
+    if (isGate) {
+      setAssignedBuoyId("");
+    }
+  }, [isGate]);
 
   const handleSave = () => {
     const latNum = parseFloat(lat);
@@ -84,9 +103,14 @@ export function MarkEditPanel({
       role,
       lat: latNum,
       lng: lngNum,
-      assignedBuoyId: assignedBuoyId || null,
+      assignedBuoyId: isGate ? null : (assignedBuoyId || null),
       isStartLine,
       isFinishLine,
+      isGate,
+      gateWidthBoatLengths: isGate ? gateWidthBoatLengths : null,
+      boatLengthMeters: isGate ? boatLengthMeters : null,
+      gatePortBuoyId: isGate ? (gatePortBuoyId || null) : null,
+      gateStarboardBuoyId: isGate ? (gateStarboardBuoyId || null) : null,
     });
   };
 
@@ -177,6 +201,77 @@ export function MarkEditPanel({
               <p className="text-xs text-muted-foreground">
                 This mark is used for both start and finish lines.
               </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-muted/30">
+          <CardContent className="p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Columns2 className="w-4 h-4 text-orange-500" />
+                <Label htmlFor="gate-toggle" className="text-sm font-medium cursor-pointer">
+                  Gate (Two Buoys)
+                </Label>
+              </div>
+              <Switch
+                id="gate-toggle"
+                checked={isGate}
+                onCheckedChange={setIsGate}
+                data-testid="switch-gate"
+              />
+            </div>
+            
+            {isGate && (
+              <div className="space-y-3 pt-2 border-t border-border/50">
+                <p className="text-xs text-muted-foreground">
+                  A gate consists of two buoys. Boats sail between them and may round either.
+                </p>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="gate-width" className="text-xs text-muted-foreground">
+                      Width (boat lengths)
+                    </Label>
+                    <Input
+                      id="gate-width"
+                      type="number"
+                      min="4"
+                      max="20"
+                      step="1"
+                      value={gateWidthBoatLengths}
+                      onChange={(e) => setGateWidthBoatLengths(parseFloat(e.target.value) || 8)}
+                      className="text-sm"
+                      data-testid="input-gate-width"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="boat-length" className="text-xs text-muted-foreground">
+                      Boat length (m)
+                    </Label>
+                    <Input
+                      id="boat-length"
+                      type="number"
+                      min="2"
+                      max="20"
+                      step="0.5"
+                      value={boatLengthMeters}
+                      onChange={(e) => setBoatLengthMeters(parseFloat(e.target.value) || 6)}
+                      className="text-sm"
+                      data-testid="input-boat-length"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between bg-background/50 rounded-md px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Gate Width</span>
+                  <span className="text-sm font-medium">{gateWidthMeters.toFixed(0)}m</span>
+                </div>
+                
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Recommended: 8-10 boat lengths for safe racing
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -273,30 +368,109 @@ export function MarkEditPanel({
 
         <Separator />
 
-        <div className="space-y-2">
-          <Label htmlFor="assigned-buoy">Assigned Buoy</Label>
-          <Select value={assignedBuoyId || "unassigned"} onValueChange={(v) => setAssignedBuoyId(v === "unassigned" ? "" : v)}>
-            <SelectTrigger id="assigned-buoy" data-testid="select-assigned-buoy">
-              <SelectValue placeholder="Select buoy" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-              {availableBuoys.map((buoy) => (
-                <SelectItem key={buoy.id} value={buoy.id}>
-                  {buoy.name} ({buoy.battery}%)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {assignedBuoy && (
-            <div className="flex items-center gap-2 mt-2">
-              <Badge variant="secondary">{assignedBuoy.name}</Badge>
-              <span className="text-xs text-muted-foreground">
-                Battery: {assignedBuoy.battery}% | Signal: {assignedBuoy.signalStrength}%
-              </span>
+        {isGate ? (
+          <div className="space-y-3">
+            <Label className="flex items-center gap-2">
+              <Columns2 className="w-4 h-4 text-orange-500" />
+              Gate Buoy Assignments
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Gates require two buoys - one for port (red) and one for starboard (green).
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="gate-port-buoy" className="text-xs flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  Port Buoy
+                </Label>
+                <Select 
+                  value={gatePortBuoyId || "unassigned"} 
+                  onValueChange={(v) => setGatePortBuoyId(v === "unassigned" ? "" : v)}
+                >
+                  <SelectTrigger id="gate-port-buoy" data-testid="select-gate-port-buoy">
+                    <SelectValue placeholder="Select buoy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {availableBuoys
+                      .filter(b => b.id !== gateStarboardBuoyId)
+                      .map((buoy) => (
+                        <SelectItem key={buoy.id} value={buoy.id}>
+                          {buoy.name} ({buoy.battery}%)
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-1">
+                <Label htmlFor="gate-starboard-buoy" className="text-xs flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  Starboard Buoy
+                </Label>
+                <Select 
+                  value={gateStarboardBuoyId || "unassigned"} 
+                  onValueChange={(v) => setGateStarboardBuoyId(v === "unassigned" ? "" : v)}
+                >
+                  <SelectTrigger id="gate-starboard-buoy" data-testid="select-gate-starboard-buoy">
+                    <SelectValue placeholder="Select buoy" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {availableBuoys
+                      .filter(b => b.id !== gatePortBuoyId)
+                      .map((buoy) => (
+                        <SelectItem key={buoy.id} value={buoy.id}>
+                          {buoy.name} ({buoy.battery}%)
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          )}
-        </div>
+            
+            {(gatePortBuoyId || gateStarboardBuoyId) && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {gatePortBuoyId && (
+                  <Badge className="bg-red-500/10 text-red-600 border-red-500/30">
+                    Port: {buoys.find(b => b.id === gatePortBuoyId)?.name}
+                  </Badge>
+                )}
+                {gateStarboardBuoyId && (
+                  <Badge className="bg-green-500/10 text-green-600 border-green-500/30">
+                    Starboard: {buoys.find(b => b.id === gateStarboardBuoyId)?.name}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="assigned-buoy">Assigned Buoy</Label>
+            <Select value={assignedBuoyId || "unassigned"} onValueChange={(v) => setAssignedBuoyId(v === "unassigned" ? "" : v)}>
+              <SelectTrigger id="assigned-buoy" data-testid="select-assigned-buoy">
+                <SelectValue placeholder="Select buoy" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {availableBuoys.map((buoy) => (
+                  <SelectItem key={buoy.id} value={buoy.id}>
+                    {buoy.name} ({buoy.battery}%)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {assignedBuoy && (
+              <div className="flex items-center gap-2 mt-2">
+                <Badge variant="secondary">{assignedBuoy.name}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  Battery: {assignedBuoy.battery}% | Signal: {assignedBuoy.signalStrength}%
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-4 border-t space-y-3">

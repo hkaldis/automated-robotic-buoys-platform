@@ -338,8 +338,48 @@ export default function RaceControl() {
       description: "All buoys are moving to their assigned positions.",
     });
     
+    const windDir = activeWeatherData?.windDirection ?? 225;
+    
     marks.forEach((mark) => {
-      if (mark.assignedBuoyId) {
+      // Handle gate marks with two buoys
+      if (mark.isGate) {
+        const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+        const halfWidthDeg = (gateWidth / 2) / 111000;
+        const perpAngle = (windDir + 90) % 360;
+        const perpRad = perpAngle * Math.PI / 180;
+        
+        const portLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
+        const portLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+        const starboardLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
+        const starboardLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+        
+        if (mark.gatePortBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.gatePortBuoyId, "move_to_target", portLat, portLng);
+          } else {
+            buoyCommand.mutate({
+              id: mark.gatePortBuoyId,
+              command: "move_to_target",
+              targetLat: portLat,
+              targetLng: portLng,
+            });
+          }
+        }
+        
+        if (mark.gateStarboardBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.gateStarboardBuoyId, "move_to_target", starboardLat, starboardLng);
+          } else {
+            buoyCommand.mutate({
+              id: mark.gateStarboardBuoyId,
+              command: "move_to_target",
+              targetLat: starboardLat,
+              targetLng: starboardLng,
+            });
+          }
+        }
+      } else if (mark.assignedBuoyId) {
+        // Handle regular marks with single buoy
         if (demoMode) {
           sendDemoCommand(mark.assignedBuoyId, "move_to_target", mark.lat, mark.lng);
         } else {
@@ -352,7 +392,7 @@ export default function RaceControl() {
         }
       }
     });
-  }, [marks, demoMode, sendDemoCommand, buoyCommand, toast]);
+  }, [marks, demoMode, sendDemoCommand, buoyCommand, toast, activeWeatherData]);
 
   const handleRotateCourse = useCallback(() => {
     toast({
@@ -397,13 +437,90 @@ export default function RaceControl() {
     setSelectedBuoyId(null);
   }, [repositioningMarkId]);
 
+  // Handle mark selection from SetupPanel (supports gate slot format: "markId:port" or "markId:starboard")
+  const handleMarkSelectFromPanel = useCallback((markIdOrSlot: string | null) => {
+    if (!markIdOrSlot) {
+      setSelectedMarkId(null);
+      return;
+    }
+    
+    // Parse gate slot selection format (e.g., "markId:port") to get just the mark ID
+    let markId = markIdOrSlot;
+    if (markIdOrSlot.includes(":port")) {
+      markId = markIdOrSlot.replace(":port", "");
+    } else if (markIdOrSlot.includes(":starboard")) {
+      markId = markIdOrSlot.replace(":starboard", "");
+    }
+    
+    setSelectedMarkId(markId);
+    setSelectedBuoyId(null);
+  }, []);
+
   const handleSaveMark = useCallback((id: string, data: Partial<Mark>) => {
     const mark = marks.find(m => m.id === id);
     const previousBuoyId = mark?.assignedBuoyId;
     const newBuoyId = data.assignedBuoyId;
     
+    // Handle gate buoy assignments
+    const newGatePortBuoyId = data.gatePortBuoyId;
+    const newGateStarboardBuoyId = data.gateStarboardBuoyId;
+    const previousGatePortBuoyId = mark?.gatePortBuoyId;
+    const previousGateStarboardBuoyId = mark?.gateStarboardBuoyId;
+    
     updateMark.mutate({ id, data }, {
       onSuccess: () => {
+        // For gates, calculate port and starboard positions
+        if (mark?.isGate) {
+          const windDir = activeWeatherData?.windDirection ?? 225;
+          const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+          const halfWidthDeg = (gateWidth / 2) / 111000;
+          const perpAngle = (windDir + 90) % 360;
+          const perpRad = perpAngle * Math.PI / 180;
+          
+          const portLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
+          const portLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+          const starboardLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
+          const starboardLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+          
+          // Dispatch port buoy
+          if (newGatePortBuoyId && newGatePortBuoyId !== previousGatePortBuoyId) {
+            if (demoMode) {
+              sendDemoCommand(newGatePortBuoyId, "move_to_target", portLat, portLng);
+            } else {
+              buoyCommand.mutate({
+                id: newGatePortBuoyId,
+                command: "move_to_target",
+                targetLat: portLat,
+                targetLng: portLng,
+              });
+            }
+            toast({
+              title: "Port Buoy Dispatched",
+              description: `Buoy is moving to ${mark.name} (Port).`,
+            });
+          }
+          
+          // Dispatch starboard buoy
+          if (newGateStarboardBuoyId && newGateStarboardBuoyId !== previousGateStarboardBuoyId) {
+            if (demoMode) {
+              sendDemoCommand(newGateStarboardBuoyId, "move_to_target", starboardLat, starboardLng);
+            } else {
+              buoyCommand.mutate({
+                id: newGateStarboardBuoyId,
+                command: "move_to_target",
+                targetLat: starboardLat,
+                targetLng: starboardLng,
+              });
+            }
+            toast({
+              title: "Starboard Buoy Dispatched",
+              description: `Buoy is moving to ${mark.name} (Starboard).`,
+            });
+          }
+          
+          return;
+        }
+        
         // If a buoy was assigned to this mark, send it to the mark position
         if (newBuoyId && newBuoyId !== previousBuoyId && mark) {
           const targetLat = data.lat ?? mark.lat;
@@ -435,7 +552,7 @@ export default function RaceControl() {
         }
       },
     });
-  }, [updateMark, marks, demoMode, sendDemoCommand, buoyCommand, toast]);
+  }, [updateMark, marks, demoMode, sendDemoCommand, buoyCommand, toast, activeWeatherData]);
 
   const handleDeleteMark = useCallback((id: string) => {
     deleteMark.mutate(id, {
@@ -891,7 +1008,7 @@ export default function RaceControl() {
               buoys={buoys}
               marks={marks}
               savedCourses={courses}
-              onMarkSelect={setSelectedMarkId}
+              onMarkSelect={handleMarkSelectFromPanel}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}
               onSaveMark={handleSaveMark}

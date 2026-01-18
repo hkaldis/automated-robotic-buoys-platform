@@ -96,6 +96,13 @@ export const marks = pgTable("marks", {
   isStartLine: boolean("is_start_line").default(false),
   isFinishLine: boolean("is_finish_line").default(false),
   isCourseMark: boolean("is_course_mark").default(true),
+  isGate: boolean("is_gate").default(false),
+  gateWidthBoatLengths: real("gate_width_boat_lengths").default(8),
+  boatLengthMeters: real("boat_length_meters").default(6),
+  gatePartnerId: varchar("gate_partner_id"),
+  gateSide: text("gate_side"),
+  gatePortBuoyId: varchar("gate_port_buoy_id"),
+  gateStarboardBuoyId: varchar("gate_starboard_buoy_id"),
 });
 
 export const buoys = pgTable("buoys", {
@@ -169,6 +176,13 @@ export const insertMarkSchema = createInsertSchema(marks).pick({
   isStartLine: true,
   isFinishLine: true,
   isCourseMark: true,
+  isGate: true,
+  gateWidthBoatLengths: true,
+  boatLengthMeters: true,
+  gatePartnerId: true,
+  gateSide: true,
+  gatePortBuoyId: true,
+  gateStarboardBuoyId: true,
 });
 
 export const insertBuoySchema = createInsertSchema(buoys).pick({
