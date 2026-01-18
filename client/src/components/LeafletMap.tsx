@@ -26,6 +26,8 @@ interface LeafletMapProps {
   onMarkDragEnd?: (markId: string, lat: number, lng: number) => void;
   className?: string;
   isPlacingMark?: boolean;
+  isContinuousPlacement?: boolean;
+  onStopPlacement?: () => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -207,6 +209,8 @@ export function LeafletMap({
   onMarkDragEnd,
   className,
   isPlacingMark,
+  isContinuousPlacement,
+  onStopPlacement,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -358,8 +362,22 @@ export function LeafletMap({
 
       {isPlacingMark && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]">
-          <Card className="px-4 py-2 bg-primary text-primary-foreground">
-            <span className="text-sm font-medium">Click on the map to place the mark</span>
+          <Card className="px-4 py-2 bg-primary text-primary-foreground flex items-center gap-3">
+            <span className="text-sm font-medium">
+              {isContinuousPlacement 
+                ? "Click to add marks. Click 'Done' when finished."
+                : "Click on the map to place the mark"}
+            </span>
+            {isContinuousPlacement && onStopPlacement && (
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={onStopPlacement}
+                data-testid="button-stop-placement"
+              >
+                Done
+              </Button>
+            )}
           </Card>
         </div>
       )}

@@ -218,19 +218,26 @@ export default function RaceControl() {
   }, [currentCourse, marks.length, createMark, toast]);
 
   const handlePlaceMarkOnMap = useCallback((data: { name: string; role: MarkRole }) => {
+    if (repositioningMarkId) {
+      setRepositioningMarkId(null);
+    }
     setPendingMarkData(data);
     setIsPlacingMark(true);
     toast({
       title: "Place Mark",
       description: "Click on the map to place the mark.",
     });
-  }, [toast]);
+  }, [repositioningMarkId, toast]);
+
+  const [continuousPlacement, setContinuousPlacement] = useState(false);
+  const [markCounter, setMarkCounter] = useState(1);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (isPlacingMark && pendingMarkData && currentCourse) {
+      const markName = continuousPlacement ? `Mark ${markCounter}` : pendingMarkData.name;
       createMark.mutate({
         courseId: currentCourse.id,
-        name: pendingMarkData.name,
+        name: markName,
         role: pendingMarkData.role,
         order: marks.length,
         lat,
@@ -239,10 +246,14 @@ export default function RaceControl() {
         onSuccess: () => {
           toast({
             title: "Mark Created",
-            description: `${pendingMarkData.name} has been placed on the map.`,
+            description: `${markName} has been placed on the map.`,
           });
-          setIsPlacingMark(false);
-          setPendingMarkData(null);
+          if (continuousPlacement) {
+            setMarkCounter(prev => prev + 1);
+          } else {
+            setIsPlacingMark(false);
+            setPendingMarkData(null);
+          }
         },
       });
     } else if (repositioningMarkId) {
@@ -259,19 +270,32 @@ export default function RaceControl() {
         },
       });
     }
-  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast]);
+  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter]);
+
+  const handleStopPlacement = useCallback(() => {
+    setIsPlacingMark(false);
+    setPendingMarkData(null);
+    setContinuousPlacement(false);
+    setMarkCounter(1);
+  }, []);
 
   const handleRepositionMark = useCallback((markId: string) => {
     if (repositioningMarkId === markId) {
       setRepositioningMarkId(null);
     } else {
+      if (isPlacingMark) {
+        setIsPlacingMark(false);
+        setPendingMarkData(null);
+        setContinuousPlacement(false);
+        setMarkCounter(1);
+      }
       setRepositioningMarkId(markId);
       toast({
         title: "Reposition Mark",
         description: "Click on the map to set the new position.",
       });
     }
-  }, [repositioningMarkId, toast]);
+  }, [repositioningMarkId, isPlacingMark, toast]);
 
   const handleUpdateCourse = useCallback((data: Partial<Course>) => {
     if (!currentCourse) return;
@@ -332,10 +356,12 @@ export default function RaceControl() {
 
       if (data.courseShape === "custom") {
         setIsPlacingMark(true);
-        setPendingMarkData({ name: "Mark 1", role: "other" });
+        setPendingMarkData({ name: "Mark 1", role: "turning_mark" });
+        setContinuousPlacement(true);
+        setMarkCounter(1);
         toast({
           title: "Custom Course",
-          description: "Click on the map to add marks to your course.",
+          description: "Click on the map to add marks. Press 'Done' when finished.",
         });
       } else {
         toast({
@@ -427,6 +453,8 @@ export default function RaceControl() {
               updateMark.mutate({ id: markId, data: { lat, lng } });
             }}
             isPlacingMark={isPlacingMark || !!repositioningMarkId}
+            isContinuousPlacement={continuousPlacement}
+            onStopPlacement={handleStopPlacement}
           />
         </main>
 

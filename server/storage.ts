@@ -59,12 +59,14 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
+    const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
+    
     const clubId = randomUUID();
     this.sailClubs.set(clubId, {
       id: clubId,
-      name: "Oakland Yacht Club",
+      name: "Mikrolimano Yacht Club",
       logoUrl: null,
-      location: { lat: 37.8044, lng: -122.2712 },
+      location: MIKROLIMANO_CENTER,
     });
 
     const courseId = randomUUID();
@@ -72,8 +74,8 @@ export class MemStorage implements IStorage {
       id: courseId,
       name: "Triangle Course",
       shape: "triangle",
-      centerLat: 37.8044,
-      centerLng: -122.2712,
+      centerLat: MIKROLIMANO_CENTER.lat,
+      centerLng: MIKROLIMANO_CENTER.lng,
       rotation: 0,
       scale: 1,
     });
@@ -91,11 +93,13 @@ export class MemStorage implements IStorage {
     });
 
     const buoyData = [
-      { name: "Start Buoy", state: "holding_position", lat: 37.8044, lng: -122.2712, battery: 95, windSpeed: 12.5, windDirection: 225 },
-      { name: "Pin End", state: "holding_position", lat: 37.8034, lng: -122.2702, battery: 87, windSpeed: 12.2, windDirection: 223 },
-      { name: "Mark 1", state: "moving_to_target", lat: 37.8064, lng: -122.2732, battery: 72, windSpeed: 13.1, windDirection: 227, targetLat: 37.8084, targetLng: -122.2712, eta: 180 },
-      { name: "Mark 2", state: "idle", lat: 37.8024, lng: -122.2752, battery: 65, windSpeed: 12.8, windDirection: 224 },
-      { name: "Mark 3", state: "maintenance", lat: 37.8014, lng: -122.2692, battery: 23, windSpeed: null, windDirection: null },
+      { name: "Alpha", state: "idle", lat: MIKROLIMANO_CENTER.lat + 0.001, lng: MIKROLIMANO_CENTER.lng + 0.002, battery: 95, windSpeed: 12.5, windDirection: 225 },
+      { name: "Bravo", state: "idle", lat: MIKROLIMANO_CENTER.lat - 0.001, lng: MIKROLIMANO_CENTER.lng + 0.001, battery: 87, windSpeed: 12.2, windDirection: 223 },
+      { name: "Charlie", state: "idle", lat: MIKROLIMANO_CENTER.lat + 0.002, lng: MIKROLIMANO_CENTER.lng - 0.001, battery: 72, windSpeed: 13.1, windDirection: 227 },
+      { name: "Delta", state: "idle", lat: MIKROLIMANO_CENTER.lat - 0.002, lng: MIKROLIMANO_CENTER.lng - 0.002, battery: 65, windSpeed: 12.8, windDirection: 224 },
+      { name: "Echo", state: "idle", lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.003, battery: 91, windSpeed: 12.4, windDirection: 226 },
+      { name: "Foxtrot", state: "idle", lat: MIKROLIMANO_CENTER.lat + 0.001, lng: MIKROLIMANO_CENTER.lng + 0.004, battery: 78, windSpeed: 12.6, windDirection: 228 },
+      { name: "Golf", state: "idle", lat: MIKROLIMANO_CENTER.lat + 0.003, lng: MIKROLIMANO_CENTER.lng - 0.002, battery: 83, windSpeed: 12.9, windDirection: 222 },
     ];
 
     buoyData.forEach((data) => {
@@ -103,23 +107,22 @@ export class MemStorage implements IStorage {
       this.buoys.set(id, {
         id,
         sailClubId: clubId,
-        speed: data.state === "moving_to_target" ? 2.5 : 0,
-        signalStrength: data.state === "maintenance" ? 45 : 95,
+        speed: 0,
+        signalStrength: 95,
         currentSpeed: 0.8,
         currentDirection: 180,
+        targetLat: null,
+        targetLng: null,
+        eta: null,
         ...data,
-        targetLat: data.targetLat ?? null,
-        targetLng: data.targetLng ?? null,
-        eta: data.eta ?? null,
       } as Buoy);
     });
 
     const markData = [
-      { name: "Start Boat", role: "start_boat", order: 0, lat: 37.8039, lng: -122.2722 },
-      { name: "Pin", role: "pin", order: 1, lat: 37.8039, lng: -122.2702 },
-      { name: "Windward Mark", role: "turning_mark", order: 2, lat: 37.8074, lng: -122.2712 },
-      { name: "Gate Left", role: "turning_mark", order: 3, lat: 37.8024, lng: -122.2732 },
-      { name: "Gate Right", role: "turning_mark", order: 4, lat: 37.8024, lng: -122.2692 },
+      { name: "Start Boat", role: "start_boat", order: 0, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng - 0.0015 },
+      { name: "Pin End", role: "pin", order: 1, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.0015 },
+      { name: "Windward Mark", role: "windward", order: 2, lat: MIKROLIMANO_CENTER.lat + 0.0045, lng: MIKROLIMANO_CENTER.lng },
+      { name: "Leeward Mark", role: "leeward", order: 3, lat: MIKROLIMANO_CENTER.lat - 0.0015, lng: MIKROLIMANO_CENTER.lng + 0.003 },
     ];
 
     markData.forEach((data, index) => {
