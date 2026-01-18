@@ -18,6 +18,7 @@ interface SetupPanelProps {
   marks: Mark[];
   savedCourses?: Course[];
   roundingSequence?: string[];
+  windDirection?: number;
   onMarkSelect?: (markId: string | null) => void;
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
@@ -37,6 +38,7 @@ export function SetupPanel({
   buoys,
   savedCourses = [],
   roundingSequence = [],
+  windDirection,
   onMarkSelect,
   onDeployCourse,
   onSaveMark,
@@ -236,8 +238,18 @@ export function SetupPanel({
       return mark ? { lat: mark.lat, lng: mark.lng } : null;
     };
 
+    // Bearing calculation
+    const calculateBearing = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const lat1Rad = lat1 * Math.PI / 180;
+      const lat2Rad = lat2 * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const y = Math.sin(dLng) * Math.cos(lat2Rad);
+      const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+      return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360;
+    };
+
     // Calculate legs based on sequence
-    const legs: { from: string; to: string; distance: number }[] = [];
+    const legs: { from: string; to: string; distance: number; bearing: number }[] = [];
     let totalDistance = 0;
     
     if (roundingSequence.length >= 2) {
@@ -246,10 +258,12 @@ export function SetupPanel({
         const toPos = getPosition(roundingSequence[i + 1]);
         if (fromPos && toPos) {
           const distance = haversine(fromPos.lat, fromPos.lng, toPos.lat, toPos.lng);
+          const bearing = calculateBearing(fromPos.lat, fromPos.lng, toPos.lat, toPos.lng);
           legs.push({
             from: roundingSequence[i],
             to: roundingSequence[i + 1],
-            distance
+            distance,
+            bearing
           });
           totalDistance += distance;
         }
@@ -898,21 +912,42 @@ export function SetupPanel({
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      {courseStats.legs.map((leg, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
-                          data-testid={`leg-${index}`}
-                        >
-                          <div className="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center font-bold">
-                            {index + 1}
+                      {courseStats.legs.map((leg, index) => {
+                        // Calculate wind-relative bearing if wind data available
+                        let windRelative: number | null = null;
+                        if (windDirection !== undefined) {
+                          let rel = leg.bearing - windDirection;
+                          while (rel > 180) rel -= 360;
+                          while (rel < -180) rel += 360;
+                          windRelative = rel;
+                        }
+                        
+                        return (
+                          <div
+                            key={index}
+                            className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
+                            data-testid={`leg-${index}`}
+                          >
+                            <div className="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center font-bold">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm">
+                                {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
+                              </div>
+                              <div className="text-xs text-muted-foreground flex gap-2">
+                                <span>{leg.bearing.toFixed(0)}°</span>
+                                {windRelative !== null && (
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    ({windRelative >= 0 ? "+" : ""}{windRelative.toFixed(0)}° to wind)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
                           </div>
-                          <span className="flex-1 text-sm">
-                            {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
-                          </span>
-                          <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </CardContent>
                   </Card>
                 )}

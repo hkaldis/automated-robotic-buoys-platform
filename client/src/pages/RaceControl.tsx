@@ -1033,6 +1033,7 @@ export default function RaceControl() {
               marks={marks}
               savedCourses={courses}
               roundingSequence={roundingSequence}
+              windDirection={weatherData?.windDirection}
               onMarkSelect={handleMarkSelectFromPanel}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}
