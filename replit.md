@@ -127,7 +127,13 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 
 ## Recent Changes
 
-### January 17, 2026 (Latest)
+### January 18, 2026 (Latest)
+- **Fixed Demo Location Bug**: Corrected all seeded data (buoys, marks, course center) to use Mikrolimano, Greece coordinates instead of previously hardcoded San Francisco values
+- **Continuous Mark Placement for Custom Courses**: Users can now click repeatedly on the map to add marks when creating custom courses, with auto-incrementing names (Mark 1, Mark 2, etc.). A "Done" button exits placement mode.
+- **State Guard for Conflicting Modes**: Entering mark placement mode automatically cancels repositioning mode and vice versa, preventing conflicting click behaviors
+- **Clean Buoy Seeding**: Removed undefined property references (targetLat/targetLng/eta) from buoy initialization for cleaner data
+
+### January 17, 2026
 - **Extended Mark Roles**: Added windward, leeward, gate, offset, other roles to schema for comprehensive course design
 - **Bulk Mark Delete**: Added DELETE /api/courses/:id/marks endpoint to clear all marks from a course
 - **Predefined Shape Marks**: New race creation now generates appropriate marks based on selected shape:
