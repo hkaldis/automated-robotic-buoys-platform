@@ -276,6 +276,7 @@ export default function RaceControl() {
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand } = useDemoMode();
@@ -551,6 +552,82 @@ export default function RaceControl() {
     });
   }, [marks, updateMark]);
 
+  // Save course with a name
+  const handleSaveCourse = useCallback(async (name: string) => {
+    if (!currentCourse) return;
+    await updateCourse.mutateAsync({ id: currentCourse.id, data: { name } });
+    toast({
+      title: "Course Saved",
+      description: `Race course "${name}" has been saved.`,
+    });
+  }, [currentCourse, updateCourse, toast]);
+
+  // Load a saved course
+  const handleLoadCourse = useCallback((courseId: string) => {
+    setActiveCourseId(courseId);
+    toast({
+      title: "Course Loaded",
+      description: "Race course has been loaded.",
+    });
+  }, [toast]);
+
+  // Transform course (scale, rotate, move)
+  const handleTransformCourse = useCallback((transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
+    if (marks.length === 0) return;
+
+    // Calculate course center
+    const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+    const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
+
+    marks.forEach(mark => {
+      let newLat = mark.lat;
+      let newLng = mark.lng;
+
+      // Apply scaling (relative to center)
+      if (transform.scale) {
+        const dLat = mark.lat - centerLat;
+        const dLng = mark.lng - centerLng;
+        newLat = centerLat + dLat * transform.scale;
+        newLng = centerLng + dLng * transform.scale;
+      }
+
+      // Apply rotation (relative to center)
+      if (transform.rotation) {
+        const dLat = newLat - centerLat;
+        const dLng = newLng - centerLng;
+        const angle = transform.rotation * Math.PI / 180;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const rotatedDLat = dLat * cosA - dLng * sinA;
+        const rotatedDLng = dLat * sinA + dLng * cosA;
+        newLat = centerLat + rotatedDLat;
+        newLng = centerLng + rotatedDLng;
+      }
+
+      // Apply translation
+      if (transform.translateLat) {
+        newLat += transform.translateLat;
+      }
+      if (transform.translateLng) {
+        newLng += transform.translateLng;
+      }
+
+      // Update mark position
+      updateMark.mutate({ id: mark.id, data: { lat: newLat, lng: newLng } });
+    });
+
+    toast({
+      title: "Course Adjusted",
+      description: transform.scale ? (transform.scale > 1 ? "Course enlarged." : "Course reduced.") :
+                   transform.rotation ? "Course rotated." : "Course moved.",
+    });
+  }, [marks, updateMark, toast]);
+
+  // Handle finish line preview callback
+  const handleFinishLinePreview = useCallback((selectedMarkIds: Set<string>) => {
+    setFinishLinePreviewIds(selectedMarkIds);
+  }, []);
+
   const handleCreateRace = useCallback(async (data: {
     name: string;
     type: EventType;
@@ -708,6 +785,7 @@ export default function RaceControl() {
             isPlacingMark={isPlacingMark || !!repositioningMarkId}
             isContinuousPlacement={continuousPlacement}
             onStopPlacement={handleStopPlacement}
+            finishLinePreviewIds={finishLinePreviewIds}
           />
         </main>
 
@@ -733,12 +811,17 @@ export default function RaceControl() {
               course={currentCourse}
               buoys={buoys}
               marks={marks}
+              savedCourses={courses}
               onMarkSelect={setSelectedMarkId}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}
               onSaveMark={handleSaveMark}
               onAddMark={handleAddMark}
               onPlaceMarkOnMap={handlePlaceMarkOnMap}
+              onSaveCourse={handleSaveCourse}
+              onLoadCourse={handleLoadCourse}
+              onTransformCourse={handleTransformCourse}
+              onFinishLinePreview={handleFinishLinePreview}
             />
           )}
         </aside>

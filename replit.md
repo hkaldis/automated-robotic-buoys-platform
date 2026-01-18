@@ -48,13 +48,23 @@ Key UI components include:
 - `WindIndicator`: Visual compass for wind direction.
 
 ### Setup Workflow Phases
-The `SetupPanel` orchestrates a 4-phase course creation process:
+The `SetupPanel` orchestrates a 5-phase course creation process:
 1.  **Set Start Line**: Placing Pin End (Port) and Committee Boat (Starboard) marks using dedicated buttons.
 2.  **Add Course Marks**: Adding course marks (M1, M2, M3, etc.) to define the racing route.
-3.  **Set Finish Line**: Selecting any 2 marks for the finish line, with flexibility to reuse start line marks (e.g., Pin End + Committee Boat for same start/finish).
-4.  **Assign Buoys**: Assigning physical robotic buoys to each mark.
+3.  **Set Finish Line**: Selecting any 2 marks for the finish line, with flexibility to reuse start line marks. During selection, a dashed red preview line appears on the map between selected marks before confirmation.
+4.  **Course Summary (Review)**: Displays course statistics (total distance, estimated race time, line lengths) and provides course transformation tools.
+5.  **Assign Buoys**: Assigning physical robotic buoys to each mark.
 
 The system ensures robust state management, auto-correcting the phase based on data changes and preventing invalid progress. Phase gating requires completing start line before adding course marks, and course marks before setting finish line. Large, touch-friendly controls (48px minimum) are integrated for tablet use.
+
+### Course Transformation Features
+The Summary phase provides tools to adjust the entire course layout:
+- **Scale**: Enlarge (1.1x) or reduce (0.9x) the course size relative to its center
+- **Rotate**: Rotate the course by 15° increments
+- **Move**: Directional pad (N/S/E/W) to translate the entire course
+
+### Save/Load Course
+Courses can be saved with custom names for later reuse. The Save Course dialog allows naming and persisting course configurations, while Load Course displays available saved courses for selection.
 
 ### Distance/Bearing Calculations
 Course distances and bearings are calculated using line centers:

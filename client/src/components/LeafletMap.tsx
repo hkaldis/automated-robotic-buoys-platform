@@ -28,6 +28,7 @@ interface LeafletMapProps {
   isPlacingMark?: boolean;
   isContinuousPlacement?: boolean;
   onStopPlacement?: () => void;
+  finishLinePreviewIds?: Set<string>;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -350,6 +351,7 @@ export function LeafletMap({
   isPlacingMark,
   isContinuousPlacement,
   onStopPlacement,
+  finishLinePreviewIds,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -407,6 +409,14 @@ export function LeafletMap({
     if (isFinishSameAsStart) return [];
     return finishLineMarks.map(m => [m.lat, m.lng] as [number, number]);
   }, [finishLineMarks, startLineMarks]);
+
+  // Finish line PREVIEW polyline (during selection in SetupPanel)
+  const finishLinePreviewPositions: [number, number][] = useMemo(() => {
+    if (!finishLinePreviewIds || finishLinePreviewIds.size < 2) return [];
+    const previewMarks = marks.filter(m => finishLinePreviewIds.has(m.id));
+    if (previewMarks.length < 2) return [];
+    return previewMarks.map(m => [m.lat, m.lng] as [number, number]);
+  }, [finishLinePreviewIds, marks]);
 
   const handleZoomIn = () => mapRef.current?.zoomIn();
   const handleZoomOut = () => mapRef.current?.zoomOut();
@@ -468,6 +478,19 @@ export function LeafletMap({
               color: "#dc2626", 
               weight: 4, 
               opacity: 0.8,
+            }}
+          />
+        )}
+        
+        {/* Finish line PREVIEW (dashed red line during selection) */}
+        {finishLinePreviewPositions.length >= 2 && (
+          <Polyline
+            positions={finishLinePreviewPositions}
+            pathOptions={{ 
+              color: "#dc2626", 
+              weight: 4, 
+              opacity: 0.6,
+              dashArray: "8, 4",
             }}
           />
         )}

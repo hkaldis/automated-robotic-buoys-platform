@@ -1,34 +1,47 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, Maximize2, Move, Ruler, Clock, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
-type SetupPhase = "start_line" | "marks" | "finish_line" | "assign_buoys" | "ready";
+type SetupPhase = "start_line" | "marks" | "finish_line" | "summary" | "assign_buoys" | "ready";
 
 interface SetupPanelProps {
   event: Event;
   course?: Course | null;
   buoys: Buoy[];
   marks: Mark[];
+  savedCourses?: Course[];
   onMarkSelect?: (markId: string | null) => void;
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
   onSaveMark?: (id: string, data: Partial<Mark>) => void;
   onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onPlaceMarkOnMap?: (data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
+  onSaveCourse?: (name: string) => void;
+  onLoadCourse?: (courseId: string) => void;
+  onTransformCourse?: (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => void;
+  onFinishLinePreview?: (selectedMarkIds: Set<string>) => void;
 }
 
 export function SetupPanel({
   event,
   marks,
   buoys,
+  savedCourses = [],
   onMarkSelect,
   onDeployCourse,
   onSaveMark,
   onPlaceMarkOnMap,
+  onSaveCourse,
+  onLoadCourse,
+  onTransformCourse,
+  onFinishLinePreview,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -41,31 +54,47 @@ export function SetupPanel({
   const hasFinishLine = finishLineMarks.length >= 2;
   const allAssigned = marks.length > 0 && marks.every(m => m.assignedBuoyId);
 
-  // Phase order for comparison - NEW ORDER
-  const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "assign_buoys", "ready"];
+  // Phase order for comparison - NEW ORDER with summary
+  const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "summary", "assign_buoys", "ready"];
   
   // Get minimum required phase based on completion status - NEW ORDER
   const getMinPhase = (): SetupPhase => {
     if (!hasStartLine) return "start_line";
     if (!hasCourseMarks) return "marks";
     if (!hasFinishLine) return "finish_line";
-    if (!allAssigned) return "assign_buoys";
+    // Summary phase is optional - user can proceed after finish line is set
+    if (!allAssigned) return "summary";
     return "ready";
   };
 
+  // State for save course dialog
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [courseName, setCourseName] = useState("");
+  
+  // State for load course dialog
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+
   const [phase, setPhase] = useState<SetupPhase>(getMinPhase);
   const [selectedLineMarkIds, setSelectedLineMarkIds] = useState<Set<string>>(new Set());
+  const [finishConfirmed, setFinishConfirmed] = useState(false);
   
   // Sync phase with data - only force phase back if current phase is invalid
+  // But don't reset from summary/assign_buoys if user explicitly confirmed the finish line
   useEffect(() => {
     const minPhase = getMinPhase();
     const currentIdx = phaseOrder.indexOf(phase);
     const minIdx = phaseOrder.indexOf(minPhase);
     
+    // Allow staying in summary/assign_buoys if finish was confirmed by user
+    // (even if async mark updates haven't completed yet)
+    if (finishConfirmed && (phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
+      return;
+    }
+    
     if (currentIdx > minIdx) {
       setPhase(minPhase);
     }
-  }, [hasStartLine, hasCourseMarks, hasFinishLine, allAssigned, phase]);
+  }, [hasStartLine, hasCourseMarks, hasFinishLine, allAssigned, phase, finishConfirmed]);
 
   // Initialize selection when entering finish line phase
   useEffect(() => {
@@ -73,6 +102,15 @@ export function SetupPanel({
       setSelectedLineMarkIds(new Set(marks.filter(m => m.isFinishLine).map(m => m.id)));
     }
   }, [phase, marks]);
+
+  // Send finish line preview to map when selection changes
+  useEffect(() => {
+    if (phase === "finish_line") {
+      onFinishLinePreview?.(selectedLineMarkIds);
+    } else {
+      onFinishLinePreview?.(new Set());
+    }
+  }, [phase, selectedLineMarkIds, onFinishLinePreview]);
 
   const toggleMarkSelection = (markId: string) => {
     setSelectedLineMarkIds(prev => {
@@ -93,7 +131,88 @@ export function SetupPanel({
         onSaveMark?.(mark.id, { isFinishLine: isSelected });
       }
     });
-    setPhase(allAssigned ? "ready" : "assign_buoys");
+    setFinishConfirmed(true);
+    setPhase("summary");
+  };
+
+  // Calculate course statistics
+  const courseStats = useMemo(() => {
+    const startCenter = startLineMarks.length >= 2 ? {
+      lat: startLineMarks.reduce((s, m) => s + m.lat, 0) / startLineMarks.length,
+      lng: startLineMarks.reduce((s, m) => s + m.lng, 0) / startLineMarks.length,
+    } : null;
+    
+    const finishCenter = finishLineMarks.length >= 2 ? {
+      lat: finishLineMarks.reduce((s, m) => s + m.lat, 0) / finishLineMarks.length,
+      lng: finishLineMarks.reduce((s, m) => s + m.lng, 0) / finishLineMarks.length,
+    } : null;
+
+    const sortedCourseMarks = [...courseMarks].sort((a, b) => a.order - b.order);
+    
+    // Haversine distance calculation
+    const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 3440.065; // Earth radius in nautical miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    };
+
+    let totalDistance = 0;
+    
+    // Start line length
+    let startLineLength = 0;
+    if (startLineMarks.length >= 2) {
+      startLineLength = haversine(startLineMarks[0].lat, startLineMarks[0].lng, startLineMarks[1].lat, startLineMarks[1].lng);
+    }
+
+    // Start center to M1
+    if (startCenter && sortedCourseMarks.length > 0) {
+      totalDistance += haversine(startCenter.lat, startCenter.lng, sortedCourseMarks[0].lat, sortedCourseMarks[0].lng);
+    }
+
+    // Between course marks
+    for (let i = 0; i < sortedCourseMarks.length - 1; i++) {
+      totalDistance += haversine(sortedCourseMarks[i].lat, sortedCourseMarks[i].lng, sortedCourseMarks[i + 1].lat, sortedCourseMarks[i + 1].lng);
+    }
+
+    // Last mark to finish center
+    if (finishCenter && sortedCourseMarks.length > 0) {
+      const lastMark = sortedCourseMarks[sortedCourseMarks.length - 1];
+      totalDistance += haversine(lastMark.lat, lastMark.lng, finishCenter.lat, finishCenter.lng);
+    }
+
+    // Finish line length
+    let finishLineLength = 0;
+    if (finishLineMarks.length >= 2) {
+      finishLineLength = haversine(finishLineMarks[0].lat, finishLineMarks[0].lng, finishLineMarks[1].lat, finishLineMarks[1].lng);
+    }
+
+    // Estimated race time (assuming 4.5 knots average speed)
+    const estimatedTime = totalDistance > 0 ? (totalDistance / 4.5) * 60 : 0;
+
+    return {
+      startLineLength,
+      finishLineLength,
+      totalDistance,
+      estimatedTime,
+      startMarksCount: startLineMarks.length,
+      courseMarksCount: courseMarks.length,
+      finishMarksCount: finishLineMarks.length,
+    };
+  }, [startLineMarks, finishLineMarks, courseMarks]);
+
+  const handleSaveCourse = () => {
+    if (courseName.trim() && onSaveCourse) {
+      onSaveCourse(courseName.trim());
+      setShowSaveDialog(false);
+      setCourseName("");
+    }
+  };
+
+  const handleLoadCourse = (courseId: string) => {
+    onLoadCourse?.(courseId);
+    setShowLoadDialog(false);
   };
 
   // Add start line mark (Pin End or Committee Boat/Starboard)
@@ -139,12 +258,13 @@ export function SetupPanel({
   const hasPinEnd = startLineMarks.some(m => m.role === "pin" || m.name.toLowerCase().includes("pin"));
   const hasCommitteeBoat = startLineMarks.some(m => m.role === "start_boat" || m.name.toLowerCase().includes("committee") || m.name.toLowerCase().includes("starboard"));
 
-  // Updated phases for new order
+  // Updated phases for new order with summary
   const phases = [
     { id: "start_line", label: "Start", number: 1 },
     { id: "marks", label: "Marks", number: 2 },
     { id: "finish_line", label: "Finish", number: 3 },
-    { id: "assign_buoys", label: "Buoys", number: 4 },
+    { id: "summary", label: "Review", number: 4 },
+    { id: "assign_buoys", label: "Buoys", number: 5 },
   ];
 
   const currentPhaseIndex = phases.findIndex(p => p.id === phase);
@@ -328,7 +448,7 @@ export function SetupPanel({
                   size="lg"
                   className="flex-1 text-lg gap-2"
                   disabled={!hasCourseMarks}
-                  onClick={() => setPhase("finish_line")}
+                  onClick={() => { setFinishConfirmed(false); setPhase("finish_line"); }}
                   data-testid="button-continue-finish"
                 >
                   Continue
@@ -450,6 +570,238 @@ export function SetupPanel({
           </div>
         );
 
+      case "summary":
+        return (
+          <div className="flex-1 flex flex-col p-4 gap-4">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
+                <Ruler className="w-8 h-8 text-purple-600" />
+              </div>
+              <h2 className="text-2xl font-bold">Course Summary</h2>
+              <p className="text-muted-foreground">
+                Review your race course details
+              </p>
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-4">
+                {/* Course Statistics */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Ruler className="w-4 h-4" />
+                      Course Statistics
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Total Distance</p>
+                        <p className="text-xl font-bold" data-testid="text-summary-distance">
+                          {courseStats.totalDistance.toFixed(2)} nm
+                        </p>
+                      </div>
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Est. Race Time</p>
+                        <p className="text-xl font-bold flex items-center gap-1" data-testid="text-summary-time">
+                          <Clock className="w-4 h-4" />
+                          {Math.round(courseStats.estimatedTime)} min
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Start Line</p>
+                        <p className="text-lg font-semibold">
+                          {(courseStats.startLineLength * 1852).toFixed(0)} m
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground">Finish Line</p>
+                        <p className="text-lg font-semibold">
+                          {(courseStats.finishLineLength * 1852).toFixed(0)} m
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Marks Summary */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Marks ({marks.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {startLineMarks.map(m => (
+                        <Badge key={m.id} className="bg-green-500">{m.name}</Badge>
+                      ))}
+                      {courseMarks.map(m => (
+                        <Badge key={m.id} variant="secondary">{m.name}</Badge>
+                      ))}
+                      {finishLineMarks.filter(m => !m.isStartLine).map(m => (
+                        <Badge key={m.id} className="bg-blue-500">{m.name}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Course Transformation Controls */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Move className="w-4 h-4" />
+                      Adjust Course
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="flex-col gap-1 h-auto py-3"
+                        onClick={() => onTransformCourse?.({ scale: 1.1 })}
+                        data-testid="button-scale-up"
+                      >
+                        <Maximize2 className="w-5 h-5" />
+                        <span className="text-xs">Larger</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="flex-col gap-1 h-auto py-3"
+                        onClick={() => onTransformCourse?.({ scale: 0.9 })}
+                        data-testid="button-scale-down"
+                      >
+                        <Maximize2 className="w-5 h-5 rotate-180" />
+                        <span className="text-xs">Smaller</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="flex-col gap-1 h-auto py-3"
+                        onClick={() => onTransformCourse?.({ rotation: 15 })}
+                        data-testid="button-rotate-cw"
+                      >
+                        <RotateCw className="w-5 h-5" />
+                        <span className="text-xs">Rotate</span>
+                      </Button>
+                    </div>
+                    
+                    {/* Move controls - directional pad */}
+                    <div className="flex flex-col items-center gap-1">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Move Course</p>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onTransformCourse?.({ translateLat: 0.001 })}
+                        data-testid="button-move-north"
+                      >
+                        <ChevronLeft className="w-4 h-4 rotate-90" />
+                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => onTransformCourse?.({ translateLng: -0.001 })}
+                          data-testid="button-move-west"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <div className="w-9 h-9 flex items-center justify-center text-xs text-muted-foreground">
+                          <Move className="w-4 h-4" />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => onTransformCourse?.({ translateLng: 0.001 })}
+                          data-testid="button-move-east"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onTransformCourse?.({ translateLat: -0.001 })}
+                        data-testid="button-move-south"
+                      >
+                        <ChevronRight className="w-4 h-4 rotate-90" />
+                      </Button>
+                    </div>
+                    
+                    <p className="text-xs text-center text-muted-foreground">
+                      Drag marks on the map to reposition them
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Save/Load Course */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Save className="w-4 h-4" />
+                      Save / Load Course
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="gap-2"
+                        onClick={() => setShowSaveDialog(true)}
+                        data-testid="button-save-course"
+                      >
+                        <Download className="w-4 h-4" />
+                        Save Course
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="gap-2"
+                        onClick={() => setShowLoadDialog(true)}
+                        disabled={savedCourses.length === 0}
+                        data-testid="button-load-course"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Load Course
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </ScrollArea>
+
+            <div className="pt-4 border-t space-y-3">
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 text-lg gap-2"
+                  onClick={() => { setFinishConfirmed(false); setPhase("finish_line"); }}
+                  data-testid="button-back-finish-summary"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Back
+                </Button>
+                <Button
+                  size="lg"
+                  className="flex-1 text-lg gap-2"
+                  onClick={() => setPhase("assign_buoys")}
+                  data-testid="button-continue-buoys"
+                >
+                  Assign Buoys
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
       case "assign_buoys":
         return (
           <div className="flex-1 flex flex-col p-4 gap-4">
@@ -516,8 +868,8 @@ export function SetupPanel({
                   variant="outline"
                   size="lg"
                   className="flex-1 text-lg gap-2"
-                  onClick={() => setPhase("finish_line")}
-                  data-testid="button-back-finish"
+                  onClick={() => setPhase("summary")}
+                  data-testid="button-back-summary"
                 >
                   <ChevronLeft className="w-5 h-5" />
                   Back
@@ -660,6 +1012,62 @@ export function SetupPanel({
 
       {/* Phase content */}
       {renderPhaseContent()}
+
+      {/* Save Course Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Race Course</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="Enter course name..."
+              value={courseName}
+              onChange={(e) => setCourseName(e.target.value)}
+              data-testid="input-course-name"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveCourse} disabled={!courseName.trim()} data-testid="button-confirm-save">
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Load Course Dialog */}
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Load Race Course</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            {savedCourses.length === 0 ? (
+              <p className="text-center text-muted-foreground">No saved courses</p>
+            ) : (
+              savedCourses.map((course) => (
+                <button
+                  key={course.id}
+                  onClick={() => handleLoadCourse(course.id)}
+                  className="w-full p-3 rounded-lg bg-muted/50 hover-elevate text-left"
+                  data-testid={`button-load-course-${course.id}`}
+                >
+                  <p className="font-semibold">{course.name}</p>
+                  <p className="text-sm text-muted-foreground">{course.shape}</p>
+                </button>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLoadDialog(false)}>
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
