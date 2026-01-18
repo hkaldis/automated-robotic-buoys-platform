@@ -532,9 +532,9 @@ export function LeafletMap({
     if (mapOrientation === "head-to-wind" && weatherData) {
       // Wind direction is where wind comes FROM (meteorological convention)
       // Head-to-wind: we want to look TOWARD where wind comes from (upwind)
-      // To face upwind, we need the wind source direction at screen top
-      // Formula: 180 - windDirection rotates so wind direction points up
-      return 180 - weatherData.windDirection;
+      // To put the wind source direction at screen top, rotate by -windDirection
+      // Example: Wind from 225° (SW) → rotate -225° → 225° now at top (facing SW)
+      return -weatherData.windDirection;
     }
     return 0;
   }, [mapOrientation, weatherData]);
