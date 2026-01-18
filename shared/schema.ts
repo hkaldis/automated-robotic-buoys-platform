@@ -95,6 +95,7 @@ export const marks = pgTable("marks", {
   assignedBuoyId: varchar("assigned_buoy_id"),
   isStartLine: boolean("is_start_line").default(false),
   isFinishLine: boolean("is_finish_line").default(false),
+  isCourseMark: boolean("is_course_mark").default(true),
 });
 
 export const buoys = pgTable("buoys", {
@@ -167,6 +168,7 @@ export const insertMarkSchema = createInsertSchema(marks).pick({
   assignedBuoyId: true,
   isStartLine: true,
   isFinishLine: true,
+  isCourseMark: true,
 });
 
 export const insertBuoySchema = createInsertSchema(buoys).pick({

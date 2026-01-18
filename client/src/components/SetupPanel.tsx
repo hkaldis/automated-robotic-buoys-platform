@@ -17,8 +17,8 @@ interface SetupPanelProps {
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
   onSaveMark?: (id: string, data: Partial<Mark>) => void;
-  onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number }) => void;
-  onPlaceMarkOnMap?: (data: { name: string; role: MarkRole }) => void;
+  onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
+  onPlaceMarkOnMap?: (data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
 }
 
 export function SetupPanel({
@@ -32,7 +32,9 @@ export function SetupPanel({
   onPlaceMarkOnMap,
 }: SetupPanelProps) {
   // Determine current phase based on state
-  const hasMarks = marks.length >= 2;
+  // Count only course marks for the "marks" phase requirement
+  const courseMarks = marks.filter(m => m.isCourseMark !== false);
+  const hasMarks = courseMarks.length >= 2;
   const hasStartLine = marks.filter(m => m.isStartLine).length >= 2;
   const hasFinishLine = marks.filter(m => m.isFinishLine).length >= 2;
   const allAssigned = marks.length > 0 && marks.every(m => m.assignedBuoyId);
@@ -103,10 +105,26 @@ export function SetupPanel({
   };
 
   const handlePlaceMarkOnMap = () => {
-    const markNumber = marks.length + 1;
+    const courseMarks = marks.filter(m => m.isCourseMark !== false);
+    const markNumber = courseMarks.length + 1;
     onPlaceMarkOnMap?.({ 
       name: `Mark ${markNumber}`, 
-      role: markNumber <= 2 ? "start_boat" : "turning_mark" 
+      role: "turning_mark",
+      isCourseMark: true,
+    });
+  };
+  
+  const handleAddStartFinishMark = (isStart: boolean) => {
+    const lineType = isStart ? "Start" : "Finish";
+    const existingLineMarks = marks.filter(m => isStart ? m.isStartLine : m.isFinishLine);
+    const markNumber = existingLineMarks.length + 1;
+    const role = markNumber === 1 ? "start_boat" : "pin";
+    onPlaceMarkOnMap?.({
+      name: `${lineType} Mark ${markNumber}`,
+      role: role as MarkRole,
+      isStartLine: isStart,
+      isFinishLine: !isStart,
+      isCourseMark: false,
     });
   };
 
@@ -177,16 +195,16 @@ export function SetupPanel({
               <Button
                 size="lg"
                 className="w-full text-lg gap-3"
-                disabled={marks.length < 2}
+                disabled={courseMarks.length < 2}
                 onClick={() => setPhase("start_line")}
                 data-testid="button-continue-start-line"
               >
                 Continue to Start Line
                 <ChevronRight className="w-6 h-6" />
               </Button>
-              {marks.length < 2 && (
+              {courseMarks.length < 2 && (
                 <p className="text-center text-sm text-muted-foreground mt-2">
-                  Add at least 2 marks to continue
+                  Add at least 2 course marks to continue
                 </p>
               )}
             </div>
@@ -219,6 +237,17 @@ export function SetupPanel({
               </p>
             </div>
 
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full text-lg gap-2"
+              onClick={() => handleAddStartFinishMark(isStart)}
+              data-testid={`button-add-${isStart ? "start" : "finish"}-mark`}
+            >
+              <Plus className="w-5 h-5" />
+              Add {isStart ? "Start" : "Finish"} Mark
+            </Button>
+            
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-2">
                 {marks.map((mark) => {
@@ -453,35 +482,48 @@ export function SetupPanel({
         </div>
       </div>
 
-      {/* Progress indicator */}
-      {phase !== "ready" && (
-        <div className="px-4 py-3 border-b bg-muted/30">
-          <div className="flex items-center justify-between gap-2">
-            {phases.map((p, idx) => {
-              const isComplete = idx < currentPhaseIndex;
-              const isCurrent = p.id === phase;
-              return (
-                <div key={p.id} className="flex-1 flex flex-col items-center gap-1">
-                  <div className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors",
-                    isComplete ? "bg-green-500 text-white" :
-                    isCurrent ? "bg-primary text-primary-foreground" :
-                    "bg-muted text-muted-foreground"
-                  )}>
-                    {isComplete ? <Check className="w-5 h-5" /> : p.number}
-                  </div>
-                  <span className={cn(
-                    "text-xs font-medium",
-                    isCurrent ? "text-primary" : "text-muted-foreground"
-                  )}>
-                    {p.label}
-                  </span>
+      {/* Clickable progress indicator for navigation */}
+      <div className="px-4 py-3 border-b bg-muted/30">
+        <div className="flex items-center justify-between gap-2">
+          {phases.map((p, idx) => {
+            const minPhase = getMinPhase();
+            const minPhaseIdx = phaseOrder.indexOf(minPhase);
+            const isComplete = idx < currentPhaseIndex;
+            const isCurrent = p.id === phase;
+            // Can navigate to any phase at or before the minimum required phase
+            const canNavigate = idx <= minPhaseIdx && !isCurrent;
+            
+            return (
+              <button
+                key={p.id}
+                onClick={() => canNavigate && setPhase(p.id as SetupPhase)}
+                disabled={!canNavigate && !isCurrent}
+                className={cn(
+                  "flex-1 flex flex-col items-center gap-1 transition-opacity",
+                  canNavigate ? "cursor-pointer hover:opacity-80" : "",
+                  !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-50" : ""
+                )}
+                data-testid={`button-phase-${p.id}`}
+              >
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors",
+                  isComplete ? "bg-green-500 text-white" :
+                  isCurrent ? "bg-primary text-primary-foreground" :
+                  "bg-muted text-muted-foreground"
+                )}>
+                  {isComplete ? <Check className="w-5 h-5" /> : p.number}
                 </div>
-              );
-            })}
-          </div>
+                <span className={cn(
+                  "text-xs font-medium",
+                  isCurrent ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {p.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Phase content */}
       {renderPhaseContent()}

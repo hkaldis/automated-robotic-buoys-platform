@@ -139,6 +139,7 @@ export function useCreateMark(courseId?: string) {
       assignedBuoyId?: string | null;
       isStartLine?: boolean;
       isFinishLine?: boolean;
+      isCourseMark?: boolean;
     }) => {
       const res = await apiRequest("POST", "/api/marks", data);
       return res.json();

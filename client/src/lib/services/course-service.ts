@@ -204,6 +204,9 @@ class CourseService {
       lat: pos.lat,
       lng: pos.lng,
       assignedBuoyId: null,
+      isStartLine: false,
+      isFinishLine: false,
+      isCourseMark: true,
     };
   }
 

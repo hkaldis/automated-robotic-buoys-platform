@@ -65,22 +65,54 @@ const DEFAULT_CENTER = MIKROLIMANO_CENTER;
  * - Mark 3: Leeward mark or Gate (3s=starboard half, 3p=port half)
  * - Offset: Spreader mark near windward for tactical downwind sailing
  */
-function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: number): Array<{ name: string; role: MarkRole; lat: number; lng: number; order: number; isStartLine: boolean; isFinishLine: boolean }> {
-  // Course leg length in degrees (approximately 400-500 meters)
-  const legLength = 0.004;
-  // Start line half-width (approximately 150 meters total line)
-  const startLineHalfWidth = 0.0015;
-  // Gate width (approximately 60 meters between marks - 3-4 boat lengths)
-  const gateHalfWidth = 0.0006;
+function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: number): Array<{ name: string; role: MarkRole; lat: number; lng: number; order: number; isStartLine: boolean; isFinishLine: boolean; isCourseMark: boolean }> {
+  /**
+   * World Sailing Trapezoid Course Specifications:
+   * - 60°/120° Course: For boats with spinnakers (reach angle 60° between marks)
+   * - 70°/110° Course: For non-spinnaker boats (ILCA/Lasers, windsurfers)
+   * - Reaching leg (1-2): 67% of windward leg length
+   * - Gate widths: ~10 hull lengths wide, square to wind
+   * - Start line: ~0.05nm (100m) below leeward gate
+   * 
+   * Mark numbering (per World Sailing):
+   * - Mark 1: Windward mark (top)
+   * - Mark 2: Wing/reach mark
+   * - Marks 3s/3p: Leeward gate (starboard/port)
+   * - Marks 4s/4p: Start/finish gate (below leeward gate)
+   */
   
-  // Trigonometric constants for 60° angles (equilateral triangle / trapezoid reaching legs)
-  const cos60 = Math.cos(60 * Math.PI / 180); // 0.5
-  const sin60 = Math.sin(60 * Math.PI / 180); // ~0.866
+  // Course dimensions in degrees
+  // Windward leg length (approximately 0.25nm = 460m)
+  const windwardLegLength = 0.004;
+  // Reaching leg is 67% of windward leg per World Sailing standards
+  const reachingLegRatio = 0.67;
   
-  // Base position - center of start line is the reference point
+  // Gate and line widths (in degrees latitude/longitude)
+  const gateHalfWidth = 0.0008; // ~10 hull lengths for dinghies (~80m total)
+  const startLineHalfWidth = 0.0015; // ~150m start line
+  
+  // Start line offset below leeward gate (0.05nm = ~90m)
+  const startLineOffset = 0.0008;
+  
+  // Trigonometric constants for 60° reach angles (spinnaker courses)
+  // For non-spinnaker (70°), use Math.cos/sin(70 * Math.PI / 180)
+  const reachAngle = 60; // degrees off wind
+  const cosReach = Math.cos(reachAngle * Math.PI / 180); // 0.5
+  const sinReach = Math.sin(reachAngle * Math.PI / 180); // 0.866
+  
+  // Base position - center of course
   // Wind assumed from north (0°/360°), so upwind is +lat, starboard is +lng
-  const startLat = centerLat;
-  const startLng = centerLng;
+  const baseLat = centerLat;
+  const baseLng = centerLng;
+  
+  // Calculate leeward gate position (at the base)
+  const leewardGateLat = baseLat;
+  
+  // Calculate start/finish line position (0.05nm below leeward gate)
+  const startLineLat = leewardGateLat - startLineOffset;
+  
+  // Calculate reaching leg length
+  const reachLegLength = windwardLegLength * reachingLegRatio;
   
   switch (shape) {
     case "triangle":
@@ -88,42 +120,49 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
       // Course: Start → Mark 1 (Windward) → Mark 2 (Wing) → Mark 3 (Leeward) → repeat/Finish
       // All three legs are equal length, forming a true equilateral triangle
       // Rounding to port (counter-clockwise): windward→wing is broad reach, wing→leeward is close reach
-      // Start and Finish lines use same marks (Committee Boat + Pin)
+      // Start and Finish lines are separate from course marks
       return [
-        // Start line - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
-        // Both marks serve as start AND finish line
-        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true },
-        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true },
-        // Mark 1 - Windward mark (one leg length directly upwind from start)
-        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2, isStartLine: false, isFinishLine: false },
+        // Start/Finish line marks - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
+        // These are NOT course marks (isCourseMark: false) - they define start/finish only
+        { name: "Committee Boat", role: "start_boat", lat: startLineLat, lng: baseLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true, isCourseMark: false },
+        { name: "Pin Mark", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true, isCourseMark: false },
+        // Mark 1 - Windward mark (one leg length directly upwind from base)
+        { name: "Mark 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
         // Mark 2 - Wing mark (60° to STARBOARD, equal leg length from windward)
         // Position: halfway up in lat, offset to starboard by sin(60°)*legLength
-        { name: "Mark 2 (Wing)", role: "wing", lat: startLat + legLength * cos60, lng: startLng + legLength * sin60, order: 3, isStartLine: false, isFinishLine: false },
-        // Mark 3 - Leeward mark (at bottom/downwind, on centerline near start)
+        { name: "Mark 2 (Wing)", role: "wing", lat: baseLat + windwardLegLength * cosReach, lng: baseLng + windwardLegLength * sinReach, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Mark 3 - Leeward mark (at bottom/downwind, on centerline)
         // Equal leg length from wing mark back to leeward completes the equilateral
-        { name: "Mark 3 (Leeward)", role: "leeward", lat: startLat, lng: startLng, order: 4, isStartLine: false, isFinishLine: false },
+        { name: "Mark 3 (Leeward)", role: "leeward", lat: baseLat, lng: baseLng, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
       ];
       
     case "trapezoid":
-      // Outer Trapezoid Course (O - 60° reaching legs)
-      // Course: Start → Mark 1 (Windward) → Mark 2 (Wing) → Gate → repeat
-      // Standard ILCA/Olympic format with reaching legs at 60° angles
-      // Creates upwind beat, reaching leg to wing, run to gate
-      // Start and Finish lines use same marks (Committee Boat + Pin)
+      // Outer Trapezoid Course (O - 60°/120° reaching legs per World Sailing)
+      // Course: Start → Mark 1 (Windward) → Mark 2 (Wing) → Gate 3 → repeat
+      // Standard Olympic/ILCA format:
+      // - Windward leg parallel to wind
+      // - Reaching leg at 60° (or 70° for non-spinnaker) at 67% of windward leg length
+      // - Leeward gate (3s/3p) square to wind, 10 hull lengths wide
+      // - Start/finish line 0.05nm below leeward gate
+      // 
+      // Per diagram: O course has separate start gate (4s/4p) from leeward gate (3s/3p)
+      // I course shares start with leeward gate
       return [
-        // Start line - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
-        // Both marks serve as start AND finish line
-        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true },
-        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true },
+        // Start/Finish line marks - 0.05nm below leeward gate, separate from course
+        // These are NOT course marks (isCourseMark: false)
+        { name: "Start Boat", role: "start_boat", lat: startLineLat, lng: baseLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: false, isCourseMark: false },
+        { name: "Pin Mark", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: false, isCourseMark: false },
         // Mark 1 - Windward mark (one leg length directly upwind)
-        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2, isStartLine: false, isFinishLine: false },
-        // Offset mark - slightly below windward, offset to starboard for tactical options
-        { name: "Offset Mark", role: "offset", lat: startLat + legLength * 0.9, lng: startLng + legLength * 0.15, order: 3, isStartLine: false, isFinishLine: false },
-        // Mark 2 - Wing mark (60° reaching leg to starboard from windward)
-        { name: "Mark 2 (Wing)", role: "wing", lat: startLat + legLength * 0.5, lng: startLng + legLength * sin60, order: 4, isStartLine: false, isFinishLine: false },
-        // Gate marks at leeward end - starboard mark at +lng, port at -lng
-        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: startLat, lng: startLng + gateHalfWidth, order: 5, isStartLine: false, isFinishLine: false },
-        { name: "Mark 3p (Gate Port)", role: "gate", lat: startLat, lng: startLng - gateHalfWidth, order: 6, isStartLine: false, isFinishLine: false },
+        { name: "Mark 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Mark 2 - Wing mark (60° reaching leg to starboard from windward at 67% length)
+        // Position: cos(60°) up from base, sin(60°) to starboard
+        { name: "Mark 2 (Wing)", role: "wing", lat: baseLat + reachLegLength * cosReach, lng: baseLng + reachLegLength * sinReach, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Leeward gate (3s/3p) - square to wind, 10 hull lengths wide
+        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: leewardGateLat, lng: baseLng + gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Mark 3p (Gate Port)", role: "gate", lat: leewardGateLat, lng: baseLng - gateHalfWidth, order: 5, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Finish line marks - near leeward gate but separate
+        { name: "Finish Boat", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng + startLineHalfWidth * 0.7, order: 6, isStartLine: false, isFinishLine: true, isCourseMark: false },
+        { name: "Finish Pin", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng - startLineHalfWidth * 0.7, order: 7, isStartLine: false, isFinishLine: true, isCourseMark: false },
       ];
       
     case "windward_leeward":
@@ -131,18 +170,20 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
       // Course: Start → Mark 1 (Windward) → Gate → repeat → Finish at leeward
       // Pure upwind/downwind racing - most common modern format
       // Simplest course: beat to windward, run through gate, repeat
-      // Start and Finish lines use same marks (Committee Boat + Pin)
+      // Start and Finish lines are separate from course marks
       return [
-        // Start line - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
-        // Both marks serve as start AND finish line
-        { name: "Committee Boat", role: "start_boat", lat: startLat, lng: startLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true },
-        { name: "Pin Mark", role: "pin", lat: startLat, lng: startLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true },
+        // Start line marks - 0.05nm below leeward gate
+        { name: "Start Boat", role: "start_boat", lat: startLineLat, lng: baseLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: false, isCourseMark: false },
+        { name: "Pin Mark", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: false, isCourseMark: false },
         // Mark 1 - Windward mark (one leg length directly upwind from start line center)
-        { name: "Mark 1 (Windward)", role: "windward", lat: startLat + legLength, lng: startLng, order: 2, isStartLine: false, isFinishLine: false },
-        // Gate marks at leeward end (at start line latitude, straddling centerline)
+        { name: "Mark 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Gate marks at leeward end (at base latitude, straddling centerline)
         // Starboard mark at +lng, Port at -lng
-        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: startLat, lng: startLng + gateHalfWidth, order: 3, isStartLine: false, isFinishLine: false },
-        { name: "Mark 3p (Gate Port)", role: "gate", lat: startLat, lng: startLng - gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false },
+        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: leewardGateLat, lng: baseLng + gateHalfWidth, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Mark 3p (Gate Port)", role: "gate", lat: leewardGateLat, lng: baseLng - gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Finish line marks - near leeward gate but separate
+        { name: "Finish Boat", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng + startLineHalfWidth * 0.7, order: 5, isStartLine: false, isFinishLine: true, isCourseMark: false },
+        { name: "Finish Pin", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng - startLineHalfWidth * 0.7, order: 6, isStartLine: false, isFinishLine: true, isCourseMark: false },
       ];
       
     case "custom":
@@ -231,7 +272,7 @@ export default function RaceControl() {
   const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   const [isPlacingMark, setIsPlacingMark] = useState(false);
-  const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole } | null>(null);
+  const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean } | null>(null);
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
@@ -413,7 +454,7 @@ export default function RaceControl() {
     });
   }, [currentCourse, marks.length, createMark, toast]);
 
-  const handlePlaceMarkOnMap = useCallback((data: { name: string; role: MarkRole }) => {
+  const handlePlaceMarkOnMap = useCallback((data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => {
     if (repositioningMarkId) {
       setRepositioningMarkId(null);
     }
@@ -438,6 +479,9 @@ export default function RaceControl() {
         order: marks.length,
         lat,
         lng,
+        isStartLine: pendingMarkData.isStartLine ?? false,
+        isFinishLine: pendingMarkData.isFinishLine ?? false,
+        isCourseMark: pendingMarkData.isCourseMark ?? true,
       }, {
         onSuccess: () => {
           toast({
@@ -551,6 +595,7 @@ export default function RaceControl() {
           lng: mark.lng,
           isStartLine: mark.isStartLine,
           isFinishLine: mark.isFinishLine,
+          isCourseMark: mark.isCourseMark,
         });
       }
 

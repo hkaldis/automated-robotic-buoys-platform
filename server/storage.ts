@@ -119,10 +119,10 @@ export class MemStorage implements IStorage {
     });
 
     const markData = [
-      { name: "Committee Boat", role: "start_boat", order: 0, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.0015, isStartLine: true, isFinishLine: true },
-      { name: "Pin Mark", role: "pin", order: 1, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng - 0.0015, isStartLine: true, isFinishLine: true },
-      { name: "Mark 1 (Windward)", role: "windward", order: 2, lat: MIKROLIMANO_CENTER.lat + 0.0045, lng: MIKROLIMANO_CENTER.lng, isStartLine: false, isFinishLine: false },
-      { name: "Mark 3 (Leeward)", role: "leeward", order: 3, lat: MIKROLIMANO_CENTER.lat - 0.0015, lng: MIKROLIMANO_CENTER.lng + 0.003, isStartLine: false, isFinishLine: false },
+      { name: "Committee Boat", role: "start_boat", order: 0, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng + 0.0015, isStartLine: true, isFinishLine: true, isCourseMark: false },
+      { name: "Pin Mark", role: "pin", order: 1, lat: MIKROLIMANO_CENTER.lat - 0.003, lng: MIKROLIMANO_CENTER.lng - 0.0015, isStartLine: true, isFinishLine: true, isCourseMark: false },
+      { name: "Mark 1 (Windward)", role: "windward", order: 2, lat: MIKROLIMANO_CENTER.lat + 0.0045, lng: MIKROLIMANO_CENTER.lng, isStartLine: false, isFinishLine: false, isCourseMark: true },
+      { name: "Mark 3 (Leeward)", role: "leeward", order: 3, lat: MIKROLIMANO_CENTER.lat - 0.0015, lng: MIKROLIMANO_CENTER.lng + 0.003, isStartLine: false, isFinishLine: false, isCourseMark: true },
     ];
 
     markData.forEach((data, index) => {
@@ -248,6 +248,7 @@ export class MemStorage implements IStorage {
       assignedBuoyId: mark.assignedBuoyId ?? null,
       isStartLine: mark.isStartLine ?? false,
       isFinishLine: mark.isFinishLine ?? false,
+      isCourseMark: mark.isCourseMark ?? true,
     };
     this.marks.set(id, newMark);
     return newMark;
