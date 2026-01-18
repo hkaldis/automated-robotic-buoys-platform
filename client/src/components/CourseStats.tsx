@@ -1,6 +1,7 @@
-import { Clock, Ruler, Flag, FlagTriangleRight } from "lucide-react";
+import { Clock, Ruler, Flag, FlagTriangleRight, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Mark } from "@shared/schema";
 
 interface CourseStatsProps {
@@ -23,21 +24,36 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 function calculateCourseDistance(marks: Mark[]): number {
   if (marks.length < 2) return 0;
   
+  // Sort marks by order to get the sailing sequence
   const sortedMarks = [...marks].sort((a, b) => a.order - b.order);
-  const courseMarks = sortedMarks.filter(m => m.role === 'start_boat' || !m.isStartLine);
+  
+  // Find start line marks (committee boat and pin)
+  const startBoat = sortedMarks.find(m => m.role === 'start_boat');
+  const pinMark = sortedMarks.find(m => m.role === 'pin');
+  
+  // Get course marks (non-start-line marks) in sailing order
+  const courseMarks = sortedMarks.filter(m => !m.isStartLine || m.role === 'start_boat');
   
   let totalDistance = 0;
   
+  // Calculate distance between consecutive marks in sailing order
   for (let i = 0; i < courseMarks.length - 1; i++) {
     const from = courseMarks[i];
     const to = courseMarks[i + 1];
     totalDistance += haversineDistance(from.lat, from.lng, to.lat, to.lng);
   }
   
-  if (courseMarks.length > 2) {
+  // Add start line length (committee boat to pin)
+  if (startBoat && pinMark) {
+    totalDistance += haversineDistance(startBoat.lat, startBoat.lng, pinMark.lat, pinMark.lng);
+  }
+  
+  // Add closing leg (last mark back to finish - typically start line)
+  if (courseMarks.length > 1 && startBoat) {
     const lastMark = courseMarks[courseMarks.length - 1];
-    const firstMark = courseMarks[0];
-    totalDistance += haversineDistance(lastMark.lat, lastMark.lng, firstMark.lat, firstMark.lng);
+    if (lastMark.id !== startBoat.id) {
+      totalDistance += haversineDistance(lastMark.lat, lastMark.lng, startBoat.lat, startBoat.lng);
+    }
   }
   
   return totalDistance;
@@ -77,6 +93,9 @@ export function CourseStats({ marks, boatClass, targetDuration }: CourseStatsPro
   if (marks.length === 0) {
     return null;
   }
+
+  const missingStartLine = !hasStartLine && marks.length > 0;
+  const missingFinishLine = !hasFinishLine && marks.length > 0;
 
   return (
     <Card data-testid="card-course-stats">
@@ -144,6 +163,19 @@ export function CourseStats({ marks, boatClass, targetDuration }: CourseStatsPro
             <span className="font-medium">{courseMarksOnly.length}</span>
           </div>
         </div>
+        
+        {(missingStartLine || missingFinishLine) && (
+          <Alert variant="destructive" className="py-2" data-testid="alert-missing-lines">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              {missingStartLine && missingFinishLine 
+                ? "Start and finish lines not defined" 
+                : missingStartLine 
+                  ? "Start line not defined" 
+                  : "Finish line not defined"}
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

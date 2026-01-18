@@ -94,6 +94,10 @@ export function SidePanel({
   const assignedCount = marks.filter(m => m.assignedBuoyId).length;
   const totalMarks = marks.length;
   const allAssigned = totalMarks > 0 && assignedCount === totalMarks;
+  const hasStartLine = marks.some(m => m.isStartLine);
+  const hasFinishLine = marks.some(m => m.isFinishLine);
+  const linesValid = hasStartLine && hasFinishLine;
+  const canDeploy = allAssigned && linesValid && totalMarks > 0;
 
   return (
     <div className="h-full flex flex-col bg-card" data-testid="side-panel">
@@ -227,13 +231,18 @@ export function SidePanel({
         <Button 
           className="w-full h-12 gap-2 text-base" 
           size="lg"
-          disabled={!allAssigned && totalMarks > 0}
+          disabled={!canDeploy}
           onClick={onDeployCourse}
           data-testid="button-deploy-course"
         >
           <Play className="w-5 h-5" />
           Deploy Course
         </Button>
+        {!linesValid && totalMarks > 0 && (
+          <p className="text-xs text-destructive text-center" data-testid="text-lines-warning">
+            Define start and finish lines to deploy
+          </p>
+        )}
       </div>
     </div>
   );

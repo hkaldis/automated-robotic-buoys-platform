@@ -63,15 +63,27 @@ export function MarksList({ marks, buoys, selectedMarkId, onSelectMark }: MarksL
                   {mark.lat.toFixed(4)}, {mark.lng.toFixed(4)}
                 </p>
               </div>
-              {assignedBuoy ? (
-                <Badge variant="secondary" className="text-xs shrink-0">
-                  {assignedBuoy.name}
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs shrink-0 text-muted-foreground">
-                  Unassigned
-                </Badge>
-              )}
+              <div className="flex items-center gap-1 shrink-0">
+                {mark.isStartLine && (
+                  <Badge variant="outline" className="text-xs px-1.5 text-green-600 border-green-300" data-testid={`badge-start-${mark.id}`}>
+                    S
+                  </Badge>
+                )}
+                {mark.isFinishLine && (
+                  <Badge variant="outline" className="text-xs px-1.5 text-blue-600 border-blue-300" data-testid={`badge-finish-${mark.id}`}>
+                    F
+                  </Badge>
+                )}
+                {assignedBuoy ? (
+                  <Badge variant="secondary" className="text-xs">
+                    {assignedBuoy.name}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    Unassigned
+                  </Badge>
+                )}
+              </div>
             </button>
           );
         })}

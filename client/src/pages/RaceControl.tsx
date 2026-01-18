@@ -547,6 +547,8 @@ export default function RaceControl() {
           order: mark.order,
           lat: mark.lat,
           lng: mark.lng,
+          isStartLine: mark.isStartLine,
+          isFinishLine: mark.isFinishLine,
         });
       }
 

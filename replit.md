@@ -128,6 +128,20 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 ## Recent Changes
 
 ### January 18, 2026 (Latest)
+- **Start/Finish Line Management**: Enhanced course configuration with dedicated line markers
+  - Added `isStartLine` and `isFinishLine` boolean fields to Mark schema
+  - Committee Boat and Pin marks automatically assigned as both start AND finish lines (standard racing)
+  - Toggle switches in MarkEditPanel for manual start/finish line assignment
+  - Visual S/F badges in MarksList showing which marks form start/finish lines
+  - Deploy Course button disabled until start/finish lines are properly defined
+  - Validation alert in CourseStats when lines are missing
+
+- **Course Statistics Component**: New CourseStats card showing race metrics
+  - Total course distance calculated using Haversine formula (in nautical miles)
+  - Estimated race time based on boat class average speeds
+  - Comparison with target duration showing +/- minutes
+  - Start/Finish line status indicators
+
 - **World Sailing Standards Compliance**: Complete overhaul of course geometry and mark naming
   - Added "wing" mark role for Mark 2 (wing/gybe marks in triangle/trapezoid courses)
   - Updated mark naming to World Sailing conventions: Mark 1 (Windward), Mark 2 (Wing), Mark 3 (Leeward)
