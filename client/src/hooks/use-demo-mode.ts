@@ -147,7 +147,8 @@ function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 export function useDemoMode() {
   const [enabled, setEnabled] = useState(() => {
     const stored = localStorage.getItem("demoMode");
-    return stored === "true";
+    // Demo mode is enabled by default unless explicitly disabled
+    return stored !== "false";
   });
   
   const [demoBuoys, setDemoBuoys] = useState<Buoy[]>(() => {

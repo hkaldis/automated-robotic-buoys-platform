@@ -16,8 +16,13 @@ interface AddMarkDialogProps {
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
   { value: "start_boat", label: "Start Boat" },
   { value: "pin", label: "Pin End" },
+  { value: "windward", label: "Windward Mark" },
+  { value: "leeward", label: "Leeward Mark" },
+  { value: "gate", label: "Gate Mark" },
+  { value: "offset", label: "Offset Mark" },
   { value: "turning_mark", label: "Turning Mark" },
   { value: "finish", label: "Finish" },
+  { value: "other", label: "Other" },
 ];
 
 export function AddMarkDialog({ onAdd, onPlaceOnMap, trigger }: AddMarkDialogProps) {

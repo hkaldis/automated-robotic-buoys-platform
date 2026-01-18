@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   RotateCw, 
   RotateCcw, 
@@ -74,8 +74,24 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
     setScale(course.scale);
   }, [course]);
 
-  const centerLat = course.centerLat;
-  const centerLng = course.centerLng;
+  // Use start line midpoint as the pivot for rotation/scaling
+  // This keeps the start line fixed while transforming the rest of the course
+  const startLinePivot = useMemo(() => {
+    const startBoat = marks.find(m => m.role === "start_boat");
+    const pinEnd = marks.find(m => m.role === "pin");
+    
+    if (startBoat && pinEnd) {
+      return {
+        lat: (startBoat.lat + pinEnd.lat) / 2,
+        lng: (startBoat.lng + pinEnd.lng) / 2,
+      };
+    }
+    // Fallback to course center if no start line marks
+    return { lat: course.centerLat, lng: course.centerLng };
+  }, [marks, course.centerLat, course.centerLng]);
+
+  const centerLat = startLinePivot.lat;
+  const centerLng = startLinePivot.lng;
 
   const handleRotationChange = (newRotation: number) => {
     const rotationDelta = newRotation - rotation;

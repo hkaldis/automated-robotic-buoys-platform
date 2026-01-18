@@ -21,39 +21,67 @@ import {
   useCreateEvent,
   useCreateCourse,
 } from "@/hooks/use-api";
+import { queryClient } from "@/lib/queryClient";
 import { useDemoMode } from "@/hooks/use-demo-mode";
 import { useToast } from "@/hooks/use-toast";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
 
+/**
+ * Generates marks for standard sailing race course shapes.
+ * 
+ * Course Geometry (oriented to wind from top):
+ * - Start line at bottom (perpendicular to wind)
+ * - Windward mark upwind (north in default orientation)
+ * - Leeward gate/marks downwind from windward
+ * - Triangle includes reaching mark to the side
+ * - Trapezoid includes offset mark for tactical sailing
+ */
 function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: number): Array<{ name: string; role: MarkRole; lat: number; lng: number; order: number }> {
-  const offset = 0.003;
+  // Course leg length in degrees (approximately 300-400 meters)
+  const legLength = 0.004;
+  // Start line width (approximately 150 meters)
+  const startLineWidth = 0.0015;
+  // Gate width (approximately 50 meters)
+  const gateWidth = 0.0005;
+  
+  // Base positions relative to center (center is at start line)
+  const startLat = centerLat;
+  const startLng = centerLng;
   
   switch (shape) {
     case "triangle":
+      // Olympic Triangle: Start -> Windward -> Reaching Mark -> Leeward -> Finish
+      // Classic 3-leg course with upwind, reaching, and downwind legs
       return [
-        { name: "Start Boat", role: "start_boat", lat: centerLat - offset, lng: centerLng - offset * 0.5, order: 0 },
-        { name: "Pin End", role: "pin", lat: centerLat - offset, lng: centerLng + offset * 0.5, order: 1 },
-        { name: "Windward Mark", role: "windward", lat: centerLat + offset * 1.5, lng: centerLng, order: 2 },
-        { name: "Leeward Mark", role: "leeward", lat: centerLat - offset * 0.5, lng: centerLng + offset, order: 3 },
+        { name: "Start Boat", role: "start_boat", lat: startLat, lng: startLng - startLineWidth, order: 0 },
+        { name: "Pin End", role: "pin", lat: startLat, lng: startLng + startLineWidth, order: 1 },
+        { name: "Windward Mark", role: "windward", lat: startLat + legLength, lng: startLng, order: 2 },
+        { name: "Reaching Mark", role: "turning_mark", lat: startLat + legLength * 0.3, lng: startLng + legLength * 0.8, order: 3 },
+        { name: "Leeward Mark", role: "leeward", lat: startLat + legLength * 0.15, lng: startLng, order: 4 },
       ];
     case "trapezoid":
+      // Trapezoid: Start -> Windward -> Offset -> Reaching -> Gate -> Finish
+      // Popular Olympic course with reaching legs and tactical options
       return [
-        { name: "Start Boat", role: "start_boat", lat: centerLat - offset, lng: centerLng - offset * 0.5, order: 0 },
-        { name: "Pin End", role: "pin", lat: centerLat - offset, lng: centerLng + offset * 0.5, order: 1 },
-        { name: "Windward Mark", role: "windward", lat: centerLat + offset * 1.5, lng: centerLng, order: 2 },
-        { name: "Offset Mark", role: "offset", lat: centerLat + offset, lng: centerLng + offset, order: 3 },
-        { name: "Gate Left", role: "gate", lat: centerLat - offset * 0.3, lng: centerLng - offset * 0.3, order: 4 },
-        { name: "Gate Right", role: "gate", lat: centerLat - offset * 0.3, lng: centerLng + offset * 0.3, order: 5 },
+        { name: "Start Boat", role: "start_boat", lat: startLat, lng: startLng - startLineWidth, order: 0 },
+        { name: "Pin End", role: "pin", lat: startLat, lng: startLng + startLineWidth, order: 1 },
+        { name: "Windward Mark", role: "windward", lat: startLat + legLength, lng: startLng, order: 2 },
+        { name: "Offset Mark", role: "offset", lat: startLat + legLength * 0.85, lng: startLng + legLength * 0.15, order: 3 },
+        { name: "Reaching Mark", role: "turning_mark", lat: startLat + legLength * 0.4, lng: startLng + legLength * 0.6, order: 4 },
+        { name: "Gate Left", role: "gate", lat: startLat + legLength * 0.15, lng: startLng - gateWidth, order: 5 },
+        { name: "Gate Right", role: "gate", lat: startLat + legLength * 0.15, lng: startLng + gateWidth, order: 6 },
       ];
     case "windward_leeward":
+      // Windward-Leeward: Pure upwind/downwind racing with leeward gate
+      // Most common modern racing format - tests sailing ability in both directions
       return [
-        { name: "Start Boat", role: "start_boat", lat: centerLat - offset, lng: centerLng - offset * 0.5, order: 0 },
-        { name: "Pin End", role: "pin", lat: centerLat - offset, lng: centerLng + offset * 0.5, order: 1 },
-        { name: "Windward Mark", role: "windward", lat: centerLat + offset * 2, lng: centerLng, order: 2 },
-        { name: "Gate Left", role: "gate", lat: centerLat - offset * 0.5, lng: centerLng - offset * 0.3, order: 3 },
-        { name: "Gate Right", role: "gate", lat: centerLat - offset * 0.5, lng: centerLng + offset * 0.3, order: 4 },
+        { name: "Start Boat", role: "start_boat", lat: startLat, lng: startLng - startLineWidth, order: 0 },
+        { name: "Pin End", role: "pin", lat: startLat, lng: startLng + startLineWidth, order: 1 },
+        { name: "Windward Mark", role: "windward", lat: startLat + legLength, lng: startLng, order: 2 },
+        { name: "Gate Left", role: "gate", lat: startLat + legLength * 0.15, lng: startLng - gateWidth, order: 3 },
+        { name: "Gate Right", role: "gate", lat: startLat + legLength * 0.15, lng: startLng + gateWidth, order: 4 },
       ];
     case "custom":
     default:
@@ -69,6 +97,8 @@ export default function RaceControl() {
   const [isPlacingMark, setIsPlacingMark] = useState(false);
   const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole } | null>(null);
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
+  const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
+  const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand } = useDemoMode();
@@ -78,8 +108,9 @@ export default function RaceControl() {
   const { data: courses = [], isLoading: coursesLoading } = useCourses();
   const { data: weatherData, isLoading: weatherLoading } = useWeatherData();
   
-  const currentEvent = events[0];
-  const currentCourse = courses[0];
+  // If no active course/event is set, use the first one from the list
+  const currentEvent = activeEventId ? events.find(e => e.id === activeEventId) : events[0];
+  const currentCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : courses[0];
   
   const courseId = currentCourse?.id ?? "";
   const { data: marks = [], isLoading: marksLoading } = useMarks(courseId);
@@ -164,15 +195,44 @@ export default function RaceControl() {
   }, [repositioningMarkId]);
 
   const handleSaveMark = useCallback((id: string, data: Partial<Mark>) => {
+    const mark = marks.find(m => m.id === id);
+    const previousBuoyId = mark?.assignedBuoyId;
+    const newBuoyId = data.assignedBuoyId;
+    
     updateMark.mutate({ id, data }, {
       onSuccess: () => {
-        toast({
-          title: "Mark Updated",
-          description: "Mark has been saved successfully.",
-        });
+        // If a buoy was assigned to this mark, send it to the mark position
+        if (newBuoyId && newBuoyId !== previousBuoyId && mark) {
+          const targetLat = data.lat ?? mark.lat;
+          const targetLng = data.lng ?? mark.lng;
+          
+          if (demoMode) {
+            sendDemoCommand(newBuoyId, "move_to_target", targetLat, targetLng);
+            toast({
+              title: "Buoy Dispatched",
+              description: `Buoy is moving to ${mark.name} at 3.25 knots.`,
+            });
+          } else {
+            buoyCommand.mutate({
+              id: newBuoyId,
+              command: "move_to_target",
+              targetLat,
+              targetLng,
+            });
+            toast({
+              title: "Buoy Dispatched",
+              description: `Buoy is moving to ${mark.name}.`,
+            });
+          }
+        } else {
+          toast({
+            title: "Mark Updated",
+            description: "Mark has been saved successfully.",
+          });
+        }
       },
     });
-  }, [updateMark, toast]);
+  }, [updateMark, marks, demoMode, sendDemoCommand, buoyCommand, toast]);
 
   const handleDeleteMark = useCallback((id: string) => {
     deleteMark.mutate(id, {
@@ -333,7 +393,7 @@ export default function RaceControl() {
         scale: 1,
       });
 
-      await createEvent.mutateAsync({
+      const event = await createEvent.mutateAsync({
         name: data.name,
         type: data.type,
         sailClubId: "e026546d-c0b6-480e-b154-2d69fd341c11",
@@ -341,6 +401,8 @@ export default function RaceControl() {
         targetDuration: data.targetDuration,
         courseId: course.id,
       });
+      
+      setActiveEventId(event.id);
 
       const shapeMarks = generateShapeMarks(data.courseShape, DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
       for (const mark of shapeMarks) {
@@ -353,6 +415,14 @@ export default function RaceControl() {
           lng: mark.lng,
         });
       }
+
+      // Set the active course and event to the newly created ones
+      setActiveCourseId(course.id);
+      
+      // Force refresh all queries to ensure UI shows new data
+      await queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/courses", course.id, "marks"] });
 
       if (data.courseShape === "custom") {
         setIsPlacingMark(true);
@@ -376,7 +446,7 @@ export default function RaceControl() {
         variant: "destructive",
       });
     }
-  }, [createCourse, createEvent, createMark, deleteAllMarks, currentCourse, toast]);
+  }, [createCourse, createEvent, createMark, deleteAllMarks, currentCourse, toast, setActiveCourseId, setActiveEventId]);
 
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 

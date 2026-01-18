@@ -66,21 +66,37 @@ export function BuoyCard({ buoy, isSelected, onClick, compact = false }: BuoyCar
       : "text-destructive";
 
   if (compact) {
+    const isMoving = buoy.state === "moving_to_target";
     return (
       <div
         className={cn(
           "flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate transition-colors",
-          isSelected && "ring-2 ring-primary bg-primary/5"
+          isSelected && "ring-2 ring-primary bg-primary/5",
+          isMoving && "bg-chart-1/5 border-chart-1/30"
         )}
         onClick={onClick}
         data-testid={`buoy-card-compact-${buoy.id}`}
       >
-        <div className={cn("w-3 h-3 rounded-full", stateBgColor, stateColor.replace("text-", "bg-"))} />
+        <div className={cn("w-3 h-3 rounded-full", isMoving && "animate-pulse", stateColor.replace("text-", "bg-"))} />
         <span className="font-medium flex-1 truncate">{buoy.name}</span>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Battery className={cn("w-4 h-4", batteryColor)} />
-          <span className="font-mono">{buoy.battery}%</span>
-        </div>
+        {isMoving && buoy.speed > 0 && (
+          <div className="flex items-center gap-1 text-xs text-chart-1 font-mono">
+            <Navigation className="w-3 h-3" />
+            {formatSpeed(buoy.speed)}
+          </div>
+        )}
+        {isMoving && buoy.eta && (
+          <div className="flex items-center gap-1 text-xs text-chart-1 font-mono">
+            <Clock className="w-3 h-3" />
+            {Math.floor(buoy.eta / 60)}:{(buoy.eta % 60).toString().padStart(2, "0")}
+          </div>
+        )}
+        {!isMoving && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Battery className={cn("w-4 h-4", batteryColor)} />
+            <span className="font-mono">{buoy.battery}%</span>
+          </div>
+        )}
       </div>
     );
   }
