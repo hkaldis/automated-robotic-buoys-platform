@@ -559,6 +559,24 @@ export default function RaceControl() {
     }
   }, [repositioningMarkId, isPlacingMark, toast]);
 
+  const handleNudgeMark = useCallback((markId: string, direction: "north" | "south" | "east" | "west") => {
+    const mark = marks.find(m => m.id === markId);
+    if (!mark) return;
+    
+    const NUDGE_AMOUNT = 0.0001; // Approx 11 meters
+    let newLat = mark.lat;
+    let newLng = mark.lng;
+    
+    switch (direction) {
+      case "north": newLat += NUDGE_AMOUNT; break;
+      case "south": newLat -= NUDGE_AMOUNT; break;
+      case "east": newLng += NUDGE_AMOUNT; break;
+      case "west": newLng -= NUDGE_AMOUNT; break;
+    }
+    
+    updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } });
+  }, [marks, updateMark]);
+
   const handleUpdateCourse = useCallback((data: Partial<Course>) => {
     if (!currentCourse) return;
     updateCourse.mutate({ id: currentCourse.id, data });
@@ -859,6 +877,7 @@ export default function RaceControl() {
               onSave={(data) => handleSaveMark(selectedMark.id, data)}
               onDelete={() => handleDeleteMark(selectedMark.id)}
               onReposition={() => handleRepositionMark(selectedMark.id)}
+              onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
               isRepositioning={!!repositioningMarkId}
             />
           ) : (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight } from "lucide-react";
+import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ interface MarkEditPanelProps {
   onSave: (data: Partial<Mark>) => void;
   onDelete: () => void;
   onReposition?: () => void;
+  onNudge?: (direction: "north" | "south" | "east" | "west") => void;
   isRepositioning?: boolean;
 }
 
@@ -41,6 +42,7 @@ export function MarkEditPanel({
   onSave, 
   onDelete,
   onReposition,
+  onNudge,
   isRepositioning,
 }: MarkEditPanelProps) {
   const [name, setName] = useState(mark.name);
@@ -192,10 +194,54 @@ export function MarkEditPanel({
                 data-testid="button-reposition-mark"
               >
                 <Navigation className="w-4 h-4 mr-1" />
-                {isRepositioning ? "Click Map..." : "Reposition"}
+                {isRepositioning ? "Click Map..." : "Tap to Place"}
               </Button>
             )}
           </div>
+          
+          {/* Directional nudge controls */}
+          {onNudge && (
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs font-medium text-muted-foreground mb-1">Nudge Position</p>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onNudge("north")}
+                data-testid="button-nudge-north"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </Button>
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onNudge("west")}
+                  data-testid="button-nudge-west"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <div className="w-9 h-9 flex items-center justify-center text-xs text-muted-foreground">
+                  <Move className="w-4 h-4" />
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => onNudge("east")}
+                  data-testid="button-nudge-east"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => onNudge("south")}
+                data-testid="button-nudge-south"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
           
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

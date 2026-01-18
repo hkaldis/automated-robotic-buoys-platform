@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, Maximize2, Move, Ruler, Clock, Download, Upload } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -658,7 +658,7 @@ export function SetupPanel({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       <Button
                         variant="outline"
                         size="lg"
@@ -683,11 +683,21 @@ export function SetupPanel({
                         variant="outline"
                         size="lg"
                         className="flex-col gap-1 h-auto py-3"
-                        onClick={() => onTransformCourse?.({ rotation: 15 })}
+                        onClick={() => onTransformCourse?.({ rotation: -5 })}
+                        data-testid="button-rotate-ccw"
+                      >
+                        <RotateCcw className="w-5 h-5" />
+                        <span className="text-xs">-5°</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="flex-col gap-1 h-auto py-3"
+                        onClick={() => onTransformCourse?.({ rotation: 5 })}
                         data-testid="button-rotate-cw"
                       >
                         <RotateCw className="w-5 h-5" />
-                        <span className="text-xs">Rotate</span>
+                        <span className="text-xs">+5°</span>
                       </Button>
                     </div>
                     
