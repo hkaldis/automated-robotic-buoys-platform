@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
-type SetupPhase = "start_line" | "marks" | "finish_line" | "summary" | "assign_buoys" | "ready";
+type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
 interface SetupPanelProps {
   event: Event;
@@ -17,6 +17,7 @@ interface SetupPanelProps {
   buoys: Buoy[];
   marks: Mark[];
   savedCourses?: Course[];
+  roundingSequence?: string[];
   onMarkSelect?: (markId: string | null) => void;
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
@@ -27,6 +28,7 @@ interface SetupPanelProps {
   onLoadCourse?: (courseId: string) => void;
   onTransformCourse?: (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => void;
   onFinishLinePreview?: (selectedMarkIds: Set<string>) => void;
+  onUpdateSequence?: (sequence: string[]) => void;
 }
 
 export function SetupPanel({
@@ -34,6 +36,7 @@ export function SetupPanel({
   marks,
   buoys,
   savedCourses = [],
+  roundingSequence = [],
   onMarkSelect,
   onDeployCourse,
   onSaveMark,
@@ -42,6 +45,7 @@ export function SetupPanel({
   onLoadCourse,
   onTransformCourse,
   onFinishLinePreview,
+  onUpdateSequence,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -75,15 +79,20 @@ export function SetupPanel({
     return count;
   };
 
-  // Phase order for comparison - NEW ORDER with summary
-  const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "summary", "assign_buoys", "ready"];
+  // Phase order for comparison - with sequence step
+  const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "sequence", "summary", "assign_buoys", "ready"];
   
-  // Get minimum required phase based on completion status - NEW ORDER
+  // Check if sequence is defined (has at least start + 1 mark + finish)
+  const hasSequence = roundingSequence.length >= 3;
+  
+  // Get minimum required phase based on completion status
   const getMinPhase = (): SetupPhase => {
     if (!hasStartLine) return "start_line";
     if (!hasCourseMarks) return "marks";
     if (!hasFinishLine) return "finish_line";
-    // Summary phase is optional - user can proceed after finish line is set
+    // Sequence phase - user defines the rounding order
+    if (!hasSequence) return "sequence";
+    // Summary phase is optional - user can proceed after sequence is set
     if (!allAssigned) return "summary";
     return "ready";
   };
@@ -106,9 +115,9 @@ export function SetupPanel({
     const currentIdx = phaseOrder.indexOf(phase);
     const minIdx = phaseOrder.indexOf(minPhase);
     
-    // Allow staying in summary/assign_buoys if finish was confirmed by user
+    // Allow staying in sequence/summary/assign_buoys if finish was confirmed by user
     // (even if async mark updates haven't completed yet)
-    if (finishConfirmed && (phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
+    if (finishConfirmed && (phase === "sequence" || phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
       return;
     }
     
@@ -153,10 +162,48 @@ export function SetupPanel({
       }
     });
     setFinishConfirmed(true);
-    setPhase("summary");
+    setPhase("sequence");
+  };
+  
+  // Sequence management functions
+  const addToSequence = (markId: string) => {
+    const newSequence = [...roundingSequence, markId];
+    onUpdateSequence?.(newSequence);
+  };
+  
+  const removeFromSequence = (index: number) => {
+    const newSequence = [...roundingSequence];
+    newSequence.splice(index, 1);
+    onUpdateSequence?.(newSequence);
+  };
+  
+  const undoLastSequence = () => {
+    if (roundingSequence.length > 0) {
+      onUpdateSequence?.(roundingSequence.slice(0, -1));
+    }
+  };
+  
+  const clearSequence = () => {
+    onUpdateSequence?.([]);
+  };
+  
+  const autoGenerateSequence = () => {
+    // Auto-generate a simple sequential course: Start → M1 → M2 → ... → Finish
+    const sortedCourseMarkIds = [...courseMarks]
+      .sort((a, b) => a.order - b.order)
+      .map(m => m.id);
+    const startMarkId = startLineMarks.length > 0 ? "start" : null;
+    const finishMarkId = finishLineMarks.length > 0 ? "finish" : null;
+    
+    const sequence: string[] = [];
+    if (startMarkId) sequence.push(startMarkId);
+    sequence.push(...sortedCourseMarkIds);
+    if (finishMarkId) sequence.push(finishMarkId);
+    
+    onUpdateSequence?.(sequence);
   };
 
-  // Calculate course statistics
+  // Calculate course statistics based on rounding sequence
   const courseStats = useMemo(() => {
     const startCenter = startLineMarks.length >= 2 ? {
       lat: startLineMarks.reduce((s, m) => s + m.lat, 0) / startLineMarks.length,
@@ -167,8 +214,6 @@ export function SetupPanel({
       lat: finishLineMarks.reduce((s, m) => s + m.lat, 0) / finishLineMarks.length,
       lng: finishLineMarks.reduce((s, m) => s + m.lng, 0) / finishLineMarks.length,
     } : null;
-
-    const sortedCourseMarks = [...courseMarks].sort((a, b) => a.order - b.order);
     
     // Haversine distance calculation
     const haversine = (lat1: number, lng1: number, lat2: number, lng2: number) => {
@@ -178,29 +223,39 @@ export function SetupPanel({
       const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
       return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     };
+    
+    // Get position for a sequence entry (mark ID, "start", or "finish")
+    const getPosition = (entry: string): { lat: number; lng: number } | null => {
+      if (entry === "start") return startCenter;
+      if (entry === "finish") return finishCenter;
+      const mark = marks.find(m => m.id === entry);
+      return mark ? { lat: mark.lat, lng: mark.lng } : null;
+    };
 
+    // Calculate legs based on sequence
+    const legs: { from: string; to: string; distance: number }[] = [];
     let totalDistance = 0;
+    
+    if (roundingSequence.length >= 2) {
+      for (let i = 0; i < roundingSequence.length - 1; i++) {
+        const fromPos = getPosition(roundingSequence[i]);
+        const toPos = getPosition(roundingSequence[i + 1]);
+        if (fromPos && toPos) {
+          const distance = haversine(fromPos.lat, fromPos.lng, toPos.lat, toPos.lng);
+          legs.push({
+            from: roundingSequence[i],
+            to: roundingSequence[i + 1],
+            distance
+          });
+          totalDistance += distance;
+        }
+      }
+    }
     
     // Start line length
     let startLineLength = 0;
     if (startLineMarks.length >= 2) {
       startLineLength = haversine(startLineMarks[0].lat, startLineMarks[0].lng, startLineMarks[1].lat, startLineMarks[1].lng);
-    }
-
-    // Start center to M1
-    if (startCenter && sortedCourseMarks.length > 0) {
-      totalDistance += haversine(startCenter.lat, startCenter.lng, sortedCourseMarks[0].lat, sortedCourseMarks[0].lng);
-    }
-
-    // Between course marks
-    for (let i = 0; i < sortedCourseMarks.length - 1; i++) {
-      totalDistance += haversine(sortedCourseMarks[i].lat, sortedCourseMarks[i].lng, sortedCourseMarks[i + 1].lat, sortedCourseMarks[i + 1].lng);
-    }
-
-    // Last mark to finish center
-    if (finishCenter && sortedCourseMarks.length > 0) {
-      const lastMark = sortedCourseMarks[sortedCourseMarks.length - 1];
-      totalDistance += haversine(lastMark.lat, lastMark.lng, finishCenter.lat, finishCenter.lng);
     }
 
     // Finish line length
@@ -220,8 +275,17 @@ export function SetupPanel({
       startMarksCount: startLineMarks.length,
       courseMarksCount: courseMarks.length,
       finishMarksCount: finishLineMarks.length,
+      legs,
     };
-  }, [startLineMarks, finishLineMarks, courseMarks]);
+  }, [startLineMarks, finishLineMarks, marks, roundingSequence]);
+  
+  // Helper to get mark name for sequence display
+  const getSequenceEntryName = (entry: string): string => {
+    if (entry === "start") return "Start";
+    if (entry === "finish") return "Finish";
+    const mark = marks.find(m => m.id === entry);
+    return mark?.name ?? "Unknown";
+  };
 
   const handleSaveCourse = () => {
     if (courseName.trim() && onSaveCourse) {
@@ -279,13 +343,14 @@ export function SetupPanel({
   const hasPinEnd = startLineMarks.some(m => m.role === "pin" || m.name.toLowerCase().includes("pin"));
   const hasCommitteeBoat = startLineMarks.some(m => m.role === "start_boat" || m.name.toLowerCase().includes("committee") || m.name.toLowerCase().includes("starboard"));
 
-  // Updated phases for new order with summary
+  // Updated phases with sequence step
   const phases = [
     { id: "start_line", label: "Start", number: 1 },
     { id: "marks", label: "Marks", number: 2 },
     { id: "finish_line", label: "Finish", number: 3 },
-    { id: "summary", label: "Review", number: 4 },
-    { id: "assign_buoys", label: "Buoys", number: 5 },
+    { id: "sequence", label: "Route", number: 4 },
+    { id: "summary", label: "Review", number: 5 },
+    { id: "assign_buoys", label: "Buoys", number: 6 },
   ];
 
   const currentPhaseIndex = phases.findIndex(p => p.id === phase);
@@ -591,6 +656,193 @@ export function SetupPanel({
           </div>
         );
 
+      case "sequence":
+        return (
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/30">
+                <List className="w-8 h-8 text-indigo-600" />
+              </div>
+              <h2 className="text-2xl font-bold">Set Route</h2>
+              <p className="text-muted-foreground">
+                Tap marks in the order sailors will round them
+              </p>
+            </div>
+
+            {/* Available marks to add */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Tap to add:</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="lg"
+                  variant={roundingSequence.includes("start") ? "secondary" : "outline"}
+                  className="gap-2"
+                  onClick={() => addToSequence("start")}
+                  data-testid="button-add-start-to-sequence"
+                >
+                  <Flag className="w-4 h-4 text-green-600" />
+                  Start
+                </Button>
+                {courseMarks.map(mark => (
+                  <Button
+                    key={mark.id}
+                    size="lg"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => addToSequence(mark.id)}
+                    data-testid={`button-add-mark-${mark.id}-to-sequence`}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    {mark.name}
+                  </Button>
+                ))}
+                <Button
+                  size="lg"
+                  variant={roundingSequence.includes("finish") ? "secondary" : "outline"}
+                  className="gap-2"
+                  onClick={() => addToSequence("finish")}
+                  data-testid="button-add-finish-to-sequence"
+                >
+                  <FlagTriangleRight className="w-4 h-4 text-blue-600" />
+                  Finish
+                </Button>
+              </div>
+            </div>
+
+            {/* Current sequence */}
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Route ({roundingSequence.length} waypoints)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={undoLastSequence}
+                      disabled={roundingSequence.length === 0}
+                      data-testid="button-undo-sequence"
+                    >
+                      <Undo2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSequence}
+                      disabled={roundingSequence.length === 0}
+                      data-testid="button-clear-sequence"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                {roundingSequence.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground bg-muted/30 rounded-lg">
+                    <p>No waypoints added yet.</p>
+                    <p className="text-sm mt-1">Tap "Start" to begin.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {roundingSequence.map((entry, index) => {
+                      const name = getSequenceEntryName(entry);
+                      const isStart = entry === "start";
+                      const isFinish = entry === "finish";
+                      const legDistance = index > 0 ? courseStats.legs[index - 1]?.distance : null;
+                      
+                      return (
+                        <div
+                          key={`${entry}-${index}`}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg",
+                            isStart ? "bg-green-50 dark:bg-green-900/20" :
+                            isFinish ? "bg-blue-50 dark:bg-blue-900/20" :
+                            "bg-muted/50"
+                          )}
+                          data-testid={`sequence-item-${index}`}
+                        >
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                            isStart ? "bg-green-500 text-white" :
+                            isFinish ? "bg-blue-500 text-white" :
+                            "bg-muted-foreground/20"
+                          )}>
+                            {index + 1}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium">{name}</p>
+                            {legDistance !== null && legDistance !== undefined && (
+                              <p className="text-xs text-muted-foreground">
+                                {legDistance.toFixed(2)} nm from previous
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => removeFromSequence(index)}
+                            data-testid={`button-remove-sequence-${index}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {roundingSequence.length >= 2 && (
+                  <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                    <p className="text-sm font-medium">Total Distance</p>
+                    <p className="text-2xl font-bold" data-testid="text-sequence-total">
+                      {courseStats.totalDistance.toFixed(2)} nm
+                    </p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="pt-4 border-t space-y-3">
+              {roundingSequence.length === 0 && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={autoGenerateSequence}
+                  data-testid="button-auto-sequence"
+                >
+                  <Play className="w-4 h-4" />
+                  Auto-Generate Simple Route
+                </Button>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="flex-1 text-lg gap-2"
+                  onClick={() => { setFinishConfirmed(false); setPhase("finish_line"); }}
+                  data-testid="button-back-finish"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Back
+                </Button>
+                <Button
+                  size="lg"
+                  className="flex-1 text-lg gap-2"
+                  disabled={roundingSequence.length < 3}
+                  onClick={() => setPhase("summary")}
+                  data-testid="button-continue-summary"
+                >
+                  Continue
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
       case "summary":
         return (
           <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
@@ -606,6 +858,35 @@ export function SetupPanel({
 
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-4">
+                {/* Leg Breakdown */}
+                {courseStats.legs.length > 0 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <List className="w-4 h-4" />
+                        Route Legs
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {courseStats.legs.map((leg, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
+                          data-testid={`leg-${index}`}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center font-bold">
+                            {index + 1}
+                          </div>
+                          <span className="flex-1 text-sm">
+                            {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
+                          </span>
+                          <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Course Statistics */}
                 <Card>
                   <CardHeader className="pb-2">
@@ -813,8 +1094,8 @@ export function SetupPanel({
                   variant="outline"
                   size="lg"
                   className="flex-1 text-lg gap-2"
-                  onClick={() => { setFinishConfirmed(false); setPhase("finish_line"); }}
-                  data-testid="button-back-finish-summary"
+                  onClick={() => setPhase("sequence")}
+                  data-testid="button-back-sequence"
                 >
                   <ChevronLeft className="w-5 h-5" />
                   Back

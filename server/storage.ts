@@ -78,6 +78,7 @@ export class MemStorage implements IStorage {
       centerLng: MIKROLIMANO_CENTER.lng,
       rotation: 0,
       scale: 1,
+      roundingSequence: null,
     });
 
     const eventId = randomUUID();
@@ -204,6 +205,7 @@ export class MemStorage implements IStorage {
       shape: course.shape ?? "triangle",
       rotation: course.rotation ?? 0,
       scale: course.scale ?? 1,
+      roundingSequence: course.roundingSequence ?? null,
     };
     this.courses.set(id, newCourse);
     return newCourse;
