@@ -11,27 +11,27 @@ interface CourseShapeSelectorProps {
 const shapes: { shape: CourseShape; label: string; icon: typeof Triangle; description: string }[] = [
   { 
     shape: "triangle", 
-    label: "Triangle", 
+    label: "Triangle (T)", 
     icon: Triangle,
-    description: "Classic 3-mark course"
+    description: "Olympic triangle with wing mark"
   },
   { 
     shape: "trapezoid", 
-    label: "Trapezoid", 
+    label: "Trapezoid (O)", 
     icon: Square,
-    description: "4-mark trapezoid"
+    description: "Outer loop with reaching legs"
   },
   { 
     shape: "windward_leeward", 
-    label: "W/L", 
+    label: "W/L (L)", 
     icon: ArrowUpDown,
-    description: "Windward-Leeward"
+    description: "Pure upwind/downwind racing"
   },
   { 
     shape: "custom", 
     label: "Custom", 
     icon: Pencil,
-    description: "Draw your own"
+    description: "Place marks manually"
   },
 ];
 

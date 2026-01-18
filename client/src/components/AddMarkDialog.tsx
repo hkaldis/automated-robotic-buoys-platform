@@ -14,10 +14,11 @@ interface AddMarkDialogProps {
 }
 
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
-  { value: "start_boat", label: "Start Boat" },
-  { value: "pin", label: "Pin End" },
-  { value: "windward", label: "Windward Mark" },
-  { value: "leeward", label: "Leeward Mark" },
+  { value: "start_boat", label: "Committee Boat" },
+  { value: "pin", label: "Pin Mark" },
+  { value: "windward", label: "Mark 1 (Windward)" },
+  { value: "wing", label: "Mark 2 (Wing)" },
+  { value: "leeward", label: "Mark 3 (Leeward)" },
   { value: "gate", label: "Gate Mark" },
   { value: "offset", label: "Offset Mark" },
   { value: "turning_mark", label: "Turning Mark" },

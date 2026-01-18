@@ -21,7 +21,18 @@ export const buoyStateSchema = z.enum([
 ]);
 export type BuoyState = z.infer<typeof buoyStateSchema>;
 
-export const markRoleSchema = z.enum(["start_boat", "pin", "turning_mark", "finish", "windward", "leeward", "gate", "offset", "other"]);
+export const markRoleSchema = z.enum([
+  "start_boat",    // Committee boat at starboard end of start line
+  "pin",           // Pin mark at port end of start line
+  "turning_mark",  // Generic turning mark
+  "finish",        // Finish line mark
+  "windward",      // Mark 1 - Windward/weather mark (upwind)
+  "leeward",       // Mark 3/4 - Leeward mark (downwind)
+  "gate",          // Gate mark (3s=starboard, 3p=port)
+  "offset",        // Offset/spreader mark near windward
+  "wing",          // Mark 2 - Wing/gybe mark (trapezoid/triangle reaching)
+  "other"          // Custom/other marks
+]);
 export type MarkRole = z.infer<typeof markRoleSchema>;
 
 export const courseShapeSchema = z.enum(["triangle", "trapezoid", "windward_leeward", "custom"]);

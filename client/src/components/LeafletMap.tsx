@@ -89,25 +89,43 @@ function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
 }
 
 function createMarkIcon(mark: Mark, isSelected: boolean): L.DivIcon {
+  // Mark role color coding per World Sailing standards
+  const roleColors: Record<string, string> = {
+    start_boat: "#22c55e",    // Green - Committee boat
+    pin: "#22c55e",           // Green - Pin end
+    windward: "#ef4444",      // Red - Mark 1 (windward)
+    wing: "#8b5cf6",          // Purple - Mark 2 (wing/gybe)
+    leeward: "#3b82f6",       // Blue - Mark 3 (leeward)
+    gate: "#06b6d4",          // Cyan - Gate marks (3s/3p)
+    offset: "#f59e0b",        // Amber - Offset mark
+    finish: "#f97316",        // Orange - Finish
+    turning_mark: "#3b82f6",  // Blue - Generic turning mark
+    other: "#6b7280",         // Gray - Other marks
+  };
+  
+  // Visual shape by role
   const isStart = mark.role === "start_boat" || mark.role === "pin";
-  const isFinish = mark.role === "finish";
+  const isWindward = mark.role === "windward";
+  const isWing = mark.role === "wing";
   
-  let color = "#3b82f6";
-  let shape = "circle";
-  
-  if (isStart) {
-    color = "#22c55e";
-    shape = "triangle";
-  } else if (isFinish) {
-    color = "#f97316";
-    shape = "circle";
-  }
-
+  const color = roleColors[mark.role] || "#3b82f6";
   const ring = isSelected ? `border:3px solid #3b82f6;` : "";
 
-  const shapeHtml = shape === "triangle" 
-    ? `<div style="width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:20px solid ${color};${ring}"></div>`
-    : `<div style="width:24px;height:24px;background:${color};border-radius:50%;${ring}"></div>`;
+  let shapeHtml: string;
+  
+  if (isStart) {
+    // Triangle for start line marks (pointing up)
+    shapeHtml = `<div style="width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:20px solid ${color};${ring}"></div>`;
+  } else if (isWindward) {
+    // Diamond for windward mark (most important mark)
+    shapeHtml = `<div style="width:20px;height:20px;background:${color};transform:rotate(45deg);${ring}"></div>`;
+  } else if (isWing) {
+    // Diamond for wing mark (similar importance to windward)
+    shapeHtml = `<div style="width:18px;height:18px;background:${color};transform:rotate(45deg);${ring}"></div>`;
+  } else {
+    // Circle for other marks (leeward, gate, offset, finish)
+    shapeHtml = `<div style="width:24px;height:24px;background:${color};border-radius:50%;${ring}"></div>`;
+  }
 
   return L.divIcon({
     className: "custom-mark-marker",

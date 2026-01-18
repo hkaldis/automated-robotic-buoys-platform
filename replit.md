@@ -128,22 +128,35 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 ## Recent Changes
 
 ### January 18, 2026 (Latest)
-- **Fixed "Align to Wind" Logic**: Now properly calculates start line bearing from start_boat and pin marks, then rotates course so start line is perpendicular (90°) to wind direction per sailing race rules
-- **Fixed Marker Click Conflicts**: Added zIndexOffset to buoy markers ensuring they render above mark markers; mark labels have pointer-events:none to prevent click blocking
-- **Fixed Marks Display After Race Creation**: Added `activeCourseId` and `activeEventId` state tracking to properly select the newly created course/event instead of relying on array position
-- **Demo Mode Default**: Demo mode is now enabled by default for easier testing and demonstration
-- **Buoy Movement on Assignment**: When assigning a buoy to a mark in demo mode, the buoy automatically moves toward the mark position at 3.25 knots with live ETA display
-- **Continuous Mark Placement for Custom Courses**: Users can now click repeatedly on the map to add marks when creating custom courses, with auto-incrementing names (Mark 1, Mark 2, etc.)
-- **State Guard for Conflicting Modes**: Entering mark placement mode automatically cancels repositioning mode and vice versa
-- **Fixed Demo Location Bug**: Corrected all seeded data to use Mikrolimano, Greece coordinates (37.9376, 23.6917)
+- **World Sailing Standards Compliance**: Complete overhaul of course geometry and mark naming
+  - Added "wing" mark role for Mark 2 (wing/gybe marks in triangle/trapezoid courses)
+  - Updated mark naming to World Sailing conventions: Mark 1 (Windward), Mark 2 (Wing), Mark 3 (Leeward)
+  - Gate marks now named "Mark 3s (Gate Starboard)" and "Mark 3p (Gate Port)"
+  - Committee Boat at STARBOARD end of start line, Pin Mark at PORT end
+  - Course shapes use World Sailing codes: Triangle (T), Trapezoid (O), Windward-Leeward (L)
+  
+- **Corrected Course Geometry**:
+  - Triangle: True equilateral 60° angles, wing mark at sin(60°) offset to starboard
+  - Trapezoid: 60° reaching legs, proper offset mark placement near windward
+  - Windward-Leeward: Gate at leeward end (same latitude as start line)
+  - All courses use PORT rounding (counter-clockwise sailing direction)
+  
+- **Mark Visual Improvements**: Role-specific colors and shapes on map
+  - Windward/Wing marks: Diamond shape (red/purple)
+  - Gate/Leeward marks: Circle shape (cyan/blue)
+  - Start line marks: Triangle shape (green)
+  
+- **Fixed "Align to Wind" Logic**: Calculates start line bearing from Committee Boat → Pin Mark, rotates course so start line is perpendicular (90°) to wind direction
+- **Fixed Marker Click Conflicts**: Added zIndexOffset to buoy markers ensuring they render above mark markers
+- **Fixed Marks Display After Race Creation**: Added `activeCourseId` and `activeEventId` state tracking
 
 ### January 17, 2026
-- **Extended Mark Roles**: Added windward, leeward, gate, offset, other roles to schema for comprehensive course design
+- **Extended Mark Roles**: Added windward, leeward, gate, offset, wing, other roles to schema
 - **Bulk Mark Delete**: Added DELETE /api/courses/:id/marks endpoint to clear all marks from a course
-- **Predefined Shape Marks**: New race creation now generates appropriate marks based on selected shape:
-  - Triangle: 4 marks (Start Boat, Pin End, Windward, Leeward)
-  - Trapezoid: 6 marks (Start Boat, Pin End, Windward, Offset, Gate Left, Gate Right)
-  - Windward-Leeward: 5 marks (Start Boat, Pin End, Windward, Gate Left, Gate Right)
+- **Predefined Shape Marks**: New race creation generates marks based on selected shape:
+  - Triangle (T): 5 marks (Committee Boat, Pin, Windward, Wing, Leeward)
+  - Trapezoid (O): 7 marks (Committee Boat, Pin, Windward, Offset, Wing, Gate Starboard, Gate Port)
+  - Windward-Leeward (L): 5 marks (Committee Boat, Pin, Windward, Gate Starboard, Gate Port)
   - Custom: 0 marks (user clicks on map to add)
 - **Race Creation Flow**: Creating a new race clears existing marks, creates course/event, then generates shape marks
 
