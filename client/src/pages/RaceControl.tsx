@@ -1,7 +1,9 @@
 import { useState, useMemo, useCallback } from "react";
 import { TopBar } from "@/components/TopBar";
 import { LeafletMap } from "@/components/LeafletMap";
-import { SidePanel } from "@/components/SidePanel";
+import { SetupPanel } from "@/components/SetupPanel";
+import { BuoyDetailPanel } from "@/components/BuoyDetailPanel";
+import { MarkEditPanel } from "@/components/MarkEditPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { AlertBanner } from "@/components/AlertBanner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -665,26 +667,35 @@ export default function RaceControl() {
         </main>
 
         <aside className="w-96 xl:w-[440px] border-l shrink-0 hidden lg:block">
-          <SidePanel 
-            event={displayEvent}
-            course={currentCourse}
-            buoys={buoys}
-            marks={marks}
-            selectedBuoy={selectedBuoy}
-            selectedMark={selectedMark}
-            weatherData={activeWeatherData}
-            isRepositioningMark={!!repositioningMarkId}
-            onBuoySelect={setSelectedBuoyId}
-            onMarkSelect={setSelectedMarkId}
-            onDeployCourse={handleDeployCourse}
-            onSaveMark={handleSaveMark}
-            onDeleteMark={handleDeleteMark}
-            onAddMark={handleAddMark}
-            onPlaceMarkOnMap={handlePlaceMarkOnMap}
-            onRepositionMark={handleRepositionMark}
-            onUpdateCourse={handleUpdateCourse}
-            onUpdateMarks={handleUpdateMarks}
-          />
+          {selectedBuoy ? (
+            <BuoyDetailPanel 
+              buoy={selectedBuoy} 
+              onClose={() => setSelectedBuoyId(null)} 
+            />
+          ) : selectedMark ? (
+            <MarkEditPanel
+              mark={selectedMark}
+              buoys={buoys}
+              onClose={() => setSelectedMarkId(null)}
+              onSave={(data) => handleSaveMark(selectedMark.id, data)}
+              onDelete={() => handleDeleteMark(selectedMark.id)}
+              onReposition={() => handleRepositionMark(selectedMark.id)}
+              isRepositioning={!!repositioningMarkId}
+            />
+          ) : (
+            <SetupPanel 
+              event={displayEvent}
+              course={currentCourse}
+              buoys={buoys}
+              marks={marks}
+              onMarkSelect={setSelectedMarkId}
+              onBuoySelect={setSelectedBuoyId}
+              onDeployCourse={handleDeployCourse}
+              onSaveMark={handleSaveMark}
+              onAddMark={handleAddMark}
+              onPlaceMarkOnMap={handlePlaceMarkOnMap}
+            />
+          )}
         </aside>
       </div>
 
