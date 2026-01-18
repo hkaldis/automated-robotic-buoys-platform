@@ -128,13 +128,14 @@ npm run db:push      # Push database schema (when using PostgreSQL)
 ## Recent Changes
 
 ### January 18, 2026 (Latest)
-- **Fixed Marks Display After Race Creation**: Added `activeCourseId` and `activeEventId` state tracking to properly select the newly created course/event instead of relying on array position. The UI now immediately shows the new race with its marks after creation.
+- **Fixed "Align to Wind" Logic**: Now properly calculates start line bearing from start_boat and pin marks, then rotates course so start line is perpendicular (90°) to wind direction per sailing race rules
+- **Fixed Marker Click Conflicts**: Added zIndexOffset to buoy markers ensuring they render above mark markers; mark labels have pointer-events:none to prevent click blocking
+- **Fixed Marks Display After Race Creation**: Added `activeCourseId` and `activeEventId` state tracking to properly select the newly created course/event instead of relying on array position
 - **Demo Mode Default**: Demo mode is now enabled by default for easier testing and demonstration
 - **Buoy Movement on Assignment**: When assigning a buoy to a mark in demo mode, the buoy automatically moves toward the mark position at 3.25 knots with live ETA display
-- **Continuous Mark Placement for Custom Courses**: Users can now click repeatedly on the map to add marks when creating custom courses, with auto-incrementing names (Mark 1, Mark 2, etc.). A "Done" button exits placement mode.
-- **State Guard for Conflicting Modes**: Entering mark placement mode automatically cancels repositioning mode and vice versa, preventing conflicting click behaviors
-- **Fixed Demo Location Bug**: Corrected all seeded data (buoys, marks, course center) to use Mikrolimano, Greece coordinates
-- **Clean Buoy Seeding**: Removed undefined property references (targetLat/targetLng/eta) from buoy initialization for cleaner data
+- **Continuous Mark Placement for Custom Courses**: Users can now click repeatedly on the map to add marks when creating custom courses, with auto-incrementing names (Mark 1, Mark 2, etc.)
+- **State Guard for Conflicting Modes**: Entering mark placement mode automatically cancels repositioning mode and vice versa
+- **Fixed Demo Location Bug**: Corrected all seeded data to use Mikrolimano, Greece coordinates (37.9376, 23.6917)
 
 ### January 17, 2026
 - **Extended Mark Roles**: Added windward, leeward, gate, offset, other roles to schema for comprehensive course design
