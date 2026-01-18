@@ -274,7 +274,7 @@ export function SetupPanel({
     switch (phase) {
       case "start_line":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
                 <Flag className="w-8 h-8 text-green-600" />
@@ -380,7 +380,7 @@ export function SetupPanel({
 
       case "marks":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-primary/10">
                 <MapPin className="w-8 h-8 text-primary" />
@@ -468,7 +468,7 @@ export function SetupPanel({
         const canConfirmFinish = selectedLineMarkIds.size >= 2;
         
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
                 <FlagTriangleRight className="w-8 h-8 text-blue-600" />
@@ -572,7 +572,7 @@ export function SetupPanel({
 
       case "summary":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
                 <Ruler className="w-8 h-8 text-purple-600" />
@@ -804,7 +804,7 @@ export function SetupPanel({
 
       case "assign_buoys":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
                 <Anchor className="w-8 h-8 text-amber-600" />
@@ -896,7 +896,7 @@ export function SetupPanel({
 
       case "ready":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4">
+          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
             <div className="text-center space-y-4 flex-1 flex flex-col items-center justify-center">
               <div className="w-24 h-24 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
                 <Check className="w-12 h-12 text-green-600" />

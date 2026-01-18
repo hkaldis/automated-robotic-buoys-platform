@@ -1,8 +1,8 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2 } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -346,6 +346,81 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
   return <>{legs}</>;
 }
 
+function WindArrowsLayer({ windDirection, windSpeed }: { windDirection: number; windSpeed: number }) {
+  const map = useMap();
+  const [arrows, setArrows] = useState<Array<{ lat: number; lng: number; key: string }>>([]);
+
+  useMapEvents({
+    moveend: () => updateArrows(),
+    zoomend: () => updateArrows(),
+  });
+
+  const updateArrows = useCallback(() => {
+    const bounds = map.getBounds();
+    const zoom = map.getZoom();
+    
+    const gridSize = zoom >= 16 ? 0.002 : zoom >= 14 ? 0.005 : zoom >= 12 ? 0.01 : 0.02;
+    
+    const newArrows: Array<{ lat: number; lng: number; key: string }> = [];
+    
+    const south = Math.floor(bounds.getSouth() / gridSize) * gridSize;
+    const north = Math.ceil(bounds.getNorth() / gridSize) * gridSize;
+    const west = Math.floor(bounds.getWest() / gridSize) * gridSize;
+    const east = Math.ceil(bounds.getEast() / gridSize) * gridSize;
+    
+    for (let lat = south; lat <= north; lat += gridSize) {
+      for (let lng = west; lng <= east; lng += gridSize) {
+        newArrows.push({
+          lat: lat + gridSize / 2,
+          lng: lng + gridSize / 2,
+          key: `${lat.toFixed(6)}-${lng.toFixed(6)}`,
+        });
+      }
+    }
+    
+    setArrows(newArrows);
+  }, [map]);
+
+  useEffect(() => {
+    updateArrows();
+  }, [updateArrows]);
+
+  const arrowSize = windSpeed >= 15 ? 28 : windSpeed >= 10 ? 24 : windSpeed >= 5 ? 20 : 16;
+  const arrowColor = windSpeed >= 20 ? "#dc2626" : windSpeed >= 15 ? "#f97316" : windSpeed >= 10 ? "#3b82f6" : "#64748b";
+
+  return (
+    <>
+      {arrows.map((arrow) => (
+        <Marker
+          key={arrow.key}
+          position={[arrow.lat, arrow.lng]}
+          icon={L.divIcon({
+            className: "wind-arrow-marker",
+            html: `
+              <div style="
+                width: ${arrowSize}px;
+                height: ${arrowSize}px;
+                transform: rotate(${windDirection}deg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0.7;
+              ">
+                <svg viewBox="0 0 24 24" fill="${arrowColor}" width="${arrowSize}" height="${arrowSize}">
+                  <path d="M12 2L8 10H11V22H13V10H16L12 2Z" />
+                </svg>
+              </div>
+            `,
+            iconSize: [arrowSize, arrowSize],
+            iconAnchor: [arrowSize / 2, arrowSize / 2],
+          })}
+          interactive={false}
+        />
+      ))}
+    </>
+  );
+}
+
 export function LeafletMap({ 
   buoys, 
   marks, 
@@ -369,6 +444,7 @@ export function LeafletMap({
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
+  const [showWindArrows, setShowWindArrows] = useState(false);
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
   
@@ -544,6 +620,10 @@ export function LeafletMap({
         
         <LegLabels marks={marks} formatDistance={formatDistance} formatBearing={formatBearing} />
         
+        {showWindArrows && weatherData && (
+          <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} />
+        )}
+        
         {sortedMarks.map((mark) => (
           <Marker
             key={mark.id}
@@ -690,6 +770,25 @@ export function LeafletMap({
             <TooltipContent side="right">Align Course to Wind</TooltipContent>
           </UITooltip>
         )}
+        
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant={showWindArrows ? "default" : "ghost"} 
+                size="icon" 
+                onClick={() => setShowWindArrows(!showWindArrows)}
+                disabled={!weatherData}
+                data-testid="button-toggle-wind-arrows"
+              >
+                <ArrowUp className="w-4 h-4" />
+              </Button>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {showWindArrows ? "Hide Wind Arrows" : "Show Wind Arrows"}
+          </TooltipContent>
+        </UITooltip>
       </div>
 
       {weatherData && (
@@ -704,11 +803,19 @@ export function LeafletMap({
                   <path d="M12 2L8 10H16L12 2Z M10 10V22H14V10H10Z" />
                 </svg>
               </div>
-              <span className="text-sm font-mono">{weatherData.windDirection.toFixed(0)}°</span>
+              <div className="text-sm">
+                <span className="font-mono">{weatherData.windDirection.toFixed(0)}°</span>
+                <span className="text-muted-foreground ml-1">@ {weatherData.windSpeed.toFixed(1)} kts</span>
+              </div>
             </div>
-            {mapOrientation === "head-to-wind" && (
-              <Badge variant="secondary" className="text-xs">Head to Wind</Badge>
-            )}
+            <div className="flex flex-wrap gap-1">
+              {mapOrientation === "head-to-wind" && (
+                <Badge variant="secondary" className="text-xs">Head to Wind</Badge>
+              )}
+              {showWindArrows && (
+                <Badge variant="outline" className="text-xs">Arrows On</Badge>
+              )}
+            </div>
           </div>
         </Card>
       )}

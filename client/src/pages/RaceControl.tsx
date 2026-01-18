@@ -845,7 +845,7 @@ export default function RaceControl() {
           />
         </main>
 
-        <aside className="w-96 xl:w-[440px] border-l shrink-0 hidden lg:flex lg:flex-col overflow-hidden">
+        <aside className="w-96 xl:w-[440px] border-l shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden">
           {selectedBuoy ? (
             <BuoyDetailPanel 
               buoy={selectedBuoy} 
