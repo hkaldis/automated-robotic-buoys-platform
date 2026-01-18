@@ -484,7 +484,11 @@ function LegLabels({
           <div className="text-xs font-mono bg-green-700/90 text-white px-2 py-1 rounded">
             <div className="text-[10px] opacity-80">Start Line</div>
             <div>{formatDistance(distance)}</div>
-            <div>{formatBearing(bearing)}</div>
+            {showWindRelative && windDirection !== undefined ? (
+              <div className="text-amber-300">{formatWindRelativeBearing(bearing, windDirection)}</div>
+            ) : (
+              <div>{formatBearing(bearing)}</div>
+            )}
           </div>
         </Tooltip>
       </CircleMarker>
@@ -551,7 +555,11 @@ function LegLabels({
           <div className="text-xs font-mono bg-red-700/90 text-white px-2 py-1 rounded">
             <div className="text-[10px] opacity-80">Finish Line</div>
             <div>{formatDistance(distance)}</div>
-            <div>{formatBearing(bearing)}</div>
+            {showWindRelative && windDirection !== undefined ? (
+              <div className="text-amber-300">{formatWindRelativeBearing(bearing, windDirection)}</div>
+            ) : (
+              <div>{formatBearing(bearing)}</div>
+            )}
           </div>
         </Tooltip>
       </CircleMarker>

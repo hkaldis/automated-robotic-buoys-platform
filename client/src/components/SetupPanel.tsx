@@ -115,22 +115,31 @@ export function SetupPanel({
   const [finishConfirmed, setFinishConfirmed] = useState(false);
   
   // Sync phase with data - only force phase back if current phase is invalid
-  // But don't reset from summary/assign_buoys if user explicitly confirmed the finish line
+  // But don't reset from later phases if user has progressed through the workflow
   useEffect(() => {
     const minPhase = getMinPhase();
     const currentIdx = phaseOrder.indexOf(phase);
     const minIdx = phaseOrder.indexOf(minPhase);
     
-    // Allow staying in sequence/summary/assign_buoys if finish was confirmed by user
-    // (even if async mark updates haven't completed yet)
-    if (finishConfirmed && (phase === "sequence" || phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
+    // Allow staying in sequence/summary/assign_buoys/ready if:
+    // 1. User confirmed finish line (async mark updates may still be pending)
+    // 2. User has a valid sequence (means they've progressed through the workflow)
+    const canStayInLaterPhase = finishConfirmed || hasSequence;
+    if (canStayInLaterPhase && (phase === "sequence" || phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
+      // Only reset if we've lost essential prerequisites (start/marks/finish)
+      if (!hasStartLine || !hasCourseMarks || !hasFinishLine) {
+        const essentialMinIdx = !hasStartLine ? 0 : !hasCourseMarks ? 1 : 2;
+        if (currentIdx > essentialMinIdx) {
+          setPhase(phaseOrder[essentialMinIdx]);
+        }
+      }
       return;
     }
     
     if (currentIdx > minIdx) {
       setPhase(minPhase);
     }
-  }, [hasStartLine, hasCourseMarks, hasFinishLine, allAssigned, phase, finishConfirmed]);
+  }, [hasStartLine, hasCourseMarks, hasFinishLine, hasSequence, allAssigned, phase, finishConfirmed]);
 
   // Initialize selection when entering finish line phase
   useEffect(() => {
