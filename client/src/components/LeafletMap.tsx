@@ -399,15 +399,37 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 }
 
-function LegLabels({ marks, formatDistance, formatBearing }: { 
+function formatWindRelativeBearing(bearing: number, windDirection: number): string {
+  // Calculate angle relative to wind (how far off the wind is the leg)
+  // Wind direction is where wind comes FROM
+  // Positive = starboard tack (wind from right), Negative = port tack (wind from left)
+  let relative = bearing - windDirection;
+  // Normalize to -180 to +180
+  while (relative > 180) relative -= 360;
+  while (relative < -180) relative += 360;
+  
+  const sign = relative >= 0 ? "+" : "";
+  return `${sign}${relative.toFixed(0)}° to wind`;
+}
+
+function LegLabels({ 
+  marks, 
+  formatDistance, 
+  formatBearing,
+  roundingSequence = [],
+  windDirection,
+  showWindRelative = false,
+}: { 
   marks: Mark[]; 
   formatDistance: (nm: number) => string;
   formatBearing: (deg: number) => string;
+  roundingSequence?: string[];
+  windDirection?: number;
+  showWindRelative?: boolean;
 }) {
   // Separate marks by type
   const startLineMarks = marks.filter(m => m.isStartLine);
   const finishLineMarks = marks.filter(m => m.isFinishLine);
-  const courseMarks = marks.filter(m => m.isCourseMark === true).sort((a, b) => a.order - b.order);
   
   // Calculate line centers
   const startLineCenter = startLineMarks.length >= 2 ? {
@@ -426,6 +448,22 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
     startLineMarks.every(sm => finishLineMarks.some(fm => fm.id === sm.id));
   
   const legs = [];
+  
+  // Helper to get position for a sequence entry
+  const getPositionForEntry = (entry: string): GeoPosition | null => {
+    if (entry === "start" && startLineCenter) return startLineCenter;
+    if (entry === "finish" && finishLineCenter) return finishLineCenter;
+    const mark = marks.find(m => m.id === entry);
+    return mark ? { lat: mark.lat, lng: mark.lng } : null;
+  };
+  
+  // Helper to get label for a sequence entry
+  const getLabelForEntry = (entry: string): string => {
+    if (entry === "start") return "Start";
+    if (entry === "finish") return "Finish";
+    const mark = marks.find(m => m.id === entry);
+    return mark?.name ?? entry;
+  };
   
   // 1. Start line distance/bearing (between Pin End and Committee Boat)
   if (startLineMarks.length >= 2) {
@@ -453,83 +491,48 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
     );
   }
   
-  // 2. Leg from start line center to first course mark (M1)
-  if (startLineCenter && courseMarks.length > 0) {
-    const firstMark = courseMarks[0];
-    const midLat = (startLineCenter.lat + firstMark.lat) / 2;
-    const midLng = (startLineCenter.lng + firstMark.lng) / 2;
-    const distance = calculateDistance(startLineCenter, { lat: firstMark.lat, lng: firstMark.lng });
-    const bearing = calculateBearing(startLineCenter, { lat: firstMark.lat, lng: firstMark.lng });
-    
-    legs.push(
-      <CircleMarker
-        key="leg-start-m1"
-        center={[midLat, midLng]}
-        radius={0}
-        pathOptions={{ opacity: 0 }}
-      >
-        <Tooltip permanent direction="center" className="leg-label-tooltip">
-          <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
-            <div>{formatDistance(distance)}</div>
-            <div>{formatBearing(bearing)}</div>
-          </div>
-        </Tooltip>
-      </CircleMarker>
-    );
+  // 2. Sequence-based leg labels (following rounding sequence)
+  if (roundingSequence.length >= 2) {
+    for (let i = 0; i < roundingSequence.length - 1; i++) {
+      const fromEntry = roundingSequence[i];
+      const toEntry = roundingSequence[i + 1];
+      const fromPos = getPositionForEntry(fromEntry);
+      const toPos = getPositionForEntry(toEntry);
+      
+      if (!fromPos || !toPos) continue;
+      
+      const midLat = (fromPos.lat + toPos.lat) / 2;
+      const midLng = (fromPos.lng + toPos.lng) / 2;
+      const distance = calculateDistance(fromPos, toPos);
+      const bearing = calculateBearing(fromPos, toPos);
+      
+      const fromLabel = getLabelForEntry(fromEntry);
+      const toLabel = getLabelForEntry(toEntry);
+      
+      legs.push(
+        <CircleMarker
+          key={`leg-seq-${i}`}
+          center={[midLat, midLng]}
+          radius={0}
+          pathOptions={{ opacity: 0 }}
+        >
+          <Tooltip permanent direction="center" className="leg-label-tooltip">
+            <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
+              <div className="text-[10px] opacity-70 mb-0.5">{fromLabel} → {toLabel}</div>
+              <div>{formatDistance(distance)}</div>
+              {showWindRelative && windDirection !== undefined ? (
+                <div className="text-amber-300">{formatWindRelativeBearing(bearing, windDirection)}</div>
+              ) : (
+                <div>{formatBearing(bearing)}</div>
+              )}
+            </div>
+          </Tooltip>
+        </CircleMarker>
+      );
+    }
   }
   
-  // 3. Legs between course marks (M1 to M2, M2 to M3, etc.)
-  for (let i = 0; i < courseMarks.length - 1; i++) {
-    const from = courseMarks[i];
-    const to = courseMarks[i + 1];
-    const midLat = (from.lat + to.lat) / 2;
-    const midLng = (from.lng + to.lng) / 2;
-    const distance = calculateDistance({ lat: from.lat, lng: from.lng }, { lat: to.lat, lng: to.lng });
-    const bearing = calculateBearing({ lat: from.lat, lng: from.lng }, { lat: to.lat, lng: to.lng });
-    
-    legs.push(
-      <CircleMarker
-        key={`leg-${i}`}
-        center={[midLat, midLng]}
-        radius={0}
-        pathOptions={{ opacity: 0 }}
-      >
-        <Tooltip permanent direction="center" className="leg-label-tooltip">
-          <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
-            <div>{formatDistance(distance)}</div>
-            <div>{formatBearing(bearing)}</div>
-          </div>
-        </Tooltip>
-      </CircleMarker>
-    );
-  }
-  
-  // 4. Leg from last course mark to finish line center
-  if (finishLineCenter && courseMarks.length > 0) {
-    const lastMark = courseMarks[courseMarks.length - 1];
-    const midLat = (lastMark.lat + finishLineCenter.lat) / 2;
-    const midLng = (lastMark.lng + finishLineCenter.lng) / 2;
-    const distance = calculateDistance({ lat: lastMark.lat, lng: lastMark.lng }, finishLineCenter);
-    const bearing = calculateBearing({ lat: lastMark.lat, lng: lastMark.lng }, finishLineCenter);
-    
-    legs.push(
-      <CircleMarker
-        key="leg-last-finish"
-        center={[midLat, midLng]}
-        radius={0}
-        pathOptions={{ opacity: 0 }}
-      >
-        <Tooltip permanent direction="center" className="leg-label-tooltip">
-          <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
-            <div>{formatDistance(distance)}</div>
-            <div>{formatBearing(bearing)}</div>
-          </div>
-        </Tooltip>
-      </CircleMarker>
-    );
-  }
-  
-  // 5. Finish line distance/bearing (only if different from start line)
+  // 3. Finish line distance/bearing (only if different from start line)
   if (finishLineMarks.length >= 2 && !isFinishSameAsStart) {
     const [mark1, mark2] = finishLineMarks;
     const midLat = (mark1.lat + mark2.lat) / 2;
@@ -658,6 +661,7 @@ export function LeafletMap({
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
   const [showWindArrows, setShowWindArrows] = useState(false);
+  const [showWindRelative, setShowWindRelative] = useState(false);
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
   
@@ -857,7 +861,14 @@ export function LeafletMap({
           />
         )}
         
-        <LegLabels marks={marks} formatDistance={formatDistance} formatBearing={formatBearing} />
+        <LegLabels 
+          marks={marks} 
+          formatDistance={formatDistance} 
+          formatBearing={formatBearing}
+          roundingSequence={roundingSequence}
+          windDirection={weatherData?.windDirection}
+          showWindRelative={showWindRelative}
+        />
         
         {showWindArrows && weatherData && (
           <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} />
@@ -1034,6 +1045,25 @@ export function LeafletMap({
             {showWindArrows ? "Hide Wind Arrows" : "Show Wind Arrows"}
           </TooltipContent>
         </UITooltip>
+        
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant={showWindRelative ? "default" : "ghost"} 
+                size="icon" 
+                onClick={() => setShowWindRelative(!showWindRelative)}
+                disabled={!weatherData || roundingSequence.length < 2}
+                data-testid="button-toggle-wind-relative"
+              >
+                <Navigation className="w-4 h-4" />
+              </Button>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {showWindRelative ? "Show True Bearings" : "Show Wind-Relative Bearings"}
+          </TooltipContent>
+        </UITooltip>
       </div>
 
       {weatherData && (
@@ -1060,6 +1090,9 @@ export function LeafletMap({
               )}
               {showWindArrows && (
                 <Badge variant="outline" className="text-xs">Arrows On</Badge>
+              )}
+              {showWindRelative && (
+                <Badge variant="outline" className="text-xs">Wind Bearings</Badge>
               )}
               <Badge variant="outline" className="text-xs capitalize">{weatherData.source}</Badge>
             </div>
