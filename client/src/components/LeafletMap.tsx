@@ -1,10 +1,12 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ZoomIn, ZoomOut, RotateCcw, LocateFixed } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
@@ -13,6 +15,8 @@ interface WeatherData {
   windSpeed: number;
   windDirection: number;
 }
+
+type MapOrientation = "north" | "head-to-wind";
 
 interface LeafletMapProps {
   buoys: Buoy[];
@@ -29,6 +33,11 @@ interface LeafletMapProps {
   isContinuousPlacement?: boolean;
   onStopPlacement?: () => void;
   finishLinePreviewIds?: Set<string>;
+  mapOrientation?: MapOrientation;
+  onOrientationChange?: (orientation: MapOrientation) => void;
+  onFetchWeatherAtLocation?: (lat: number, lng: number) => void;
+  isWeatherLoading?: boolean;
+  onAlignCourseToWind?: () => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -352,6 +361,11 @@ export function LeafletMap({
   isContinuousPlacement,
   onStopPlacement,
   finishLinePreviewIds,
+  mapOrientation = "north",
+  onOrientationChange,
+  onFetchWeatherAtLocation,
+  isWeatherLoading,
+  onAlignCourseToWind,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -437,15 +451,35 @@ export function LeafletMap({
     );
   };
 
+  const mapRotation = useMemo(() => {
+    if (mapOrientation === "head-to-wind" && weatherData) {
+      return -weatherData.windDirection;
+    }
+    return 0;
+  }, [mapOrientation, weatherData]);
+
+  const controlsRotation = -mapRotation;
+
   return (
-    <div className={cn("relative w-full h-full", className)} data-testid="leaflet-map">
-      <MapContainer
-        center={DEFAULT_CENTER}
-        zoom={DEFAULT_ZOOM}
-        className="w-full h-full"
-        ref={mapRef}
-        zoomControl={false}
+    <div className={cn("relative w-full h-full overflow-hidden", className)} data-testid="leaflet-map">
+      <div 
+        className="w-full h-full transition-transform duration-500 ease-out"
+        style={{ 
+          transform: `rotate(${mapRotation}deg)`,
+          transformOrigin: "center center",
+          width: mapRotation !== 0 ? "141.4%" : "100%",
+          height: mapRotation !== 0 ? "141.4%" : "100%",
+          marginLeft: mapRotation !== 0 ? "-20.7%" : "0",
+          marginTop: mapRotation !== 0 ? "-20.7%" : "0",
+        }}
       >
+        <MapContainer
+          center={DEFAULT_CENTER}
+          zoom={DEFAULT_ZOOM}
+          className="w-full h-full"
+          ref={mapRef}
+          zoomControl={false}
+        >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -551,6 +585,7 @@ export function LeafletMap({
           </Marker>
         ))}
       </MapContainer>
+      </div>
 
       <div className="absolute top-4 left-4 flex flex-col gap-2 z-[1000]">
         <Card className="p-1">
@@ -573,20 +608,107 @@ export function LeafletMap({
             <LocateFixed className="w-4 h-4" />
           </Button>
         </Card>
+        
+        <div className="h-2" />
+        
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant={mapOrientation === "north" ? "default" : "ghost"} 
+                size="icon" 
+                onClick={() => onOrientationChange?.("north")}
+                data-testid="button-orient-north"
+              >
+                <Compass className="w-4 h-4" />
+              </Button>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="right">North Up</TooltipContent>
+        </UITooltip>
+        
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant={mapOrientation === "head-to-wind" ? "default" : "ghost"} 
+                size="icon" 
+                onClick={() => onOrientationChange?.("head-to-wind")}
+                disabled={!weatherData}
+                data-testid="button-orient-wind"
+              >
+                <Navigation className="w-4 h-4" style={{ transform: mapOrientation === "head-to-wind" ? "rotate(0deg)" : `rotate(${weatherData?.windDirection ?? 0}deg)` }} />
+              </Button>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="right">Head to Wind</TooltipContent>
+        </UITooltip>
+        
+        <div className="h-2" />
+        
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  const center = mapRef.current?.getCenter();
+                  if (center && onFetchWeatherAtLocation) {
+                    onFetchWeatherAtLocation(center.lat, center.lng);
+                  }
+                }}
+                disabled={isWeatherLoading}
+                data-testid="button-fetch-weather"
+              >
+                {isWeatherLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CloudSun className="w-4 h-4" />
+                )}
+              </Button>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="right">Fetch Weather at Map Center</TooltipContent>
+        </UITooltip>
+        
+        {marks.length > 0 && onAlignCourseToWind && (
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onAlignCourseToWind}
+                  disabled={!weatherData}
+                  data-testid="button-align-course-wind"
+                >
+                  <Wind className="w-4 h-4" />
+                </Button>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent side="right">Align Course to Wind</TooltipContent>
+          </UITooltip>
+        )}
       </div>
 
       {weatherData && (
         <Card className="absolute top-4 right-4 p-3 z-[1000]">
-          <div className="flex items-center gap-2">
-            <div 
-              className="w-6 h-6 text-blue-500"
-              style={{ transform: `rotate(${(weatherData.windDirection + 180)}deg)` }}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2L8 10H16L12 2Z M10 10V22H14V10H10Z" />
-              </svg>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div 
+                className="w-6 h-6 text-blue-500"
+                style={{ transform: `rotate(${(weatherData.windDirection + 180)}deg)` }}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L8 10H16L12 2Z M10 10V22H14V10H10Z" />
+                </svg>
+              </div>
+              <span className="text-sm font-mono">{weatherData.windDirection.toFixed(0)}°</span>
             </div>
-            <span className="text-sm font-mono">{weatherData.windDirection.toFixed(0)}°</span>
+            {mapOrientation === "head-to-wind" && (
+              <Badge variant="secondary" className="text-xs">Head to Wind</Badge>
+            )}
           </div>
         </Card>
       )}

@@ -45,7 +45,7 @@ export function TopBar({
   const { formatSpeed, formatBearing } = useSettings();
 
   return (
-    <header className="h-16 border-b bg-card flex items-center px-4 gap-4 shrink-0" data-testid="topbar">
+    <header className="h-16 border-b bg-card flex items-center px-4 gap-4 shrink-0 sticky top-0 z-50" data-testid="topbar">
       <Button 
         variant="ghost" 
         size="icon" 

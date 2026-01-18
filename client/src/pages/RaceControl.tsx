@@ -14,6 +14,7 @@ import {
   useCourses, 
   useMarks, 
   useWeatherData, 
+  useWeatherByLocation,
   useBuoyCommand,
   useUpdateMark,
   useCreateMark,
@@ -277,6 +278,7 @@ export default function RaceControl() {
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
+  const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand } = useDemoMode();
@@ -285,6 +287,7 @@ export default function RaceControl() {
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: courses = [], isLoading: coursesLoading } = useCourses();
   const { data: weatherData, isLoading: weatherLoading } = useWeatherData();
+  const weatherByLocation = useWeatherByLocation();
   
   // If no active course/event is set, use the first one from the list
   const currentEvent = activeEventId ? events.find(e => e.id === activeEventId) : events[0];
@@ -358,6 +361,24 @@ export default function RaceControl() {
     });
     setAlertDismissed(true);
   }, [toast]);
+
+  const handleFetchWeatherAtLocation = useCallback((lat: number, lng: number) => {
+    weatherByLocation.mutate({ lat, lng }, {
+      onSuccess: (data) => {
+        toast({
+          title: "Weather Updated",
+          description: `Wind: ${data.windSpeed?.toFixed(1) ?? '--'} kn from ${data.windDirection?.toFixed(0) ?? '--'}° (Open-Meteo)`,
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Weather Fetch Failed",
+          description: "Could not fetch weather data for this location.",
+          variant: "destructive",
+        });
+      },
+    });
+  }, [weatherByLocation, toast]);
 
   const handleBuoyClick = useCallback((buoyId: string) => {
     setSelectedBuoyId(buoyId);
@@ -623,6 +644,36 @@ export default function RaceControl() {
     });
   }, [marks, updateMark, toast]);
 
+  const handleAlignCourseToWind = useCallback(() => {
+    if (!weatherData || marks.length === 0) return;
+    
+    const windDirection = weatherData.windDirection;
+    
+    const startMarks = marks.filter(m => m.isStartLine);
+    const windwardMark = marks.find(m => m.role === "windward" || (m.isCourseMark && m.name === "M1"));
+    
+    let currentCourseAngle = 0;
+    if (startMarks.length >= 2 && windwardMark) {
+      const startCenter = {
+        lat: startMarks.reduce((sum, m) => sum + m.lat, 0) / startMarks.length,
+        lng: startMarks.reduce((sum, m) => sum + m.lng, 0) / startMarks.length,
+      };
+      const dLat = windwardMark.lat - startCenter.lat;
+      const dLng = windwardMark.lng - startCenter.lng;
+      currentCourseAngle = Math.atan2(dLng, dLat) * 180 / Math.PI;
+    }
+    
+    const targetAngle = windDirection;
+    const rotationDelta = targetAngle - currentCourseAngle;
+    
+    handleTransformCourse({ rotation: rotationDelta });
+    
+    toast({
+      title: "Course Aligned to Wind",
+      description: `Course rotated to align with wind from ${windDirection.toFixed(0)}°`,
+    });
+  }, [weatherData, marks, handleTransformCourse, toast]);
+
   // Handle finish line preview callback
   const handleFinishLinePreview = useCallback((selectedMarkIds: Set<string>) => {
     setFinishLinePreviewIds(selectedMarkIds);
@@ -768,8 +819,8 @@ export default function RaceControl() {
         />
       )}
 
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 relative">
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        <main className="flex-1 relative min-w-0 overflow-hidden">
           <LeafletMap 
             buoys={buoys}
             marks={marks}
@@ -786,10 +837,15 @@ export default function RaceControl() {
             isContinuousPlacement={continuousPlacement}
             onStopPlacement={handleStopPlacement}
             finishLinePreviewIds={finishLinePreviewIds}
+            mapOrientation={mapOrientation}
+            onOrientationChange={setMapOrientation}
+            onFetchWeatherAtLocation={handleFetchWeatherAtLocation}
+            isWeatherLoading={weatherByLocation.isPending}
+            onAlignCourseToWind={handleAlignCourseToWind}
           />
         </main>
 
-        <aside className="w-96 xl:w-[440px] border-l shrink-0 hidden lg:block overflow-hidden">
+        <aside className="w-96 xl:w-[440px] border-l shrink-0 hidden lg:flex lg:flex-col overflow-hidden">
           {selectedBuoy ? (
             <BuoyDetailPanel 
               buoy={selectedBuoy} 

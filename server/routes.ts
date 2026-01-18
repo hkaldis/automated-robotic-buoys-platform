@@ -325,6 +325,49 @@ export async function registerRoutes(
     });
   });
 
+  app.get("/api/weather/location", async (req, res) => {
+    try {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      
+      if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({ error: "Valid lat and lng query parameters required" });
+      }
+
+      const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn`;
+      
+      const response = await fetch(openMeteoUrl);
+      if (!response.ok) {
+        throw new Error(`Open-Meteo API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      res.json({
+        windSpeed: data.current?.wind_speed_10m ?? 10,
+        windDirection: data.current?.wind_direction_10m ?? 180,
+        currentSpeed: 0.5,
+        currentDirection: 180,
+        source: "open-meteo",
+        timestamp: new Date(),
+        location: { lat, lng },
+      });
+    } catch (error) {
+      console.error("Weather API error:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch weather data",
+        fallback: {
+          windSpeed: 12,
+          windDirection: 225,
+          currentSpeed: 0.5,
+          currentDirection: 180,
+          source: "fallback",
+          timestamp: new Date(),
+        }
+      });
+    }
+  });
+
   const DEFAULT_USER_ID = "default-user";
 
   app.get("/api/settings", async (req, res) => {

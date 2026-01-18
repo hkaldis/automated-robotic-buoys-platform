@@ -75,6 +75,20 @@ export function useWeatherData() {
   });
 }
 
+export function useWeatherByLocation() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ lat, lng }: { lat: number; lng: number }) => {
+      const res = await apiRequest("GET", `/api/weather/location?lat=${lat}&lng=${lng}`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/weather"], data);
+    },
+  });
+}
+
 export function useUpdateBuoy() {
   const queryClient = useQueryClient();
   
