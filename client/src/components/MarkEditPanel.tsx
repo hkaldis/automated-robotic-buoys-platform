@@ -139,32 +139,74 @@ export function MarkEditPanel({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="mark-name">Name</Label>
-          <Input
-            id="mark-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Mark name"
-            data-testid="input-mark-name"
-          />
+      {/* Position controls - most important, always visible without scrolling */}
+      <div className="p-3 border-b bg-muted/30">
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-sm font-medium">Position</Label>
+          {onReposition && (
+            <Button 
+              variant={isRepositioning ? "default" : "outline"} 
+              size="sm"
+              onClick={onReposition}
+              data-testid="button-reposition-mark"
+            >
+              <Navigation className="w-4 h-4 mr-1" />
+              {isRepositioning ? "Click Map..." : "Tap to Place"}
+            </Button>
+          )}
         </div>
+        
+        {/* Compact nudge controls in a row */}
+        {onNudge && (
+          <div className="flex items-center justify-center gap-1">
+            <Button variant="outline" size="icon" onClick={() => onNudge("west")} data-testid="button-nudge-west">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex flex-col gap-1">
+              <Button variant="outline" size="icon" onClick={() => onNudge("north")} data-testid="button-nudge-north">
+                <ChevronUp className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => onNudge("south")} data-testid="button-nudge-south">
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </div>
+            <Button variant="outline" size="icon" onClick={() => onNudge("east")} data-testid="button-nudge-east">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            <div className="ml-3 text-xs text-muted-foreground font-mono">
+              {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
+            </div>
+          </div>
+        )}
+      </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="mark-role">Role</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as MarkRole)}>
-            <SelectTrigger id="mark-role" data-testid="select-mark-role">
-              <SelectValue placeholder="Select role" />
-            </SelectTrigger>
-            <SelectContent>
-              {MARK_ROLES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="mark-name" className="text-xs">Name</Label>
+            <Input
+              id="mark-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Mark name"
+              data-testid="input-mark-name"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="mark-role" className="text-xs">Role</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as MarkRole)}>
+              <SelectTrigger id="mark-role" data-testid="select-mark-role">
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent>
+                {MARK_ROLES.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <Card className="bg-muted/30">
@@ -275,96 +317,6 @@ export function MarkEditPanel({
             )}
           </CardContent>
         </Card>
-
-        <Separator />
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label>Position</Label>
-            {onReposition && (
-              <Button 
-                variant={isRepositioning ? "default" : "outline"} 
-                size="sm"
-                onClick={onReposition}
-                data-testid="button-reposition-mark"
-              >
-                <Navigation className="w-4 h-4 mr-1" />
-                {isRepositioning ? "Click Map..." : "Tap to Place"}
-              </Button>
-            )}
-          </div>
-          
-          {/* Directional nudge controls */}
-          {onNudge && (
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-medium text-muted-foreground mb-1">Nudge Position</p>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onNudge("north")}
-                data-testid="button-nudge-north"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </Button>
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => onNudge("west")}
-                  data-testid="button-nudge-west"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <div className="w-9 h-9 flex items-center justify-center text-xs text-muted-foreground">
-                  <Move className="w-4 h-4" />
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => onNudge("east")}
-                  data-testid="button-nudge-east"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => onNudge("south")}
-                data-testid="button-nudge-south"
-              >
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="mark-lat" className="text-xs text-muted-foreground">Latitude</Label>
-              <Input
-                id="mark-lat"
-                type="number"
-                step="0.0001"
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                className="font-mono text-sm"
-                data-testid="input-mark-lat"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="mark-lng" className="text-xs text-muted-foreground">Longitude</Label>
-              <Input
-                id="mark-lng"
-                type="number"
-                step="0.0001"
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                className="font-mono text-sm"
-                data-testid="input-mark-lng"
-              />
-            </div>
-          </div>
-        </div>
 
         <Separator />
 

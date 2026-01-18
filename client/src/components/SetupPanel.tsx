@@ -387,15 +387,15 @@ export function SetupPanel({
     switch (phase) {
       case "start_line":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
-                <Flag className="w-8 h-8 text-green-600" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/30">
+                <Flag className="w-5 h-5 text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold">Set Starting Line</h2>
-              <p className="text-muted-foreground">
-                Add the Pin End and Committee Boat marks
-              </p>
+              <div>
+                <h2 className="text-lg font-bold">Start Line</h2>
+                <p className="text-xs text-muted-foreground">Add Pin End & Committee Boat</p>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -493,15 +493,15 @@ export function SetupPanel({
 
       case "marks":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-primary/10">
-                <MapPin className="w-8 h-8 text-primary" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-primary/10">
+                <MapPin className="w-5 h-5 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold">Add Course Marks</h2>
-              <p className="text-muted-foreground">
-                Add the race course marks (M1, M2, M3, etc.)
-              </p>
+              <div>
+                <h2 className="text-lg font-bold">Course Marks</h2>
+                <p className="text-xs text-muted-foreground">Add marks (M1, M2, M3...)</p>
+              </div>
             </div>
 
             <Button
@@ -581,15 +581,15 @@ export function SetupPanel({
         const canConfirmFinish = selectedLineMarkIds.size >= 2;
         
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
-                <FlagTriangleRight className="w-8 h-8 text-blue-600" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+                <FlagTriangleRight className="w-5 h-5 text-blue-600" />
               </div>
-              <h2 className="text-2xl font-bold">Set Finish Line</h2>
-              <p className="text-muted-foreground">
-                Select 2 marks for the finish line (can reuse start line marks)
-              </p>
+              <div>
+                <h2 className="text-lg font-bold">Finish Line</h2>
+                <p className="text-xs text-muted-foreground">Select 2 marks (can reuse start marks)</p>
+              </div>
             </div>
 
             <Button
@@ -685,15 +685,15 @@ export function SetupPanel({
 
       case "sequence":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/30">
-                <List className="w-8 h-8 text-indigo-600" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/30">
+                <List className="w-5 h-5 text-indigo-600" />
               </div>
-              <h2 className="text-2xl font-bold">Set Route</h2>
-              <p className="text-muted-foreground">
-                Tap marks in the order sailors will round them
-              </p>
+              <div>
+                <h2 className="text-lg font-bold">Set Route</h2>
+                <p className="text-xs text-muted-foreground">Tap marks in rounding order</p>
+              </div>
             </div>
 
             {/* Available marks to add */}
@@ -898,15 +898,15 @@ export function SetupPanel({
 
       case "summary":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
-                <Ruler className="w-8 h-8 text-purple-600" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
+                <Ruler className="w-5 h-5 text-purple-600" />
               </div>
-              <h2 className="text-2xl font-bold">Course Summary</h2>
-              <p className="text-muted-foreground">
-                Review your race course details
-              </p>
+              <div>
+                <h2 className="text-lg font-bold">Course Review</h2>
+                <p className="text-xs text-muted-foreground">Review distances & adjust course</p>
+              </div>
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
@@ -1190,15 +1190,15 @@ export function SetupPanel({
 
       case "assign_buoys":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
-                <Anchor className="w-8 h-8 text-amber-600" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
+                <Anchor className="w-5 h-5 text-amber-600" />
               </div>
-              <h2 className="text-2xl font-bold">Assign Buoys</h2>
-              <p className="text-muted-foreground">
-                Tap a mark to assign a robotic buoy to it
-              </p>
+              <div>
+                <h2 className="text-lg font-bold">Assign Buoys</h2>
+                <p className="text-xs text-muted-foreground">Tap marks to assign robotic buoys</p>
+              </div>
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
