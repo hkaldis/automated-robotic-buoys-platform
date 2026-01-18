@@ -280,6 +280,7 @@ export default function RaceControl() {
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);
+  const [showLabels, setShowLabels] = useState(true);
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
@@ -921,6 +922,141 @@ export default function RaceControl() {
     }
   }, [createCourse, createEvent, createMark, deleteAllMarks, currentCourse, toast, setActiveCourseId, setActiveEventId]);
 
+  // Auto-assign buoys to minimize maximum deployment time (bottleneck assignment)
+  const handleAutoAssignBuoys = useCallback(() => {
+    // Build list of slots that need buoys
+    interface Slot {
+      markId: string;
+      markName: string;
+      lat: number;
+      lng: number;
+      type: 'regular' | 'port' | 'starboard';
+      currentBuoyId?: string;
+    }
+    
+    const slots: Slot[] = [];
+    const windDir = activeWeatherData?.windDirection ?? 225;
+    
+    marks.forEach(mark => {
+      if (mark.isGate) {
+        // Gate needs two positions
+        const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+        const halfWidthDeg = (gateWidth / 2) / 111000;
+        const perpAngle = (windDir + 90) % 360;
+        const perpRad = perpAngle * Math.PI / 180;
+        
+        const portLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
+        const portLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+        const starboardLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
+        const starboardLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+        
+        if (!mark.gatePortBuoyId) {
+          slots.push({ markId: mark.id, markName: mark.name, lat: portLat, lng: portLng, type: 'port' });
+        }
+        if (!mark.gateStarboardBuoyId) {
+          slots.push({ markId: mark.id, markName: mark.name, lat: starboardLat, lng: starboardLng, type: 'starboard' });
+        }
+      } else if (!mark.assignedBuoyId) {
+        slots.push({ markId: mark.id, markName: mark.name, lat: mark.lat, lng: mark.lng, type: 'regular' });
+      }
+    });
+    
+    if (slots.length === 0) {
+      toast({
+        title: "All Assigned",
+        description: "All marks already have buoys assigned.",
+      });
+      return;
+    }
+    
+    // Get available buoys (not already assigned)
+    const assignedBuoyIds = new Set<string>();
+    marks.forEach(mark => {
+      if (mark.assignedBuoyId) assignedBuoyIds.add(mark.assignedBuoyId);
+      if (mark.gatePortBuoyId) assignedBuoyIds.add(mark.gatePortBuoyId);
+      if (mark.gateStarboardBuoyId) assignedBuoyIds.add(mark.gateStarboardBuoyId);
+    });
+    
+    const availableBuoys = buoys.filter(b => !assignedBuoyIds.has(b.id));
+    
+    if (availableBuoys.length < slots.length) {
+      toast({
+        title: "Not Enough Buoys",
+        description: `Need ${slots.length} buoys but only ${availableBuoys.length} available.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Greedy assignment to minimize maximum distance
+    // For each slot, assign the closest available buoy
+    const assignments: { slot: Slot; buoyId: string; distance: number }[] = [];
+    const usedBuoys = new Set<string>();
+    
+    // Sort slots by minimum distance to any buoy (descending) - assign hardest first
+    const slotsWithMinDist = slots.map(slot => {
+      const minDist = Math.min(...availableBuoys.map(b => 
+        haversineDistance(slot.lat, slot.lng, b.lat, b.lng)
+      ));
+      return { slot, minDist };
+    });
+    slotsWithMinDist.sort((a, b) => b.minDist - a.minDist);
+    
+    for (const { slot } of slotsWithMinDist) {
+      // Find closest available buoy
+      let bestBuoy: typeof availableBuoys[0] | null = null;
+      let bestDist = Infinity;
+      
+      for (const buoy of availableBuoys) {
+        if (usedBuoys.has(buoy.id)) continue;
+        const dist = haversineDistance(slot.lat, slot.lng, buoy.lat, buoy.lng);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestBuoy = buoy;
+        }
+      }
+      
+      if (bestBuoy) {
+        assignments.push({ slot, buoyId: bestBuoy.id, distance: bestDist });
+        usedBuoys.add(bestBuoy.id);
+      }
+    }
+    
+    // Apply all assignments
+    assignments.forEach(({ slot, buoyId }) => {
+      const updateData: Partial<Mark> = {};
+      if (slot.type === 'port') {
+        updateData.gatePortBuoyId = buoyId;
+      } else if (slot.type === 'starboard') {
+        updateData.gateStarboardBuoyId = buoyId;
+      } else {
+        updateData.assignedBuoyId = buoyId;
+      }
+      
+      updateMark.mutate({ id: slot.markId, data: updateData });
+      
+      // Send buoy to position
+      if (demoMode) {
+        sendDemoCommand(buoyId, "move_to_target", slot.lat, slot.lng);
+      } else {
+        buoyCommand.mutate({
+          id: buoyId,
+          command: "move_to_target",
+          targetLat: slot.lat,
+          targetLng: slot.lng,
+        });
+      }
+    });
+    
+    const maxDist = Math.max(...assignments.map(a => a.distance));
+    const estimatedTime = maxDist / 0.5; // Assuming ~0.5 m/s buoy speed, gives time in seconds
+    
+    toast({
+      title: "Auto-Assigned",
+      description: `Assigned ${assignments.length} buoys. Max deployment: ${Math.round(estimatedTime / 60)} min.`,
+    });
+  }, [marks, buoys, activeWeatherData, updateMark, buoyCommand, demoMode, sendDemoCommand, toast]);
+
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
   if (isLoading && !demoMode) {
@@ -1005,6 +1141,8 @@ export default function RaceControl() {
             isWeatherLoading={weatherByLocation.isPending}
             onAlignCourseToWind={handleAlignCourseToWind}
             roundingSequence={roundingSequence}
+            showLabels={showLabels}
+            onToggleLabels={() => setShowLabels(!showLabels)}
           />
         </main>
 
@@ -1045,6 +1183,7 @@ export default function RaceControl() {
               onTransformCourse={handleTransformCourse}
               onFinishLinePreview={handleFinishLinePreview}
               onUpdateSequence={handleUpdateSequence}
+              onAutoAssignBuoys={handleAutoAssignBuoys}
             />
           )}
         </aside>

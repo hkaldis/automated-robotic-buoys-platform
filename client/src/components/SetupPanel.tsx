@@ -30,6 +30,7 @@ interface SetupPanelProps {
   onTransformCourse?: (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => void;
   onFinishLinePreview?: (selectedMarkIds: Set<string>) => void;
   onUpdateSequence?: (sequence: string[]) => void;
+  onAutoAssignBuoys?: () => void;
 }
 
 export function SetupPanel({
@@ -48,6 +49,7 @@ export function SetupPanel({
   onTransformCourse,
   onFinishLinePreview,
   onUpdateSequence,
+  onAutoAssignBuoys,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -1195,10 +1197,22 @@ export function SetupPanel({
               <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
                 <Anchor className="w-5 h-5 text-amber-600" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-lg font-bold">Assign Buoys</h2>
                 <p className="text-xs text-muted-foreground">Tap marks to assign robotic buoys</p>
               </div>
+              {onAutoAssignBuoys && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onAutoAssignBuoys}
+                  className="gap-1"
+                  data-testid="button-auto-assign-buoys"
+                >
+                  <Play className="w-4 h-4" />
+                  Auto
+                </Button>
+              )}
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
@@ -1422,22 +1436,6 @@ export function SetupPanel({
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-card" data-testid="setup-panel">
-      {/* Header with event info */}
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <div>
-            <Badge variant={event.type === "race" ? "default" : "secondary"} className="mb-1">
-              {event.type === "race" ? "Race" : "Training"}
-            </Badge>
-            <h1 className="text-xl font-bold">{event.name}</h1>
-          </div>
-          <div className="text-right text-sm text-muted-foreground">
-            <p>{event.boatClass}</p>
-            <p>{event.targetDuration} min</p>
-          </div>
-        </div>
-      </div>
-
       {/* Clickable progress indicator for navigation */}
       <div className="px-4 py-3 border-b bg-muted/30">
         <div className="flex items-center justify-between gap-2">

@@ -40,6 +40,8 @@ interface LeafletMapProps {
   isWeatherLoading?: boolean;
   onAlignCourseToWind?: () => void;
   roundingSequence?: string[];
+  showLabels?: boolean;
+  onToggleLabels?: () => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -668,6 +670,8 @@ export function LeafletMap({
   isWeatherLoading,
   onAlignCourseToWind,
   roundingSequence = [],
+  showLabels = true,
+  onToggleLabels,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -872,14 +876,16 @@ export function LeafletMap({
           />
         )}
         
-        <LegLabels 
-          marks={marks} 
-          formatDistance={formatDistance} 
-          formatBearing={formatBearing}
-          roundingSequence={roundingSequence}
-          windDirection={weatherData?.windDirection}
-          showWindRelative={showWindRelative}
-        />
+        {showLabels !== false && (
+          <LegLabels 
+            marks={marks} 
+            formatDistance={formatDistance} 
+            formatBearing={formatBearing}
+            roundingSequence={roundingSequence}
+            windDirection={weatherData?.windDirection}
+            showWindRelative={showWindRelative}
+          />
+        )}
         
         {showWindArrows && weatherData && (
           <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} />
@@ -1075,6 +1081,26 @@ export function LeafletMap({
             {showWindRelative ? "Show True Bearings" : "Show Wind-Relative Bearings"}
           </TooltipContent>
         </UITooltip>
+        
+        {onToggleLabels && (
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-1">
+                <Button 
+                  variant={showLabels ? "default" : "ghost"} 
+                  size="icon" 
+                  onClick={onToggleLabels}
+                  data-testid="button-toggle-labels"
+                >
+                  <Compass className="w-4 h-4" style={{ opacity: showLabels ? 1 : 0.5 }} />
+                </Button>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {showLabels ? "Hide Distance/Bearing Labels" : "Show Distance/Bearing Labels"}
+            </TooltipContent>
+          </UITooltip>
+        )}
       </div>
 
       {weatherData && (
