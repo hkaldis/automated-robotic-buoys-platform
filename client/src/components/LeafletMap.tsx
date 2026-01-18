@@ -198,11 +198,40 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
     lng: finishLineMarks.reduce((sum, m) => sum + m.lng, 0) / finishLineMarks.length,
   } : null;
   
-  if (courseMarks.length === 0 && !startLineCenter) return null;
+  // Check if finish line is the same as start line (reused marks)
+  const isFinishSameAsStart = startLineMarks.length >= 2 && 
+    finishLineMarks.length >= 2 &&
+    startLineMarks.every(sm => finishLineMarks.some(fm => fm.id === sm.id));
   
   const legs = [];
   
-  // Leg from start line center to first course mark (M1)
+  // 1. Start line distance/bearing (between Pin End and Committee Boat)
+  if (startLineMarks.length >= 2) {
+    const [mark1, mark2] = startLineMarks;
+    const midLat = (mark1.lat + mark2.lat) / 2;
+    const midLng = (mark1.lng + mark2.lng) / 2;
+    const distance = calculateDistance({ lat: mark1.lat, lng: mark1.lng }, { lat: mark2.lat, lng: mark2.lng });
+    const bearing = calculateBearing({ lat: mark1.lat, lng: mark1.lng }, { lat: mark2.lat, lng: mark2.lng });
+    
+    legs.push(
+      <CircleMarker
+        key="leg-start-line"
+        center={[midLat, midLng]}
+        radius={0}
+        pathOptions={{ opacity: 0 }}
+      >
+        <Tooltip permanent direction="top" className="leg-label-tooltip">
+          <div className="text-xs font-mono bg-green-700/90 text-white px-2 py-1 rounded">
+            <div className="text-[10px] opacity-80">Start Line</div>
+            <div>{formatDistance(distance)}</div>
+            <div>{formatBearing(bearing)}</div>
+          </div>
+        </Tooltip>
+      </CircleMarker>
+    );
+  }
+  
+  // 2. Leg from start line center to first course mark (M1)
   if (startLineCenter && courseMarks.length > 0) {
     const firstMark = courseMarks[0];
     const midLat = (startLineCenter.lat + firstMark.lat) / 2;
@@ -227,7 +256,7 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
     );
   }
   
-  // Legs between course marks (M1 to M2, M2 to M3, etc.)
+  // 3. Legs between course marks (M1 to M2, M2 to M3, etc.)
   for (let i = 0; i < courseMarks.length - 1; i++) {
     const from = courseMarks[i];
     const to = courseMarks[i + 1];
@@ -253,7 +282,7 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
     );
   }
   
-  // Leg from last course mark to finish line center
+  // 4. Leg from last course mark to finish line center
   if (finishLineCenter && courseMarks.length > 0) {
     const lastMark = courseMarks[courseMarks.length - 1];
     const midLat = (lastMark.lat + finishLineCenter.lat) / 2;
@@ -270,6 +299,32 @@ function LegLabels({ marks, formatDistance, formatBearing }: {
       >
         <Tooltip permanent direction="center" className="leg-label-tooltip">
           <div className="text-xs font-mono bg-black/80 text-white px-2 py-1 rounded">
+            <div>{formatDistance(distance)}</div>
+            <div>{formatBearing(bearing)}</div>
+          </div>
+        </Tooltip>
+      </CircleMarker>
+    );
+  }
+  
+  // 5. Finish line distance/bearing (only if different from start line)
+  if (finishLineMarks.length >= 2 && !isFinishSameAsStart) {
+    const [mark1, mark2] = finishLineMarks;
+    const midLat = (mark1.lat + mark2.lat) / 2;
+    const midLng = (mark1.lng + mark2.lng) / 2;
+    const distance = calculateDistance({ lat: mark1.lat, lng: mark1.lng }, { lat: mark2.lat, lng: mark2.lng });
+    const bearing = calculateBearing({ lat: mark1.lat, lng: mark1.lng }, { lat: mark2.lat, lng: mark2.lng });
+    
+    legs.push(
+      <CircleMarker
+        key="leg-finish-line"
+        center={[midLat, midLng]}
+        radius={0}
+        pathOptions={{ opacity: 0 }}
+      >
+        <Tooltip permanent direction="bottom" className="leg-label-tooltip">
+          <div className="text-xs font-mono bg-red-700/90 text-white px-2 py-1 rounded">
+            <div className="text-[10px] opacity-80">Finish Line</div>
             <div>{formatDistance(distance)}</div>
             <div>{formatBearing(bearing)}</div>
           </div>
@@ -301,14 +356,57 @@ export function LeafletMap({
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
   
+  // Separate marks by type for course line
+  const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
+  const finishLineMarks = useMemo(() => marks.filter(m => m.isFinishLine), [marks]);
+  const courseMarks = useMemo(() => marks.filter(m => m.isCourseMark === true).sort((a, b) => a.order - b.order), [marks]);
+  
+  // Calculate centers
+  const startLineCenter = useMemo(() => startLineMarks.length >= 2 ? {
+    lat: startLineMarks.reduce((sum, m) => sum + m.lat, 0) / startLineMarks.length,
+    lng: startLineMarks.reduce((sum, m) => sum + m.lng, 0) / startLineMarks.length,
+  } : null, [startLineMarks]);
+  
+  const finishLineCenter = useMemo(() => finishLineMarks.length >= 2 ? {
+    lat: finishLineMarks.reduce((sum, m) => sum + m.lat, 0) / finishLineMarks.length,
+    lng: finishLineMarks.reduce((sum, m) => sum + m.lng, 0) / finishLineMarks.length,
+  } : null, [finishLineMarks]);
+  
+  // Course path: start center → course marks → finish center
   const coursePositions: [number, number][] = useMemo(() => {
-    if (sortedMarks.length < 2) return [];
-    const positions = sortedMarks.map(m => [m.lat, m.lng] as [number, number]);
-    if (sortedMarks.length > 2) {
-      positions.push([sortedMarks[0].lat, sortedMarks[0].lng]);
+    const positions: [number, number][] = [];
+    
+    // Add start line center
+    if (startLineCenter) {
+      positions.push([startLineCenter.lat, startLineCenter.lng]);
     }
+    
+    // Add course marks
+    courseMarks.forEach(m => {
+      positions.push([m.lat, m.lng]);
+    });
+    
+    // Add finish line center
+    if (finishLineCenter && courseMarks.length > 0) {
+      positions.push([finishLineCenter.lat, finishLineCenter.lng]);
+    }
+    
     return positions;
-  }, [sortedMarks]);
+  }, [startLineCenter, finishLineCenter, courseMarks]);
+  
+  // Start line polyline (between Pin End and Committee Boat)
+  const startLinePositions: [number, number][] = useMemo(() => {
+    if (startLineMarks.length < 2) return [];
+    return startLineMarks.map(m => [m.lat, m.lng] as [number, number]);
+  }, [startLineMarks]);
+  
+  // Finish line polyline (between finish marks) - only if different from start
+  const finishLinePositions: [number, number][] = useMemo(() => {
+    if (finishLineMarks.length < 2) return [];
+    const isFinishSameAsStart = startLineMarks.every(sm => finishLineMarks.some(fm => fm.id === sm.id));
+    if (isFinishSameAsStart) return [];
+    return finishLineMarks.map(m => [m.lat, m.lng] as [number, number]);
+  }, [finishLineMarks, startLineMarks]);
 
   const handleZoomIn = () => mapRef.current?.zoomIn();
   const handleZoomOut = () => mapRef.current?.zoomOut();
@@ -350,6 +448,31 @@ export function LeafletMap({
         
         <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} />
         
+        {/* Start line (solid green line between Pin End and Committee Boat) */}
+        {startLinePositions.length >= 2 && (
+          <Polyline
+            positions={startLinePositions}
+            pathOptions={{ 
+              color: "#16a34a", 
+              weight: 4, 
+              opacity: 0.8,
+            }}
+          />
+        )}
+        
+        {/* Finish line (solid red line between finish marks) - only if different from start */}
+        {finishLinePositions.length >= 2 && (
+          <Polyline
+            positions={finishLinePositions}
+            pathOptions={{ 
+              color: "#dc2626", 
+              weight: 4, 
+              opacity: 0.8,
+            }}
+          />
+        )}
+        
+        {/* Course path (dashed blue line from start center → course marks → finish center) */}
         {coursePositions.length > 1 && (
           <Polyline
             positions={coursePositions}
