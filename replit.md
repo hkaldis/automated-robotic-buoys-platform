@@ -85,3 +85,19 @@ The Auto-Adjust feature (in `client/src/lib/course-bearings.ts` and `AutoAdjustD
    - Duplicate order values
    - Missing gateSide on gate marks
 5. **Gate Handling**: Gates use isGate and gateSide metadata from marks table
+
+### MarkEditPanel State Sync (January 2026)
+The MarkEditPanel uses a dirty-flag pattern to prevent external updates from overwriting active user edits:
+
+1. **Dirty Field Tracking**: A `dirtyFieldsRef` Set tracks which fields the user has edited
+2. **Dirty Setters**: All user-facing inputs use wrapper functions (e.g., `setNameDirty`) that mark the field as dirty before updating state
+3. **External Sync**: When mark data changes externally (polling, map drag), only non-dirty fields are updated
+4. **Cascading Effects**: When user toggles isGate, dependent fields (role, assignedBuoyId) are also marked dirty
+5. **Dirty Reset**: On mark selection change, dirty flags are cleared; on save, dirty flags are cleared (simplicity choice)
+
+### Server-Side Validation (January 2026)
+Backend validation in `server/validation.ts` and `server/routes.ts`:
+
+1. **Gate Side Required**: When `isGate=true`, the `gateSide` field must be either "port" or "starboard"
+2. **No Duplicate Buoy on Same Mark**: Same buoy ID cannot be assigned to both port and starboard roles on the same gate
+3. **Order Uniqueness**: Mark order values must be unique within a course (excluding null values)
