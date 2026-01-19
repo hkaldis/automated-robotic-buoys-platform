@@ -4,8 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Loader2, Anchor, Play, Calendar } from "lucide-react";
+import { LogOut, Loader2, Play, Calendar } from "lucide-react";
 import type { Event } from "@shared/schema";
+import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_BLACK_BACKGROUND_1768786798926.jpeg";
 
 export default function EventsList() {
   const [, setLocation] = useLocation();
@@ -25,7 +26,7 @@ export default function EventsList() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Anchor className="h-6 w-6 text-primary" />
+          <img src={alconmarksLogo} alt="Alconmarks" className="h-8 rounded" />
           <div>
             <h1 className="font-semibold">My Events</h1>
             <p className="text-sm text-muted-foreground">Event Manager</p>

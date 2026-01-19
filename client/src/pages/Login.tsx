@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Anchor, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_WHITE_BACKGROUND_1768786798926.jpeg";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -42,13 +43,11 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 bg-primary/10 rounded-full">
-              <Anchor className="h-8 w-8 text-primary" />
-            </div>
+            <img src={alconmarksLogo} alt="Alconmarks" className="h-12 rounded" />
           </div>
-          <CardTitle className="text-2xl">RoBuoys</CardTitle>
+          <CardTitle className="text-2xl">Control Center</CardTitle>
           <CardDescription>
-            Robotic Buoys Race Management Platform
+            Automated Robotic Race Buoys Platform
           </CardDescription>
         </CardHeader>
         <CardContent>

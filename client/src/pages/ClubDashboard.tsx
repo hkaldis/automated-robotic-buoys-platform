@@ -13,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Anchor, Play, UserPlus } from "lucide-react";
+import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus } from "lucide-react";
 import type { Event, SailClub, UserEventAccess } from "@shared/schema";
+import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_BLACK_BACKGROUND_1768786798926.jpeg";
 
 interface SafeUser {
   id: string;
@@ -143,7 +144,7 @@ export default function ClubDashboard() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Anchor className="h-6 w-6 text-primary" />
+          <img src={alconmarksLogo} alt="Alconmarks" className="h-8 rounded" />
           <div>
             <h1 className="font-semibold">{club?.name || "Club Dashboard"}</h1>
             <p className="text-sm text-muted-foreground">Club Manager</p>

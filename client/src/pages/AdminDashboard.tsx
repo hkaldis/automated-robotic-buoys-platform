@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -12,8 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Plus, Trash2, LogOut, Loader2, Anchor } from "lucide-react";
-import type { SailClub, UserRole } from "@shared/schema";
+import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play } from "lucide-react";
+import type { SailClub, UserRole, Event } from "@shared/schema";
+import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_BLACK_BACKGROUND_1768786798926.jpeg";
 
 interface SafeUser {
   id: string;
@@ -24,15 +26,21 @@ interface SafeUser {
 }
 
 export default function AdminDashboard() {
+  const [, setLocation] = useLocation();
   const { user, logout, isLoggingOut } = useAuth();
   const { toast } = useToast();
   const [clubDialogOpen, setClubDialogOpen] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [newClubName, setNewClubName] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newUserRole, setNewUserRole] = useState<"club_manager" | "event_manager">("club_manager");
   const [newUserClubId, setNewUserClubId] = useState("");
+  const [newEventName, setNewEventName] = useState("");
+  const [newEventType, setNewEventType] = useState<"race" | "training">("race");
+  const [newEventBoatClass, setNewEventBoatClass] = useState("Laser");
+  const [newEventClubId, setNewEventClubId] = useState("");
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -40,6 +48,10 @@ export default function AdminDashboard() {
 
   const { data: users = [], isLoading: usersLoading } = useQuery<SafeUser[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
+    queryKey: ["/api/events"],
   });
 
   const createClubMutation = useMutation({
@@ -104,6 +116,36 @@ export default function AdminDashboard() {
     },
   });
 
+  const createEventMutation = useMutation({
+    mutationFn: async (data: { name: string; type: string; boatClass: string; sailClubId: string }) => {
+      const res = await apiRequest("POST", "/api/events", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setEventDialogOpen(false);
+      setNewEventName("");
+      setNewEventClubId("");
+      toast({ title: "Event created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create event", variant: "destructive" });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/events/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete event", variant: "destructive" });
+    },
+  });
+
   const handleCreateClub = () => {
     if (newClubName.trim()) {
       createClubMutation.mutate(newClubName.trim());
@@ -119,6 +161,21 @@ export default function AdminDashboard() {
         sailClubId: newUserClubId || undefined,
       });
     }
+  };
+
+  const handleCreateEvent = () => {
+    if (newEventName.trim() && newEventClubId) {
+      createEventMutation.mutate({
+        name: newEventName.trim(),
+        type: newEventType,
+        boatClass: newEventBoatClass,
+        sailClubId: newEventClubId,
+      });
+    }
+  };
+
+  const handleOpenEvent = (eventId: string) => {
+    setLocation(`/race/${eventId}`);
   };
 
   const getClubName = (clubId: string | null) => {
@@ -145,9 +202,9 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Anchor className="h-6 w-6 text-primary" />
+          <img src={alconmarksLogo} alt="Alconmarks" className="h-8 rounded" />
           <div>
-            <h1 className="font-semibold">RoBuoys Admin</h1>
+            <h1 className="font-semibold">Alconmarks Admin</h1>
             <p className="text-sm text-muted-foreground">Super Admin Dashboard</p>
           </div>
         </div>
@@ -171,6 +228,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="clubs" className="gap-2" data-testid="tab-clubs">
               <Building2 className="h-4 w-4" />
               Clubs
+            </TabsTrigger>
+            <TabsTrigger value="events" className="gap-2" data-testid="tab-events">
+              <Calendar className="h-4 w-4" />
+              Events
             </TabsTrigger>
             <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
               <Users className="h-4 w-4" />
@@ -246,6 +307,142 @@ export default function AdminDashboard() {
                               onClick={() => deleteClubMutation.mutate(club.id)}
                               disabled={deleteClubMutation.isPending}
                               data-testid={`button-delete-club-${club.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="events">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <div>
+                  <CardTitle>All Events</CardTitle>
+                  <CardDescription>Manage races and training events across all clubs</CardDescription>
+                </div>
+                <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-event">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Event
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Event</DialogTitle>
+                      <DialogDescription>Add a new race or training event</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="event-club">Sail Club</Label>
+                        <Select value={newEventClubId} onValueChange={setNewEventClubId}>
+                          <SelectTrigger data-testid="select-event-club">
+                            <SelectValue placeholder="Select club" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clubs.map((club) => (
+                              <SelectItem key={club.id} value={club.id}>
+                                {club.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="event-name">Event Name</Label>
+                        <Input
+                          id="event-name"
+                          value={newEventName}
+                          onChange={(e) => setNewEventName(e.target.value)}
+                          placeholder="Enter event name"
+                          data-testid="input-event-name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="event-type">Type</Label>
+                        <Select value={newEventType} onValueChange={(v) => setNewEventType(v as "race" | "training")}>
+                          <SelectTrigger data-testid="select-event-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="race">Race</SelectItem>
+                            <SelectItem value="training">Training</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="boat-class">Boat Class</Label>
+                        <Input
+                          id="boat-class"
+                          value={newEventBoatClass}
+                          onChange={(e) => setNewEventBoatClass(e.target.value)}
+                          placeholder="e.g., Laser, 420, etc."
+                          data-testid="input-boat-class"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleCreateEvent}
+                        disabled={createEventMutation.isPending || !newEventName.trim() || !newEventClubId}
+                        className="w-full"
+                        data-testid="button-create-event"
+                      >
+                        {createEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Event"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {eventsLoading ? (
+                  <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : events.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No events found. Create your first event.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Club</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Boat Class</TableHead>
+                        <TableHead className="w-32">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {events.map((event) => (
+                        <TableRow key={event.id} data-testid={`row-event-${event.id}`}>
+                          <TableCell className="font-medium">{event.name}</TableCell>
+                          <TableCell>{getClubName(event.sailClubId)}</TableCell>
+                          <TableCell>
+                            <Badge variant={event.type === "race" ? "default" : "secondary"}>
+                              {event.type === "race" ? "Race" : "Training"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{event.boatClass}</TableCell>
+                          <TableCell className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEvent(event.id)}
+                              data-testid={`button-open-event-${event.id}`}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteEventMutation.mutate(event.id)}
+                              disabled={deleteEventMutation.isPending}
+                              data-testid={`button-delete-event-${event.id}`}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
