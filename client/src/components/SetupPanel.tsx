@@ -220,9 +220,30 @@ export function SetupPanel({
       const updates: Promise<void>[] = [];
       marks.forEach(mark => {
         const isSelected = selectedLineMarkIds.has(mark.id);
-        if (mark.isFinishLine !== isSelected) {
+        const wasFinishLine = mark.isFinishLine;
+        const wasCourseMarkOnly = mark.isCourseMark && !mark.isStartLine && !mark.isFinishLine;
+        
+        if (wasFinishLine !== isSelected) {
+          // Build the update data
+          const updateData: Partial<Mark> = { isFinishLine: isSelected };
+          
+          if (isSelected) {
+            // When selecting a mark for finish line:
+            // - If it was a course mark (not start line), convert it to a finish line mark
+            if (wasCourseMarkOnly) {
+              updateData.role = "finish";
+              updateData.isCourseMark = false;
+            }
+            // If it's a start line mark being reused, keep its role but add finish line flag
+          } else {
+            // When deselecting a finish line mark:
+            // - If it's not a start line mark and was converted from course mark, 
+            //   we can't easily restore the original role, so keep it as finish but not active
+            // - For now, just clear the finish line flag
+          }
+          
           // onSaveMark may return a promise
-          const result = onSaveMark?.(mark.id, { isFinishLine: isSelected });
+          const result = onSaveMark?.(mark.id, updateData);
           if (result instanceof Promise) {
             updates.push(result);
           }
@@ -421,7 +442,7 @@ export function SetupPanel({
     const name = markNumber === 1 ? "Finish Pin" : "Finish Boat";
     onPlaceMarkOnMap?.({
       name,
-      role: markNumber === 1 ? "pin" : "start_boat" as MarkRole,
+      role: "finish" as MarkRole,
       isStartLine: false,
       isFinishLine: true,
       isCourseMark: false,

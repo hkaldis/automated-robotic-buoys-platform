@@ -79,8 +79,11 @@ export function validateMarkRoleConsistency(data: Partial<InsertMark>): Validati
     if (isStartLine === true && role !== "other") {
       return { valid: false, error: `Course mark role '${role}' cannot have isStartLine=true` };
     }
-    if (isFinishLine === true && role !== "other") {
-      return { valid: false, error: `Course mark role '${role}' cannot have isFinishLine=true` };
+    // Allow course marks to be converted to finish line marks - the role should be updated to "finish"
+    // but we allow it during the transition. The UI will handle updating the role appropriately.
+    // Only restrict if isCourseMark is explicitly true along with isFinishLine
+    if (isFinishLine === true && isCourseMark === true && role !== "other") {
+      return { valid: false, error: `Course mark role '${role}' cannot have both isFinishLine=true and isCourseMark=true` };
     }
   }
   
