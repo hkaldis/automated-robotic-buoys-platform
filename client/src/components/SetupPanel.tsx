@@ -237,9 +237,13 @@ export function SetupPanel({
             // If it's a start line mark being reused, keep its role but add finish line flag
           } else {
             // When deselecting a finish line mark:
-            // - If it's not a start line mark and was converted from course mark, 
-            //   we can't easily restore the original role, so keep it as finish but not active
-            // - For now, just clear the finish line flag
+            // - If the mark has role="finish" (pure finish line mark, not shared with start)
+            //   we need to convert it back to a turning_mark if it was converted from course mark
+            // - For marks that were originally "finish" role (placed as finish), convert to turning_mark
+            if (mark.role === "finish" && !mark.isStartLine) {
+              updateData.role = "turning_mark";
+              updateData.isCourseMark = true;
+            }
           }
           
           // onSaveMark may return a promise
