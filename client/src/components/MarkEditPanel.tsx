@@ -95,13 +95,22 @@ export function MarkEditPanel({
     setHasChanges(false);
   }, [mark.id]);
 
-  // When isGate is toggled on, auto-set role to gate-compatible and clear single buoy
+  // Sync role with isGate to satisfy validation constraints
+  const prevIsGateRef = useRef(isGate);
   useEffect(() => {
-    if (isGate) {
+    const wasGate = prevIsGateRef.current;
+    prevIsGateRef.current = isGate;
+    
+    if (isGate && !wasGate) {
+      // Turning gate ON: clear single buoy and set role if needed
       setAssignedBuoyId("");
-      // Auto-set role to "gate" unless already a valid gate role
       if (!["gate", "leeward", "windward"].includes(role)) {
         setRole("gate");
+      }
+    } else if (!isGate && wasGate) {
+      // Turning gate OFF: reset role if it was "gate"
+      if (role === "gate") {
+        setRole("turning_mark");
       }
     }
   }, [isGate, role]);
