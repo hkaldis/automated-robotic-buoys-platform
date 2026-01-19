@@ -1629,6 +1629,32 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [marks, buoys, activeWeatherData, courseId, demoMode, sendDemoCommand, toast]);
 
+  const handleAutoAdjustMarks = useCallback(async (adjustedMarks: Array<{ id: string; lat: number; lng: number }>) => {
+    if (adjustedMarks.length === 0) return;
+    
+    try {
+      for (const adjusted of adjustedMarks) {
+        await apiRequest("PATCH", `/api/marks/${adjusted.id}`, {
+          lat: adjusted.lat,
+          lng: adjusted.lng,
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/marks", { courseId }] });
+      
+      toast({
+        title: "Marks Adjusted",
+        description: `${adjustedMarks.length} marks repositioned to optimal bearings`,
+      });
+    } catch (error) {
+      toast({
+        title: "Adjustment Failed",
+        description: error instanceof Error ? error.message : "Failed to adjust marks",
+        variant: "destructive",
+      });
+    }
+  }, [courseId, toast]);
+
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
   if (isLoading && !demoMode) {
@@ -1791,6 +1817,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onAutoAssignBuoys={handleAutoAssignBuoys}
               onPhaseChange={handlePhaseChange}
               onClearAllMarks={handleClearAllMarks}
+              onAutoAdjustMarks={handleAutoAdjustMarks}
             />
           )}
         </aside>

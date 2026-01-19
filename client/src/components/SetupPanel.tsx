@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import type { Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
+import { AutoAdjustDialog } from "./AutoAdjustDialog";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
@@ -35,6 +36,7 @@ interface SetupPanelProps {
   onAutoAssignBuoys?: () => void;
   onPhaseChange?: (phase: SetupPhase) => void;
   onClearAllMarks?: () => void;
+  onAutoAdjustMarks?: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>) => void;
 }
 
 export function SetupPanel({
@@ -56,6 +58,7 @@ export function SetupPanel({
   onAutoAssignBuoys,
   onPhaseChange,
   onClearAllMarks,
+  onAutoAdjustMarks,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -126,6 +129,7 @@ export function SetupPanel({
   const [finishConfirmed, setFinishConfirmed] = useState(false);
   const [pendingFinishUpdate, setPendingFinishUpdate] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showAutoAdjustDialog, setShowAutoAdjustDialog] = useState(false);
   
   // Track all current mark IDs for reconciliation
   const currentMarkIds = useMemo(() => new Set(marks.map(m => m.id)), [marks]);
@@ -1203,6 +1207,18 @@ export function SetupPanel({
                     <p className="text-xs text-center text-muted-foreground">
                       Drag marks on the map to reposition them
                     </p>
+                    
+                    {onAutoAdjustMarks && windDirection !== undefined && (
+                      <Button
+                        variant="default"
+                        className="w-full gap-2 mt-2"
+                        onClick={() => setShowAutoAdjustDialog(true)}
+                        data-testid="button-auto-adjust"
+                      >
+                        <Compass className="w-4 h-4" />
+                        Auto Adjust to Wind
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1906,6 +1922,16 @@ export function SetupPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {onAutoAdjustMarks && windDirection !== undefined && (
+        <AutoAdjustDialog
+          open={showAutoAdjustDialog}
+          onOpenChange={setShowAutoAdjustDialog}
+          marks={marks}
+          windDirection={windDirection}
+          onApply={onAutoAdjustMarks}
+        />
+      )}
     </div>
   );
 }
