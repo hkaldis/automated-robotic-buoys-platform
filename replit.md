@@ -114,8 +114,16 @@ This provides accurate course length calculations that reflect the actual sailin
 - **Runtime**: Node.js with Express 5.
 - **Language**: TypeScript.
 - **API Style**: RESTful JSON endpoints.
-- **Storage**: In-memory storage (`MemStorage` class) for the MVP, with Drizzle ORM configured for PostgreSQL for future persistence.
+- **Storage**: PostgreSQL database with Drizzle ORM (`DatabaseStorage` class) for production persistence. All data persists across server restarts.
 - **Schema Validation**: Zod with drizzle-zod for type-safe schema definitions.
+- **Authentication**: Session-based auth with bcrypt password hashing and role-based access control (RBAC).
+
+### Demo Mode
+For testing and demonstration, a client-side demo mode provides 7 simulated buoys (Alpha through Golf):
+- Demo buoys have IDs prefixed with "demo-" (e.g., demo-1, demo-2)
+- Commands (move, hold, cancel) are handled client-side via the `useDemoMode` hook
+- Demo buoys simulate realistic GPS movement toward targets at ~3.25 knots
+- The `useBuoyCommand` hook automatically routes demo buoy commands to client-side handlers
 
 ### API Endpoints
 A comprehensive set of RESTful API endpoints exists for managing sail clubs, events, courses, buoys, weather data, and user settings. Endpoints support CRUD operations and specific actions like sending commands to buoys.
