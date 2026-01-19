@@ -672,11 +672,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
                 description: `Buoy is moving to ${mark.name}.`,
               });
             }
-          } else {
-            toast({
-              title: "Mark Updated",
-              description: "Mark has been saved successfully.",
-            });
           }
           resolve();
         },
@@ -814,10 +809,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         data: { lat, lng } 
       }, {
         onSuccess: () => {
-          toast({
-            title: "Mark Repositioned",
-            description: "Mark position has been updated.",
-          });
           setRepositioningMarkId(null);
         },
       });
@@ -1882,10 +1873,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
                           }
                         }
                       }
-                      toast({
-                        title: "Mark Moved",
-                        description: "Buoy dispatched to new position.",
-                      });
                     },
                   });
                   setPendingMarkMove(null);
