@@ -40,17 +40,13 @@ export function validateGateWidth(
 export function validateMarkRoleConsistency(data: Partial<InsertMark>): ValidationResult {
   const { role, isStartLine, isFinishLine, isCourseMark, isGate } = data;
   
-  if (isStartLine && isFinishLine) {
-    return { valid: false, error: "A mark cannot be both a start line and finish line mark" };
-  }
+  // A mark CAN be both start line and finish line (common in sailing races where they share marks)
   
   if (role === "start_boat" || role === "pin") {
     if (isStartLine === false) {
       return { valid: false, error: `Role '${role}' must have isStartLine=true` };
     }
-    if (isFinishLine === true && isStartLine !== true) {
-      return { valid: false, error: `Role '${role}' cannot have isFinishLine=true without isStartLine=true` };
-    }
+    // Allow start line marks to also be finish line marks (common in sailing)
     if (isCourseMark === true) {
       return { valid: false, error: `Role '${role}' is a start line role and cannot have isCourseMark=true` };
     }
@@ -63,9 +59,7 @@ export function validateMarkRoleConsistency(data: Partial<InsertMark>): Validati
     if (isFinishLine === false) {
       return { valid: false, error: "Role 'finish' must have isFinishLine=true" };
     }
-    if (isStartLine === true && isFinishLine !== true) {
-      return { valid: false, error: "Role 'finish' cannot have isStartLine=true without isFinishLine=true" };
-    }
+    // Allow finish line marks to also be start line marks (common in sailing)
     if (isCourseMark === true) {
       return { valid: false, error: "Role 'finish' is a finish line role and cannot have isCourseMark=true" };
     }
