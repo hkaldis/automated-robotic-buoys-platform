@@ -1644,7 +1644,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         eventName={displayEvent.name}
         clubName="Oakland Yacht Club"
         demoMode={demoMode}
-        savedCourses={courses}
         userRole={user?.role}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleDemoMode={toggleDemoMode}
@@ -1656,9 +1655,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           }
         }}
         onClearCourse={() => setShowClearCourseConfirm(true)}
-        onCreateRace={handleCreateRace}
-        onSaveCourse={handleSaveCourse}
-        onLoadCourse={handleLoadCourse}
       />
 
       {!alertDismissed && (

@@ -1,69 +1,33 @@
-import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, Save, FolderOpen, ArrowLeft, Trash2 } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CreateRaceDialog } from "./CreateRaceDialog";
-import type { CourseShape, EventType, Course } from "@shared/schema";
 
 interface TopBarProps {
   eventName: string;
   clubName: string;
   demoMode?: boolean;
-  savedCourses?: Course[];
   userRole?: string;
   onMenuClick?: () => void;
   onSettingsClick?: () => void;
   onToggleDemoMode?: () => void;
   onBackClick?: () => void;
   onClearCourse?: () => void;
-  onCreateRace?: (data: {
-    name: string;
-    type: EventType;
-    boatClass: string;
-    targetDuration: number;
-    courseShape: CourseShape;
-    courseName: string;
-  }) => void;
-  onSaveCourse?: (name: string) => void;
-  onLoadCourse?: (courseId: string) => void;
 }
 
 export function TopBar({ 
   eventName, 
   clubName, 
   demoMode,
-  savedCourses = [],
   userRole,
   onMenuClick, 
   onSettingsClick,
   onToggleDemoMode,
   onBackClick,
   onClearCourse,
-  onCreateRace,
-  onSaveCourse,
-  onLoadCourse,
 }: TopBarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [showLoadDialog, setShowLoadDialog] = useState(false);
-  const [courseName, setCourseName] = useState("");
-
-  const handleSaveCourse = () => {
-    if (courseName.trim() && onSaveCourse) {
-      onSaveCourse(courseName.trim());
-      setCourseName("");
-      setShowSaveDialog(false);
-    }
-  };
-
-  const handleLoadCourse = (courseId: string) => {
-    onLoadCourse?.(courseId);
-    setShowLoadDialog(false);
-  };
 
   const getFullscreenElement = useCallback(() => {
     const doc = document as any;
@@ -108,7 +72,7 @@ export function TopBar({
   }, [getFullscreenElement, updateFullscreenState]);
 
   return (
-    <header className="h-16 border-b bg-card flex items-center px-4 gap-4 shrink-0 sticky top-0 z-[9999]" data-testid="topbar">
+    <header className="h-14 border-b bg-card flex items-center px-4 gap-3 shrink-0 sticky top-0 z-[9999]" data-testid="topbar">
       <Button 
         variant="ghost" 
         size="icon" 
@@ -137,25 +101,24 @@ export function TopBar({
         </Tooltip>
       )}
 
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <span className="text-lg font-bold text-primary">RB</span>
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+          <span className="text-sm font-bold text-primary">RB</span>
         </div>
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold truncate" data-testid="text-event-name">{eventName}</h1>
+          <h1 className="text-sm font-semibold truncate" data-testid="text-event-name">{eventName}</h1>
           <p className="text-xs text-muted-foreground truncate">{clubName}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         {onToggleDemoMode && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
-                variant={demoMode ? "default" : "outline"} 
-                size="sm"
+                variant={demoMode ? "default" : "ghost"} 
+                size="icon"
                 onClick={onToggleDemoMode}
-                className="gap-2"
                 data-testid="button-demo-toggle"
               >
                 {demoMode ? (
@@ -163,59 +126,18 @@ export function TopBar({
                 ) : (
                   <ToggleLeft className="w-4 h-4" />
                 )}
-                <span className="hidden sm:inline">Demo</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {demoMode ? "Demo mode ON - using simulated buoys" : "Enable demo mode"}
+              {demoMode ? "Demo mode ON" : "Enable demo mode"}
             </TooltipContent>
           </Tooltip>
         )}
 
         {demoMode && (
-          <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30">
+          <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30 text-xs">
             DEMO
           </Badge>
-        )}
-
-        {onCreateRace && (
-          <CreateRaceDialog onCreateRace={onCreateRace} />
-        )}
-
-        {onSaveCourse && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowSaveDialog(true)}
-                className="gap-2"
-                data-testid="button-save-course"
-              >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Save</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Save current course</TooltipContent>
-          </Tooltip>
-        )}
-
-        {onLoadCourse && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowLoadDialog(true)}
-                className="gap-2"
-                data-testid="button-load-course"
-              >
-                <FolderOpen className="w-4 h-4" />
-                <span className="hidden sm:inline">Load</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Load saved course</TooltipContent>
-          </Tooltip>
         )}
 
         {onClearCourse && (
@@ -236,9 +158,8 @@ export function TopBar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <div className="flex items-center px-2">
               <Wifi className={`w-4 h-4 ${demoMode ? "text-yellow-500" : "text-green-500"}`} />
-              <span className="hidden sm:inline">{demoMode ? "Simulated" : "Connected"}</span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
@@ -254,7 +175,7 @@ export function TopBar({
               onClick={toggleFullscreen}
               data-testid="button-fullscreen"
             >
-              {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
@@ -268,71 +189,9 @@ export function TopBar({
           onClick={onSettingsClick}
           data-testid="button-settings"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4" />
         </Button>
       </div>
-
-      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Save Course</DialogTitle>
-            <DialogDescription>
-              Save the current course layout for future use.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="course-name">Course Name</Label>
-              <Input
-                id="course-name"
-                placeholder="Enter course name"
-                value={courseName}
-                onChange={(e) => setCourseName(e.target.value)}
-                data-testid="input-course-name"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>Cancel</Button>
-            <Button onClick={handleSaveCourse} disabled={!courseName.trim()} data-testid="button-confirm-save-course">
-              Save Course
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Load Course</DialogTitle>
-            <DialogDescription>
-              Select a saved course to load.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-4 max-h-64 overflow-y-auto">
-            {savedCourses.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No saved courses available.
-              </p>
-            ) : (
-              savedCourses.map((course) => (
-                <Button
-                  key={course.id}
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => handleLoadCourse(course.id)}
-                  data-testid={`button-load-course-${course.id}`}
-                >
-                  {course.name}
-                </Button>
-              ))
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLoadDialog(false)}>Cancel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </header>
   );
 }
