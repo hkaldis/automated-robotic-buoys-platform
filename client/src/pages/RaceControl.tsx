@@ -419,21 +419,32 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [courses.length, coursesLoading, courseCreationAttempted, createCourse, toast]);
 
-  // Initialize activeCourseId from event's courseId or first available course when loaded
+  // Simple course initialization and validation:
+  // 1. If activeCourseId is set but no longer valid (course deleted), clear it
+  // 2. If no activeCourseId, set from event or first available course
   useEffect(() => {
-    if (activeCourseId) return; // Already have an active course
+    if (coursesLoading) return;
     
-    // Try to use the event's course first
+    // Check if current activeCourseId is still valid
+    if (activeCourseId) {
+      const stillExists = courses.some(c => c.id === activeCourseId);
+      if (!stillExists) {
+        // Course was deleted - reset to first available or empty
+        const nextCourse = courses[0];
+        setActiveCourseId(nextCourse?.id ?? null);
+        setLocalRoundingSequence([]);
+        return;
+      }
+      return; // Valid course, nothing to do
+    }
+    
+    // No active course - try to set one
     if (currentEvent?.courseId) {
       setActiveCourseId(currentEvent.courseId);
-      return;
-    }
-    
-    // If no event course, use first available course (for operations, not for showing stale marks)
-    if (!coursesLoading && courses.length > 0) {
+    } else if (courses.length > 0) {
       setActiveCourseId(courses[0].id);
     }
-  }, [currentEvent?.courseId, activeCourseId, courses, coursesLoading]);
+  }, [coursesLoading, courses, activeCourseId, currentEvent?.courseId]);
 
   // Handler to update sequence (persists to course)
   const handleUpdateSequence = useCallback((newSequence: string[]) => {
@@ -1178,8 +1189,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         await updateCourse.mutateAsync({ id: currentCourse.id, data: { roundingSequence: [] } });
       }
       
-      // Reset selection
+      // Reset all local state
       setSelectedMarkId(null);
+      setLocalRoundingSequence([]);
+      setIsPlacingMark(false);
+      setPendingMarkData(null);
       
       toast({
         title: "Course Cleared",
