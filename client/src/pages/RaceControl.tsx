@@ -1747,7 +1747,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           />
         </main>
 
-        <aside className={`${showSidebar ? 'w-96 xl:w-[440px]' : 'w-0'} border-l shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
+        <aside className={`${showSidebar ? 'w-96 xl:w-[440px] border-l' : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
           {selectedBuoy ? (
             <BuoyDetailPanel 
               buoy={selectedBuoy} 

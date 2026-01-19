@@ -410,6 +410,20 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 }
 
+function MapResizeHandler({ showSidebar }: { showSidebar?: boolean }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Delay to allow CSS transition to complete
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [map, showSidebar]);
+  
+  return null;
+}
+
 function formatWindRelativeBearing(bearing: number, windDirection: number): string {
   // Calculate angle relative to wind (how far off the wind is the leg)
   // Wind direction is where wind comes FROM
@@ -836,6 +850,7 @@ export function LeafletMap({
         
         <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} />
         <TouchConfig />
+        <MapResizeHandler showSidebar={showSidebar} />
         
         {/* Start line (solid green line between Pin End and Committee Boat) */}
         {startLinePositions.length >= 2 && (
@@ -1087,7 +1102,7 @@ export function LeafletMap({
         {onToggleSidebar && (
           <UITooltip>
             <TooltipTrigger asChild>
-              <Card className="p-1">
+              <Card className="p-1 hidden lg:block">
                 <Button 
                   variant="ghost" 
                   size="icon" 
