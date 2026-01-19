@@ -141,7 +141,8 @@ export async function validateBuoyNotAssignedToOtherMarks(
 export async function validateRoundingSequence(
   storage: IStorage,
   courseId: string,
-  sequence: string[]
+  sequence: string[],
+  isFinal: boolean = false
 ): Promise<ValidationResult> {
   if (!sequence || sequence.length === 0) {
     return { valid: true };
@@ -165,7 +166,8 @@ export async function validateRoundingSequence(
     return { valid: false, error: "Rounding sequence must begin with 'start'" };
   }
   
-  if (sequence.length > 1 && sequence[sequence.length - 1] !== "finish") {
+  // Only enforce finish requirement on final save, not during incremental selection
+  if (isFinal && sequence.length > 1 && sequence[sequence.length - 1] !== "finish") {
     return { valid: false, error: "Rounding sequence must end with 'finish'" };
   }
   
