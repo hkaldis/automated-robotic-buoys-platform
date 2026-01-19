@@ -36,7 +36,9 @@ interface SetupPanelProps {
   onAutoAssignBuoys?: () => void;
   onPhaseChange?: (phase: SetupPhase) => void;
   onClearAllMarks?: () => void;
-  onAutoAdjustMarks?: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>) => void;
+  onAutoAdjustMarks?: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>, originalPositions: Array<{ id: string; lat: number; lng: number }>) => void;
+  lastAutoAdjust?: { positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null;
+  onUndoAutoAdjust?: () => void;
 }
 
 export function SetupPanel({
@@ -59,6 +61,8 @@ export function SetupPanel({
   onPhaseChange,
   onClearAllMarks,
   onAutoAdjustMarks,
+  lastAutoAdjust,
+  onUndoAutoAdjust,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -80,6 +84,23 @@ export function SetupPanel({
     }
     return m.assignedBuoyId;
   });
+  
+  // Timer state to force re-render for undo button expiry
+  const [, setUndoTick] = useState(0);
+  
+  // Effect to auto-hide undo button after 60 seconds
+  useEffect(() => {
+    if (!lastAutoAdjust) return;
+    
+    const remainingTime = 60000 - (Date.now() - lastAutoAdjust.timestamp);
+    if (remainingTime <= 0) return;
+    
+    const timer = setTimeout(() => {
+      setUndoTick((t) => t + 1); // Force re-render to hide button
+    }, remainingTime);
+    
+    return () => clearTimeout(timer);
+  }, [lastAutoAdjust]);
   
   // Count unassigned marks (gates count as 2 if neither assigned, 1 if partially assigned)
   const getUnassignedCount = () => {
@@ -1209,15 +1230,29 @@ export function SetupPanel({
                     </p>
                     
                     {onAutoAdjustMarks && windDirection !== undefined && (
-                      <Button
-                        variant="default"
-                        className="w-full gap-2 mt-2"
-                        onClick={() => setShowAutoAdjustDialog(true)}
-                        data-testid="button-auto-adjust"
-                      >
-                        <Compass className="w-4 h-4" />
-                        Auto Adjust to Wind
-                      </Button>
+                      <div className="space-y-2 mt-2">
+                        <Button
+                          variant="default"
+                          className="w-full gap-2 h-12"
+                          onClick={() => setShowAutoAdjustDialog(true)}
+                          data-testid="button-auto-adjust"
+                        >
+                          <Compass className="w-4 h-4" />
+                          Auto Adjust to Wind
+                        </Button>
+                        
+                        {lastAutoAdjust && onUndoAutoAdjust && (Date.now() - lastAutoAdjust.timestamp) < 60000 && (
+                          <Button
+                            variant="outline"
+                            className="w-full gap-2 h-12 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+                            onClick={onUndoAutoAdjust}
+                            data-testid="button-undo-auto-adjust"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Undo Auto Adjust
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>

@@ -10,18 +10,24 @@ import type { Mark } from "@shared/schema";
 import {
   CourseType,
   BoatClass,
-  DEFAULT_BEARINGS,
+  getSequencedBearing,
   calculateNewPosition,
   getCourseCenter,
   getCourseRadius,
 } from "@/lib/course-bearings";
+
+export interface OriginalPosition {
+  id: string;
+  lat: number;
+  lng: number;
+}
 
 interface AutoAdjustDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   marks: Mark[];
   windDirection: number;
-  onApply: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>) => void;
+  onApply: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>, originalPositions: OriginalPosition[]) => void;
 }
 
 interface BearingOverride {
@@ -53,6 +59,7 @@ export function AutoAdjustDialog({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [bearingOverrides, setBearingOverrides] = useState<BearingOverride[]>([]);
 
+  // Filter to adjustable course marks only
   const courseMarks = useMemo(() => {
     return marks.filter(
       (m) =>
@@ -63,15 +70,36 @@ export function AutoAdjustDialog({
     );
   }, [marks]);
 
-  const defaultBearings = useMemo(() => {
-    return DEFAULT_BEARINGS[courseType]?.[boatClass] || [];
-  }, [courseType, boatClass]);
+  // Sort marks by order field to ensure consistent sequence ordering
+  // The order field reflects the order marks were added to the course
+  const sortedCourseMarks = useMemo(() => {
+    return [...courseMarks].sort((a, b) => {
+      // Use order field (sequence number) for stable ordering
+      return (a.order || 0) - (b.order || 0);
+    });
+  }, [courseMarks]);
 
-  const getEffectiveBearing = (role: string): number => {
+  // Build occurrence index for each mark based on sorted order
+  // First occurrence of each role gets index 0, second gets index 1, etc.
+  const marksWithIndex = useMemo(() => {
+    const roleCounts: Record<string, number> = {};
+    return sortedCourseMarks.map((mark) => {
+      const index = roleCounts[mark.role] || 0;
+      roleCounts[mark.role] = index + 1;
+      return { mark, index };
+    });
+  }, [sortedCourseMarks]);
+
+  // Get effective bearing using sequence-aware lookup
+  const getEffectiveBearing = (role: string, index: number): { bearing: number; distanceRatio: number } => {
+    // Check for user override first (by role only, affects all occurrences)
     const override = bearingOverrides.find((o) => o.role === role);
-    if (override !== undefined) return override.bearing;
-    const defaultBearing = defaultBearings.find((b) => b.role === role);
-    return defaultBearing?.bearing ?? 0;
+    if (override !== undefined) {
+      return { bearing: override.bearing, distanceRatio: 1 };
+    }
+    // Use sequence-aware defaults
+    const sequenced = getSequencedBearing(courseType, boatClass, role, index);
+    return sequenced || { bearing: 0, distanceRatio: 1 };
   };
 
   const handleBearingChange = (role: string, value: string) => {
@@ -85,15 +113,14 @@ export function AutoAdjustDialog({
   };
 
   const previewPositions = useMemo(() => {
-    if (courseMarks.length === 0) return [];
+    if (marksWithIndex.length === 0) return [];
 
-    const center = getCourseCenter(courseMarks);
-    const radius = getCourseRadius(courseMarks, center);
+    const allMarks = marksWithIndex.map((m) => m.mark);
+    const center = getCourseCenter(allMarks);
+    const radius = getCourseRadius(allMarks, center);
 
-    return courseMarks.map((mark) => {
-      const bearing = getEffectiveBearing(mark.role);
-      const distanceRatio =
-        defaultBearings.find((b) => b.role === mark.role)?.distanceRatio ?? 1;
+    return marksWithIndex.map(({ mark, index }) => {
+      const { bearing, distanceRatio } = getEffectiveBearing(mark.role, index);
       const distance = radius * distanceRatio;
 
       const newPos = calculateNewPosition(
@@ -106,23 +133,32 @@ export function AutoAdjustDialog({
 
       return {
         id: mark.id,
+        name: mark.name,
         originalLat: mark.lat,
         originalLng: mark.lng,
         newLat: newPos.lat,
         newLng: newPos.lng,
         role: mark.role,
+        index,
         bearing,
       };
     });
-  }, [courseMarks, windDirection, defaultBearings, bearingOverrides]);
+  }, [marksWithIndex, windDirection, courseType, boatClass, bearingOverrides]);
 
   const handleApply = () => {
+    // Capture original positions for undo
+    const originalPositions: OriginalPosition[] = previewPositions.map((p) => ({
+      id: p.id,
+      lat: p.originalLat,
+      lng: p.originalLng,
+    }));
+    
     const adjustedMarks = previewPositions.map((p) => ({
       id: p.id,
       lat: p.newLat,
       lng: p.newLng,
     }));
-    onApply(adjustedMarks);
+    onApply(adjustedMarks, originalPositions);
     onOpenChange(false);
   };
 
@@ -131,9 +167,9 @@ export function AutoAdjustDialog({
   };
 
   const uniqueRoles = useMemo(() => {
-    const roles = new Set(courseMarks.map((m) => m.role));
+    const roles = new Set(sortedCourseMarks.map((m) => m.role));
     return Array.from(roles);
-  }, [courseMarks]);
+  }, [sortedCourseMarks]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -234,7 +270,7 @@ export function AutoAdjustDialog({
                         type="number"
                         min={0}
                         max={359}
-                        value={getEffectiveBearing(role)}
+                        value={getEffectiveBearing(role, 0).bearing}
                         onChange={(e) => handleBearingChange(role, e.target.value)}
                         className="w-24 h-11 text-base"
                         data-testid={`input-bearing-${role}`}
@@ -250,13 +286,16 @@ export function AutoAdjustDialog({
           <Card className="bg-muted/50">
             <CardContent className="pt-4">
               <Label className="text-xs text-muted-foreground mb-2 block">
-                Preview: {courseMarks.length} marks will be adjusted
+                Preview: {sortedCourseMarks.length} marks will be adjusted
               </Label>
               <div className="space-y-1 text-sm">
                 {previewPositions.map((p) => (
                   <div key={p.id} className="flex justify-between">
-                    <span className="capitalize">{p.role}</span>
-                    <span className="text-muted-foreground">{p.bearing}° from wind</span>
+                    <span>
+                      <span className="font-medium">{p.name}</span>
+                      <span className="text-muted-foreground ml-1 capitalize">({p.role})</span>
+                    </span>
+                    <span className="text-muted-foreground">{p.bearing}°</span>
                   </div>
                 ))}
               </div>
@@ -278,7 +317,7 @@ export function AutoAdjustDialog({
             size="lg"
             className="flex-1 h-12"
             onClick={handleApply}
-            disabled={courseMarks.length === 0}
+            disabled={sortedCourseMarks.length === 0}
             data-testid="button-apply-auto-adjust"
           >
             <Check className="w-5 h-5 mr-2" />

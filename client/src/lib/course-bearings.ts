@@ -7,22 +7,30 @@ export interface MarkBearing {
   distanceRatio: number;
 }
 
+export interface SequencedMarkPosition {
+  role: string;
+  index: number; // 0 = first occurrence, 1 = second, etc.
+  bearing: number;
+  distanceRatio: number;
+}
+
 export interface CourseConfig {
   type: CourseType;
   boatClass: BoatClass;
   bearings: MarkBearing[];
 }
 
+// Base bearings for single-occurrence marks
 export const DEFAULT_BEARINGS: Record<CourseType, Record<BoatClass, MarkBearing[]>> = {
   windward_leeward: {
     spinnaker: [
       { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "offset", bearing: 0, distanceRatio: 0.05 },
+      { role: "offset", bearing: 10, distanceRatio: 0.1 },
       { role: "leeward", bearing: 180, distanceRatio: 1 },
     ],
     non_spinnaker: [
       { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "offset", bearing: 0, distanceRatio: 0.05 },
+      { role: "offset", bearing: 10, distanceRatio: 0.1 },
       { role: "leeward", bearing: 180, distanceRatio: 1 },
     ],
     foiling: [
@@ -65,6 +73,105 @@ export const DEFAULT_BEARINGS: Record<CourseType, Record<BoatClass, MarkBearing[
     ],
   },
 };
+
+// Sequence-aware positions for multiple same-role marks
+// Trapezoid with 2 leewards: first at 180°, second offset for gate width
+// Trapezoid with 2 wings: port wing at 300° (left), starboard wing at 60° (right)
+export const SEQUENCED_BEARINGS: Record<CourseType, Record<BoatClass, SequencedMarkPosition[]>> = {
+  windward_leeward: {
+    spinnaker: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 }, // second windward offset
+      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 }, // leeward gate port
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 }, // leeward gate starboard
+    ],
+    non_spinnaker: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
+      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+    ],
+    foiling: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+    ],
+  },
+  triangle: {
+    spinnaker: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "wing", index: 0, bearing: 120, distanceRatio: 1 },
+      { role: "wing", index: 1, bearing: 240, distanceRatio: 1 }, // opposite wing
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+    ],
+    non_spinnaker: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "wing", index: 0, bearing: 110, distanceRatio: 1 },
+      { role: "wing", index: 1, bearing: 250, distanceRatio: 1 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+    ],
+    foiling: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "wing", index: 0, bearing: 100, distanceRatio: 1 },
+      { role: "wing", index: 1, bearing: 260, distanceRatio: 1 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+    ],
+  },
+  trapezoid: {
+    spinnaker: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
+      { role: "wing", index: 0, bearing: 60, distanceRatio: 0.67 }, // starboard wing
+      { role: "wing", index: 1, bearing: 300, distanceRatio: 0.67 }, // port wing
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 }, // leeward gate port
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 }, // leeward gate starboard
+      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
+    ],
+    non_spinnaker: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
+      { role: "wing", index: 0, bearing: 70, distanceRatio: 0.67 },
+      { role: "wing", index: 1, bearing: 290, distanceRatio: 0.67 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
+    ],
+    foiling: [
+      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
+      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
+      { role: "wing", index: 0, bearing: 60, distanceRatio: 0.67 },
+      { role: "wing", index: 1, bearing: 300, distanceRatio: 0.67 },
+      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
+      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
+      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
+    ],
+  },
+};
+
+// Get bearing for a mark based on its role and occurrence index
+export function getSequencedBearing(
+  courseType: CourseType,
+  boatClass: BoatClass,
+  role: string,
+  index: number
+): { bearing: number; distanceRatio: number } | undefined {
+  const positions = SEQUENCED_BEARINGS[courseType]?.[boatClass];
+  if (!positions) return undefined;
+  
+  // Find exact match for role + index
+  const match = positions.find((p) => p.role === role && p.index === index);
+  if (match) return { bearing: match.bearing, distanceRatio: match.distanceRatio };
+  
+  // Fall back to first occurrence if index not found
+  const fallback = positions.find((p) => p.role === role && p.index === 0);
+  return fallback ? { bearing: fallback.bearing, distanceRatio: fallback.distanceRatio } : undefined;
+}
 
 export function getDefaultBearing(
   courseType: CourseType,

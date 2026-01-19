@@ -300,6 +300,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   // Undo state for last mark position change
   const [lastMarkMove, setLastMarkMove] = useState<{ markId: string; prevLat: number; prevLng: number; timestamp: number } | null>(null);
+  
+  // Undo state for auto-adjust
+  const [lastAutoAdjust, setLastAutoAdjust] = useState<{ positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null>(null);
   const [currentSetupPhase, setCurrentSetupPhase] = useState<string>("start_line");
   
   // Confirmation dialog state for mark movement with assigned buoys
@@ -1629,10 +1632,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [marks, buoys, activeWeatherData, courseId, demoMode, sendDemoCommand, toast]);
 
-  const handleAutoAdjustMarks = useCallback(async (adjustedMarks: Array<{ id: string; lat: number; lng: number }>) => {
+  const handleAutoAdjustMarks = useCallback(async (
+    adjustedMarks: Array<{ id: string; lat: number; lng: number }>,
+    originalPositions: Array<{ id: string; lat: number; lng: number }>
+  ) => {
     if (adjustedMarks.length === 0) return;
     
     try {
+      // Store original positions for undo
+      setLastAutoAdjust({ positions: originalPositions, timestamp: Date.now() });
+      
       for (const adjusted of adjustedMarks) {
         await apiRequest("PATCH", `/api/marks/${adjusted.id}`, {
           lat: adjusted.lat,
@@ -1640,13 +1649,14 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         });
       }
       
-      queryClient.invalidateQueries({ queryKey: ["/api/marks", { courseId }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
       
       toast({
         title: "Marks Adjusted",
-        description: `${adjustedMarks.length} marks repositioned to optimal bearings`,
+        description: `${adjustedMarks.length} marks repositioned. Tap Undo to revert.`,
       });
     } catch (error) {
+      setLastAutoAdjust(null);
       toast({
         title: "Adjustment Failed",
         description: error instanceof Error ? error.message : "Failed to adjust marks",
@@ -1654,6 +1664,34 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       });
     }
   }, [courseId, toast]);
+  
+  // Undo auto-adjust handler
+  const handleUndoAutoAdjust = useCallback(async () => {
+    if (!lastAutoAdjust) return;
+    
+    try {
+      for (const pos of lastAutoAdjust.positions) {
+        await apiRequest("PATCH", `/api/marks/${pos.id}`, {
+          lat: pos.lat,
+          lng: pos.lng,
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      setLastAutoAdjust(null);
+      
+      toast({
+        title: "Undo Complete",
+        description: "Marks restored to previous positions",
+      });
+    } catch (error) {
+      toast({
+        title: "Undo Failed",
+        description: error instanceof Error ? error.message : "Failed to restore marks",
+        variant: "destructive",
+      });
+    }
+  }, [lastAutoAdjust, courseId, toast]);
 
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
@@ -1818,6 +1856,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onPhaseChange={handlePhaseChange}
               onClearAllMarks={handleClearAllMarks}
               onAutoAdjustMarks={handleAutoAdjustMarks}
+              lastAutoAdjust={lastAutoAdjust}
+              onUndoAutoAdjust={handleUndoAutoAdjust}
             />
           )}
         </aside>
