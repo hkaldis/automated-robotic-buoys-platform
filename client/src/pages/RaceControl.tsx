@@ -464,6 +464,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [currentCourse, updateCourse]);
 
   const handleDeployCourse = useCallback(() => {
+    // Ensure buoys data is loaded before validating
+    if (buoys.length === 0) {
+      toast({
+        title: "Cannot Deploy",
+        description: "Buoy data is still loading. Please wait and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Pre-deploy validation: Check that all marks have buoys assigned
     const unassignedMarks: string[] = [];
     const unavailableBuoys: string[] = [];
