@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,14 +95,22 @@ export function MarkEditPanel({
     setHasChanges(false);
   }, [mark.id]);
 
-  // Clear assignedBuoyId when isGate is toggled on
+  // When isGate is toggled on, auto-set role to gate-compatible and clear single buoy
   useEffect(() => {
     if (isGate) {
       setAssignedBuoyId("");
+      // Auto-set role to "gate" unless already a valid gate role
+      if (!["gate", "leeward", "windward"].includes(role)) {
+        setRole("gate");
+      }
     }
-  }, [isGate]);
-
-  const handleSave = () => {
+  }, [isGate, role]);
+  
+  // Autosave with debounce
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  
+  const doSave = useCallback(() => {
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
     
@@ -110,6 +118,7 @@ export function MarkEditPanel({
       return;
     }
 
+    setSaveStatus("saving");
     onSave({
       name,
       role,
@@ -124,7 +133,30 @@ export function MarkEditPanel({
       gatePortBuoyId: isGate ? (gatePortBuoyId || null) : null,
       gateStarboardBuoyId: isGate ? (gateStarboardBuoyId || null) : null,
     });
-  };
+    
+    setTimeout(() => setSaveStatus("saved"), 100);
+    setTimeout(() => setSaveStatus("idle"), 2000);
+  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, onSave]);
+
+  // Autosave when any field changes (debounced)
+  useEffect(() => {
+    if (!hasChanges) return;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      doSave();
+    }, 500);
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [hasChanges, doSave]);
+
 
   const availableBuoys = buoys.filter(b => 
     b.state !== "maintenance" && 
@@ -438,15 +470,21 @@ export function MarkEditPanel({
       </div>
 
       <div className="p-4 border-t space-y-3">
-        <Button 
-          className="w-full gap-2" 
-          onClick={handleSave}
-          disabled={!hasChanges}
-          data-testid="button-save-mark"
-        >
-          <Save className="w-4 h-4" />
-          Save Changes
-        </Button>
+        {/* Autosave status indicator */}
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          {saveStatus === "saving" && (
+            <span className="animate-pulse">Saving...</span>
+          )}
+          {saveStatus === "saved" && (
+            <>
+              <Check className="w-4 h-4 text-green-500" />
+              <span className="text-green-600 dark:text-green-400">Saved</span>
+            </>
+          )}
+          {saveStatus === "idle" && !hasChanges && (
+            <span className="text-xs">All changes saved automatically</span>
+          )}
+        </div>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
