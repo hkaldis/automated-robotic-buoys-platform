@@ -323,11 +323,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const { data: weatherData, isLoading: weatherLoading } = useWeatherData();
   const weatherByLocation = useWeatherByLocation();
   
-  // If no active course/event is set, use the first one from the list
-  const currentEvent = activeEventId ? events.find(e => e.id === activeEventId) : events[0];
-  const currentCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : courses[0];
+  // Only use explicitly set course/event - never fall back to first item to avoid showing wrong marks
+  const currentEvent = activeEventId ? events.find(e => e.id === activeEventId) : undefined;
+  const currentCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : undefined;
   
-  const courseId = currentCourse?.id ?? "";
+  // Only fetch marks for explicitly selected course - empty string disables the query
+  const courseId = activeCourseId ?? "";
   const { data: marks = [], isLoading: marksLoading } = useMarks(courseId);
   const buoyCommandErrorHandler = useCallback((error: Error) => {
     toast({
@@ -417,6 +418,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       });
     }
   }, [courses.length, coursesLoading, courseCreationAttempted, createCourse, toast]);
+
+  // Initialize activeCourseId from event's courseId when event is loaded
+  useEffect(() => {
+    if (currentEvent?.courseId && !activeCourseId) {
+      setActiveCourseId(currentEvent.courseId);
+    }
+  }, [currentEvent?.courseId, activeCourseId]);
 
   // Handler to update sequence (persists to course)
   const handleUpdateSequence = useCallback((newSequence: string[]) => {
@@ -1337,10 +1345,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     courseName: string;
   }) => {
     try {
-      if (currentCourse) {
-        await deleteAllMarks.mutateAsync(currentCourse.id);
-      }
-      
+      // First create the new course
       const course = await createCourse.mutateAsync({
         name: data.courseName,
         shape: data.courseShape,
@@ -1349,6 +1354,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         rotation: 0,
         scale: 1,
       });
+
+      // Immediately set the active course to the new one BEFORE creating marks
+      // This ensures the UI won't show stale marks from previous course
+      setActiveCourseId(course.id);
+      
+      // Clear any cached marks for the new course to start fresh
+      queryClient.removeQueries({ queryKey: ["/api/courses", course.id, "marks"] });
 
       const event = await createEvent.mutateAsync({
         name: data.name,
@@ -1361,6 +1373,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       
       setActiveEventId(event.id);
 
+      // Create marks for the new course
       const shapeMarks = generateShapeMarks(data.courseShape, DEFAULT_CENTER.lat, DEFAULT_CENTER.lng);
       for (const mark of shapeMarks) {
         await createMark.mutateAsync({
@@ -1375,9 +1388,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           isCourseMark: mark.isCourseMark,
         });
       }
-
-      // Set the active course and event to the newly created ones
-      setActiveCourseId(course.id);
       
       // Force refresh all queries to ensure UI shows new data
       await queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
@@ -1406,7 +1416,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         variant: "destructive",
       });
     }
-  }, [createCourse, createEvent, createMark, deleteAllMarks, currentCourse, toast, setActiveCourseId, setActiveEventId]);
+  }, [createCourse, createEvent, createMark, toast, setActiveCourseId, setActiveEventId]);
 
   // Auto-assign buoys to minimize maximum deployment time (bottleneck assignment)
   const handleAutoAssignBuoys = useCallback(() => {
