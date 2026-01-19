@@ -72,3 +72,16 @@ The design prioritizes a tablet-first approach with large, touch-friendly contro
 - `RaceControl.tsx` uses `activeCourseId` state variable to track explicitly selected course
 - When `activeCourseId` is null/undefined, no marks are fetched (prevents showing wrong course's marks)
 - `useEffect` initializes `activeCourseId` from: 1) event's courseId, 2) first available course if no event course
+
+### Auto-Adjust Course to Wind Feature
+The Auto-Adjust feature (in `client/src/lib/course-bearings.ts` and `AutoAdjustDialog.tsx`) calculates optimal mark positions based on wind direction using sequential leg-based calculation:
+
+1. **Sequential Bearing Calculation**: Each mark's optimal bearing is calculated based on the line from the PREVIOUS mark to the current mark, compared to wind direction
+2. **Start Line Reference**: First mark uses start line center as reference point (requires start line to be defined)
+3. **Micro-Adjustment**: If bearing delta ≤ 7°, applies only 30% correction to prevent dramatic movement when close to optimal
+4. **Validation**: Blocks apply if:
+   - No start line defined
+   - Missing order values on any mark
+   - Duplicate order values
+   - Missing gateSide on gate marks
+5. **Gate Handling**: Gates use isGate and gateSide metadata from marks table
