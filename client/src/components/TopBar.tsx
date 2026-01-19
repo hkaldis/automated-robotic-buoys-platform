@@ -1,11 +1,14 @@
-import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight, ArrowUp, Maximize, Minimize } from "lucide-react";
+import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight, ArrowUp, Maximize, Minimize, Save, FolderOpen } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/use-settings";
 import { CreateRaceDialog } from "./CreateRaceDialog";
-import type { CourseShape, EventType } from "@shared/schema";
+import type { CourseShape, EventType, Course } from "@shared/schema";
 
 interface WeatherData {
   windSpeed: number;
@@ -20,6 +23,7 @@ interface TopBarProps {
   clubName: string;
   weatherData?: WeatherData | null;
   demoMode?: boolean;
+  savedCourses?: Course[];
   onMenuClick?: () => void;
   onSettingsClick?: () => void;
   onToggleDemoMode?: () => void;
@@ -31,6 +35,8 @@ interface TopBarProps {
     courseShape: CourseShape;
     courseName: string;
   }) => void;
+  onSaveCourse?: (name: string) => void;
+  onLoadCourse?: (courseId: string) => void;
 }
 
 export function TopBar({ 
@@ -38,13 +44,32 @@ export function TopBar({
   clubName, 
   weatherData, 
   demoMode,
+  savedCourses = [],
   onMenuClick, 
   onSettingsClick,
   onToggleDemoMode,
   onCreateRace,
+  onSaveCourse,
+  onLoadCourse,
 }: TopBarProps) {
   const { formatSpeed, formatBearing } = useSettings();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [courseName, setCourseName] = useState("");
+
+  const handleSaveCourse = () => {
+    if (courseName.trim() && onSaveCourse) {
+      onSaveCourse(courseName.trim());
+      setCourseName("");
+      setShowSaveDialog(false);
+    }
+  };
+
+  const handleLoadCourse = (courseId: string) => {
+    onLoadCourse?.(courseId);
+    setShowLoadDialog(false);
+  };
 
   const getFullscreenElement = useCallback(() => {
     const doc = document as any;
@@ -172,6 +197,42 @@ export function TopBar({
           <CreateRaceDialog onCreateRace={onCreateRace} />
         )}
 
+        {onSaveCourse && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowSaveDialog(true)}
+                className="gap-2"
+                data-testid="button-save-course"
+              >
+                <Save className="w-4 h-4" />
+                <span className="hidden sm:inline">Save</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Save current course</TooltipContent>
+          </Tooltip>
+        )}
+
+        {onLoadCourse && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowLoadDialog(true)}
+                className="gap-2"
+                data-testid="button-load-course"
+              >
+                <FolderOpen className="w-4 h-4" />
+                <span className="hidden sm:inline">Load</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Load saved course</TooltipContent>
+          </Tooltip>
+        )}
+
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -209,6 +270,68 @@ export function TopBar({
           <Settings className="w-5 h-5" />
         </Button>
       </div>
+
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save Course</DialogTitle>
+            <DialogDescription>
+              Save the current course layout for future use.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="course-name">Course Name</Label>
+              <Input
+                id="course-name"
+                placeholder="Enter course name"
+                value={courseName}
+                onChange={(e) => setCourseName(e.target.value)}
+                data-testid="input-course-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>Cancel</Button>
+            <Button onClick={handleSaveCourse} disabled={!courseName.trim()} data-testid="button-confirm-save-course">
+              Save Course
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Load Course</DialogTitle>
+            <DialogDescription>
+              Select a saved course to load.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4 max-h-64 overflow-y-auto">
+            {savedCourses.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No saved courses available.
+              </p>
+            ) : (
+              savedCourses.map((course) => (
+                <Button
+                  key={course.id}
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => handleLoadCourse(course.id)}
+                  data-testid={`button-load-course-${course.id}`}
+                >
+                  {course.name}
+                </Button>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLoadDialog(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

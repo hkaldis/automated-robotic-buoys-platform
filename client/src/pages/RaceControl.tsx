@@ -1299,9 +1299,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         clubName="Oakland Yacht Club"
         weatherData={activeWeatherData}
         demoMode={demoMode}
+        savedCourses={courses}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleDemoMode={toggleDemoMode}
         onCreateRace={handleCreateRace}
+        onSaveCourse={handleSaveCourse}
+        onLoadCourse={handleLoadCourse}
       />
 
       {!alertDismissed && (
