@@ -100,7 +100,8 @@ export class MemStorage implements IStorage {
       name: "Spring Regatta 2024",
       type: "race",
       sailClubId: clubId,
-      boatClass: "Laser",
+      boatClass: "ILCA 7",
+      boatClassId: null,
       targetDuration: 40,
       courseId: courseId,
       createdAt: new Date(),
@@ -270,6 +271,7 @@ export class MemStorage implements IStorage {
       type: event.type ?? "race",
       targetDuration: event.targetDuration ?? 40,
       courseId: event.courseId ?? null,
+      boatClassId: event.boatClassId ?? null,
       createdAt: new Date() 
     };
     this.events.set(id, newEvent);

@@ -1907,7 +1907,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     name: "New Event",
     type: "race",
     sailClubId: "default",
-    boatClass: "Laser",
+    boatClass: "ILCA 7",
+    boatClassId: null,
     targetDuration: 40,
     courseId: null,
     createdAt: new Date(),
@@ -2021,6 +2022,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               savedCourses={courses}
               roundingSequence={roundingSequence}
               windDirection={weatherData?.windDirection}
+              windSpeed={weatherData?.windSpeed}
               onMarkSelect={handleMarkSelectFromPanel}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}

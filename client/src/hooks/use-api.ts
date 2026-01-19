@@ -1,10 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
-import type { Buoy, Course, Mark, Event, SailClub } from "@shared/schema";
+import type { Buoy, Course, Mark, Event, SailClub, BoatClass } from "@shared/schema";
 
 export function useSailClubs() {
   return useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
+  });
+}
+
+export function useBoatClasses() {
+  return useQuery<BoatClass[]>({
+    queryKey: ["/api/boat-classes"],
+  });
+}
+
+export function useBoatClass(id: string | null | undefined) {
+  return useQuery<BoatClass>({
+    queryKey: ["/api/boat-classes", id],
+    enabled: !!id,
   });
 }
 

@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { eq } from "drizzle-orm";
 import { storage } from "./storage";
+import { db } from "./db";
 import { 
   insertEventSchema, 
   insertCourseSchema, 
@@ -8,6 +10,7 @@ import {
   insertBuoySchema,
   insertUserSettingsSchema,
   insertSailClubSchema,
+  boatClasses,
   type UserRole,
 } from "@shared/schema";
 import { z } from "zod";
@@ -342,6 +345,31 @@ export async function registerRoutes(
       res.json({ message: "Club deleted successfully" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete club" });
+    }
+  });
+
+  // Boat Classes (stored in database, not storage interface)
+  app.get("/api/boat-classes", async (req, res) => {
+    try {
+      const allBoatClasses = await db.select().from(boatClasses).orderBy(boatClasses.name);
+      res.json(allBoatClasses);
+    } catch (error) {
+      console.error("Error fetching boat classes:", error);
+      res.status(500).json({ error: "Failed to fetch boat classes" });
+    }
+  });
+
+  app.get("/api/boat-classes/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [boatClass] = await db.select().from(boatClasses).where(eq(boatClasses.id, id));
+      if (!boatClass) {
+        return res.status(404).json({ error: "Boat class not found" });
+      }
+      res.json(boatClass);
+    } catch (error) {
+      console.error("Error fetching boat class:", error);
+      res.status(500).json({ error: "Failed to fetch boat class" });
     }
   });
 

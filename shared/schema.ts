@@ -47,7 +47,43 @@ export type DistanceUnit = z.infer<typeof distanceUnitSchema>;
 export const speedUnitSchema = z.enum(["knots", "beaufort", "ms", "kmh", "mph"]);
 export type SpeedUnit = z.infer<typeof speedUnitSchema>;
 
+export const hullTypeSchema = z.enum(["displacement", "planing", "foiling"]);
+export type HullType = z.infer<typeof hullTypeSchema>;
+
 // Database Tables
+
+// Boat Classes with simplified performance data for race time estimation
+export const boatClasses = pgTable("boat_classes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  hullType: text("hull_type").notNull().default("displacement"),
+  crewSize: integer("crew_size").notNull().default(1),
+  
+  // Upwind performance (VMG in knots at different wind speeds)
+  upwindVmgLight: real("upwind_vmg_light").notNull(),    // 0-8 kts wind
+  upwindVmgMedium: real("upwind_vmg_medium").notNull(),  // 8-14 kts wind
+  upwindVmgHeavy: real("upwind_vmg_heavy").notNull(),    // 14+ kts wind
+  upwindTwa: real("upwind_twa").notNull().default(42),   // Optimal upwind True Wind Angle
+  
+  // Downwind performance (VMG in knots)
+  downwindVmgLight: real("downwind_vmg_light").notNull(),
+  downwindVmgMedium: real("downwind_vmg_medium").notNull(),
+  downwindVmgHeavy: real("downwind_vmg_heavy").notNull(),
+  downwindTwa: real("downwind_twa").notNull().default(145), // Optimal downwind TWA
+  
+  // Reaching performance (beam reach speed in knots)
+  reachSpeedLight: real("reach_speed_light").notNull(),
+  reachSpeedMedium: real("reach_speed_medium").notNull(),
+  reachSpeedHeavy: real("reach_speed_heavy").notNull(),
+  
+  // Maneuver times (seconds)
+  tackTime: real("tack_time").notNull().default(8),
+  jibeTime: real("jibe_time").notNull().default(6),
+  markRoundingTime: real("mark_rounding_time").notNull().default(10),
+  
+  // No-go zone boundaries (degrees from wind)
+  noGoZoneAngle: real("no_go_zone_angle").notNull().default(40),
+});
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
@@ -79,6 +115,7 @@ export const events = pgTable("events", {
   type: text("type").notNull().default("race"),
   sailClubId: varchar("sail_club_id").notNull(),
   boatClass: text("boat_class").notNull(),
+  boatClassId: varchar("boat_class_id"),  // Reference to boat_classes table
   targetDuration: integer("target_duration").notNull().default(40),
   courseId: varchar("course_id"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -170,8 +207,30 @@ export const insertEventSchema = createInsertSchema(events).pick({
   type: true,
   sailClubId: true,
   boatClass: true,
+  boatClassId: true,
   targetDuration: true,
   courseId: true,
+});
+
+export const insertBoatClassSchema = createInsertSchema(boatClasses).pick({
+  name: true,
+  hullType: true,
+  crewSize: true,
+  upwindVmgLight: true,
+  upwindVmgMedium: true,
+  upwindVmgHeavy: true,
+  upwindTwa: true,
+  downwindVmgLight: true,
+  downwindVmgMedium: true,
+  downwindVmgHeavy: true,
+  downwindTwa: true,
+  reachSpeedLight: true,
+  reachSpeedMedium: true,
+  reachSpeedHeavy: true,
+  tackTime: true,
+  jibeTime: true,
+  markRoundingTime: true,
+  noGoZoneAngle: true,
 });
 
 export const insertCourseSchema = createInsertSchema(courses).pick({
@@ -240,6 +299,9 @@ export type UserEventAccess = typeof userEventAccess.$inferSelect;
 export type InsertSailClub = z.infer<typeof insertSailClubSchema>;
 export type SailClub = typeof sailClubs.$inferSelect;
 
+export type InsertBoatClass = z.infer<typeof insertBoatClassSchema>;
+export type BoatClass = typeof boatClasses.$inferSelect;
+
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 
@@ -283,4 +345,31 @@ export interface LegInfo {
   toMarkId: string;
   distance: number;
   bearing: number;
+}
+
+// Race time estimation types
+export interface LegTimeEstimate {
+  legIndex: number;
+  fromMarkName: string;
+  toMarkName: string;
+  distance: number;           // nautical miles
+  bearing: number;            // degrees
+  windAngle: number;          // true wind angle for this leg
+  pointOfSail: "upwind" | "close_reach" | "beam_reach" | "broad_reach" | "downwind";
+  sailingDistance: number;    // actual distance sailed (may be longer due to tacking/jibing)
+  vmg: number;                // velocity made good in knots
+  boatSpeed: number;          // boat speed through water in knots
+  legTimeSeconds: number;     // estimated leg time
+  tacksOrJibes: number;       // number of maneuvers required
+}
+
+export interface RaceTimeEstimate {
+  legs: LegTimeEstimate[];
+  totalDistanceNm: number;
+  totalSailingDistanceNm: number;
+  totalTimeSeconds: number;
+  totalTimeFormatted: string;
+  windSpeedKnots: number;
+  windDirectionDeg: number;
+  boatClassName: string;
 }

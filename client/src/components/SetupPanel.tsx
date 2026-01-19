@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,9 +8,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import type { Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
+import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { AutoAdjustDialog } from "./AutoAdjustDialog";
+import { useBoatClass } from "@/hooks/use-api";
+import { estimateRaceTime, buildLegsFromRoundingSequence } from "@/lib/race-time-estimation";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
@@ -22,6 +24,7 @@ interface SetupPanelProps {
   savedCourses?: Course[];
   roundingSequence?: string[];
   windDirection?: number;
+  windSpeed?: number;
   onMarkSelect?: (markId: string | null) => void;
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
@@ -49,6 +52,7 @@ export function SetupPanel({
   savedCourses = [],
   roundingSequence = [],
   windDirection,
+  windSpeed,
   onMarkSelect,
   onDeployCourse,
   onSaveMark,
@@ -66,6 +70,9 @@ export function SetupPanel({
   lastAutoAdjust,
   onUndoAutoAdjust,
 }: SetupPanelProps) {
+  // Fetch boat class for race time estimation
+  const { data: boatClass } = useBoatClass(event.boatClassId);
+  
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
   const finishLineMarks = useMemo(() => marks.filter(m => m.isFinishLine), [marks]);
@@ -420,6 +427,31 @@ export function SetupPanel({
       legs,
     };
   }, [startLineMarks, finishLineMarks, marks, roundingSequence]);
+  
+  // VMG-based race time estimation using boat class performance data
+  const raceTimeEstimate = useMemo((): RaceTimeEstimate | null => {
+    if (!boatClass || !roundingSequence.length || windSpeed === undefined || windDirection === undefined) {
+      return null;
+    }
+    
+    const startCenter = startLineMarks.length >= 2 ? {
+      lat: startLineMarks.reduce((s, m) => s + m.lat, 0) / startLineMarks.length,
+      lng: startLineMarks.reduce((s, m) => s + m.lng, 0) / startLineMarks.length,
+    } : undefined;
+    
+    const legs = buildLegsFromRoundingSequence(roundingSequence, marks, startCenter);
+    if (legs.length === 0) return null;
+    
+    return estimateRaceTime(legs, boatClass, windSpeed, windDirection);
+  }, [boatClass, roundingSequence, marks, startLineMarks, windSpeed, windDirection]);
+  
+  // Format leg time for display
+  const formatLegTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    if (minutes === 0) return `${secs}s`;
+    return `${minutes}m ${secs}s`;
+  };
   
   // Helper to get mark name for sequence display
   const getSequenceEntryName = (entry: string): string => {
@@ -1034,6 +1066,9 @@ export function SetupPanel({
                           windRelative = rel;
                         }
                         
+                        // Get VMG-based leg estimate if available
+                        const legEstimate = raceTimeEstimate?.legs[index];
+                        
                         return (
                           <div
                             key={index}
@@ -1047,16 +1082,37 @@ export function SetupPanel({
                               <div className="text-sm">
                                 {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
                               </div>
-                              <div className="text-xs text-muted-foreground flex gap-2">
+                              <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5">
                                 <span>{leg.bearing.toFixed(0)}°</span>
-                                {windRelative !== null && (
+                                {legEstimate && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-[10px] px-1 py-0",
+                                      legEstimate.pointOfSail === "upwind" && "border-red-400 text-red-600 dark:text-red-400",
+                                      legEstimate.pointOfSail === "downwind" && "border-blue-400 text-blue-600 dark:text-blue-400",
+                                      (legEstimate.pointOfSail === "beam_reach" || legEstimate.pointOfSail === "close_reach" || legEstimate.pointOfSail === "broad_reach") && "border-green-400 text-green-600 dark:text-green-400"
+                                    )}
+                                  >
+                                    {legEstimate.pointOfSail.replace("_", " ")}
+                                  </Badge>
+                                )}
+                                {windRelative !== null && !legEstimate && (
                                   <span className="text-amber-600 dark:text-amber-400">
                                     ({windRelative >= 0 ? "+" : ""}{windRelative.toFixed(0)}° to wind)
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
+                            <div className="text-right">
+                              <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
+                              {legEstimate && (
+                                <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                                  <Clock className="w-3 h-3" />
+                                  {formatLegTime(legEstimate.legTimeSeconds)}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -1081,11 +1137,25 @@ export function SetupPanel({
                         </p>
                       </div>
                       <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-xs text-muted-foreground">Est. Race Time</p>
+                        <p className="text-xs text-muted-foreground">
+                          Est. Race Time
+                          {raceTimeEstimate && (
+                            <span className="ml-1 text-green-600 dark:text-green-400">(VMG)</span>
+                          )}
+                        </p>
                         <p className="text-xl font-bold flex items-center gap-1" data-testid="text-summary-time">
                           <Clock className="w-4 h-4" />
-                          {Math.round(courseStats.estimatedTime)} min
+                          {raceTimeEstimate 
+                            ? raceTimeEstimate.totalTimeFormatted
+                            : `${Math.round(courseStats.estimatedTime)} min`
+                          }
                         </p>
+                        {raceTimeEstimate && boatClass && (
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <Sailboat className="w-3 h-3" />
+                            {boatClass.name}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
