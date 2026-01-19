@@ -125,6 +125,7 @@ export function SetupPanel({
   const [selectedLineMarkIds, setSelectedLineMarkIds] = useState<Set<string>>(new Set());
   const [finishConfirmed, setFinishConfirmed] = useState(false);
   const [pendingFinishUpdate, setPendingFinishUpdate] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
   
   // Track all current mark IDs for reconciliation
   const currentMarkIds = useMemo(() => new Set(marks.map(m => m.id)), [marks]);
@@ -1094,6 +1095,17 @@ export function SetupPanel({
                   </CardContent>
                 </Card>
 
+                {/* Export Course Data */}
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setShowExportDialog(true)}
+                  data-testid="button-export-course"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Mark Locations
+                </Button>
+
                 {/* Course Transformation Controls */}
                 <Card>
                   <CardHeader className="pb-2">
@@ -1681,6 +1693,215 @@ export function SetupPanel({
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLoadDialog(false)}>
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Course Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5" />
+              Course Export - Mark Locations
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {/* Course Diagram */}
+            <div className="border rounded-lg p-4 bg-muted/30">
+              <h3 className="text-sm font-semibold mb-3">Course Diagram</h3>
+              <svg 
+                viewBox="0 0 400 300" 
+                className="w-full h-48 bg-blue-50 dark:bg-blue-950/30 rounded-lg"
+                data-testid="course-diagram"
+              >
+                {/* Draw course area */}
+                {(() => {
+                  if (marks.length === 0) return null;
+                  
+                  // Find bounds
+                  const lats = marks.map(m => m.lat);
+                  const lngs = marks.map(m => m.lng);
+                  const minLat = Math.min(...lats);
+                  const maxLat = Math.max(...lats);
+                  const minLng = Math.min(...lngs);
+                  const maxLng = Math.max(...lngs);
+                  const padding = 0.1;
+                  const latRange = (maxLat - minLat) || 0.001;
+                  const lngRange = (maxLng - minLng) || 0.001;
+                  
+                  // Scale to SVG coordinates with padding
+                  const scaleX = (lng: number) => 40 + ((lng - minLng) / (lngRange * (1 + padding * 2))) * 320;
+                  const scaleY = (lat: number) => 260 - ((lat - minLat) / (latRange * (1 + padding * 2))) * 220;
+                  
+                  // Draw rounding sequence path
+                  const pathPoints: { x: number; y: number; label: string }[] = [];
+                  for (const entry of roundingSequence) {
+                    if (entry === "start") {
+                      const startMarks = marks.filter(m => m.isStartLine);
+                      if (startMarks.length >= 2) {
+                        const midLat = (startMarks[0].lat + startMarks[1].lat) / 2;
+                        const midLng = (startMarks[0].lng + startMarks[1].lng) / 2;
+                        pathPoints.push({ x: scaleX(midLng), y: scaleY(midLat), label: "S" });
+                      }
+                    } else if (entry === "finish") {
+                      const finishMarks = marks.filter(m => m.isFinishLine);
+                      if (finishMarks.length >= 2) {
+                        const midLat = (finishMarks[0].lat + finishMarks[1].lat) / 2;
+                        const midLng = (finishMarks[0].lng + finishMarks[1].lng) / 2;
+                        pathPoints.push({ x: scaleX(midLng), y: scaleY(midLat), label: "F" });
+                      }
+                    } else {
+                      const mark = marks.find(m => m.id === entry);
+                      if (mark) {
+                        pathPoints.push({ x: scaleX(mark.lng), y: scaleY(mark.lat), label: mark.name });
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <>
+                      {/* Course path */}
+                      {pathPoints.length > 1 && (
+                        <path
+                          d={`M ${pathPoints.map(p => `${p.x},${p.y}`).join(" L ")}`}
+                          fill="none"
+                          stroke="#6366f1"
+                          strokeWidth="2"
+                          strokeDasharray="5,3"
+                        />
+                      )}
+                      
+                      {/* Draw marks */}
+                      {marks.map((mark, i) => {
+                        const x = scaleX(mark.lng);
+                        const y = scaleY(mark.lat);
+                        const color = mark.isStartLine ? "#22c55e" : mark.isFinishLine ? "#3b82f6" : "#f59e0b";
+                        
+                        return (
+                          <g key={mark.id}>
+                            <circle cx={x} cy={y} r="8" fill={color} stroke="#fff" strokeWidth="2" />
+                            <text x={x} y={y - 12} textAnchor="middle" fontSize="10" fill="currentColor" className="font-medium">
+                              {mark.name}
+                            </text>
+                          </g>
+                        );
+                      })}
+                      
+                      {/* North arrow */}
+                      <g transform="translate(370, 30)">
+                        <polygon points="0,-15 5,5 -5,5" fill="#64748b" />
+                        <text x="0" y="18" textAnchor="middle" fontSize="10" fill="#64748b">N</text>
+                      </g>
+                    </>
+                  );
+                })()}
+              </svg>
+            </div>
+
+            {/* Marks Table */}
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left p-2 font-medium">Mark</th>
+                    <th className="text-left p-2 font-medium">Latitude</th>
+                    <th className="text-left p-2 font-medium">Longitude</th>
+                    <th className="text-left p-2 font-medium">Bearing (°N)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    // Calculate bearing from first mark (or center) to each mark
+                    if (marks.length === 0) return null;
+                    
+                    // Use course center as reference point
+                    const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+                    const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
+                    
+                    const calcBearing = (fromLat: number, fromLng: number, toLat: number, toLng: number) => {
+                      const dLng = (toLng - fromLng) * Math.PI / 180;
+                      const lat1 = fromLat * Math.PI / 180;
+                      const lat2 = toLat * Math.PI / 180;
+                      const y = Math.sin(dLng) * Math.cos(lat2);
+                      const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+                      let bearing = Math.atan2(y, x) * 180 / Math.PI;
+                      return (bearing + 360) % 360;
+                    };
+                    
+                    return marks.map((mark, i) => {
+                      const bearing = calcBearing(centerLat, centerLng, mark.lat, mark.lng);
+                      const typeLabel = mark.isStartLine && mark.isFinishLine 
+                        ? "(S/F)" 
+                        : mark.isStartLine 
+                          ? "(Start)" 
+                          : mark.isFinishLine 
+                            ? "(Finish)" 
+                            : "";
+                      
+                      return (
+                        <tr key={mark.id} className="border-t">
+                          <td className="p-2 font-medium">
+                            {mark.name} <span className="text-muted-foreground text-xs">{typeLabel}</span>
+                          </td>
+                          <td className="p-2 font-mono text-xs">{mark.lat.toFixed(6)}</td>
+                          <td className="p-2 font-mono text-xs">{mark.lng.toFixed(6)}</td>
+                          <td className="p-2 font-mono">{bearing.toFixed(1)}°</td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Plain text export */}
+            <div className="border rounded-lg p-3 bg-muted/30">
+              <h3 className="text-sm font-semibold mb-2">Plain Text (Copy)</h3>
+              <pre className="text-xs font-mono whitespace-pre-wrap select-all bg-background p-3 rounded border overflow-x-auto" data-testid="export-text">
+{(() => {
+  if (marks.length === 0) return "No marks defined";
+  
+  const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+  const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
+  
+  const calcBearing = (fromLat: number, fromLng: number, toLat: number, toLng: number) => {
+    const dLng = (toLng - fromLng) * Math.PI / 180;
+    const lat1 = fromLat * Math.PI / 180;
+    const lat2 = toLat * Math.PI / 180;
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    let bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360;
+  };
+  
+  const lines = [`RACE COURSE MARKS - ${event.name}`, `Date: ${new Date().toLocaleDateString()}`, ""];
+  
+  marks.forEach((mark, i) => {
+    const bearing = calcBearing(centerLat, centerLng, mark.lat, mark.lng);
+    const typeLabel = mark.isStartLine && mark.isFinishLine 
+      ? "[Start/Finish]" 
+      : mark.isStartLine 
+        ? "[Start]" 
+        : mark.isFinishLine 
+          ? "[Finish]" 
+          : "";
+    
+    lines.push(`${mark.name} ${typeLabel}`);
+    lines.push(`  GPS: ${mark.lat.toFixed(6)}, ${mark.lng.toFixed(6)}`);
+    lines.push(`  Bearing from center: ${bearing.toFixed(1)}°N`);
+    lines.push("");
+  });
+  
+  return lines.join("\n");
+})()}
+              </pre>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
