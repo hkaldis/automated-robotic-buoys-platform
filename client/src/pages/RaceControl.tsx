@@ -528,101 +528,108 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     setSelectedBuoyId(null);
   }, []);
 
-  const handleSaveMark = useCallback((id: string, data: Partial<Mark>) => {
-    const mark = marks.find(m => m.id === id);
-    const previousBuoyId = mark?.assignedBuoyId;
-    const newBuoyId = data.assignedBuoyId;
-    
-    // Handle gate buoy assignments
-    const newGatePortBuoyId = data.gatePortBuoyId;
-    const newGateStarboardBuoyId = data.gateStarboardBuoyId;
-    const previousGatePortBuoyId = mark?.gatePortBuoyId;
-    const previousGateStarboardBuoyId = mark?.gateStarboardBuoyId;
-    
-    updateMark.mutate({ id, data }, {
-      onSuccess: () => {
-        // For gates, calculate port and starboard positions
-        if (mark?.isGate) {
-          const windDir = activeWeatherData?.windDirection ?? 225;
-          const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
-          const halfWidthDeg = (gateWidth / 2) / 111000;
-          const perpAngle = (windDir + 90) % 360;
-          const perpRad = perpAngle * Math.PI / 180;
-          
-          const portLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
-          const portLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
-          const starboardLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
-          const starboardLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
-          
-          // Dispatch port buoy
-          if (newGatePortBuoyId && newGatePortBuoyId !== previousGatePortBuoyId) {
-            if (demoMode) {
-              sendDemoCommand(newGatePortBuoyId, "move_to_target", portLat, portLng);
-            } else {
-              buoyCommand.mutate({
-                id: newGatePortBuoyId,
-                command: "move_to_target",
-                targetLat: portLat,
-                targetLng: portLng,
+  const handleSaveMark = useCallback((id: string, data: Partial<Mark>): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const mark = marks.find(m => m.id === id);
+      const previousBuoyId = mark?.assignedBuoyId;
+      const newBuoyId = data.assignedBuoyId;
+      
+      // Handle gate buoy assignments
+      const newGatePortBuoyId = data.gatePortBuoyId;
+      const newGateStarboardBuoyId = data.gateStarboardBuoyId;
+      const previousGatePortBuoyId = mark?.gatePortBuoyId;
+      const previousGateStarboardBuoyId = mark?.gateStarboardBuoyId;
+      
+      updateMark.mutate({ id, data }, {
+        onError: (error) => {
+          reject(error);
+        },
+        onSuccess: () => {
+          // For gates, calculate port and starboard positions
+          if (mark?.isGate) {
+            const windDir = activeWeatherData?.windDirection ?? 225;
+            const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+            const halfWidthDeg = (gateWidth / 2) / 111000;
+            const perpAngle = (windDir + 90) % 360;
+            const perpRad = perpAngle * Math.PI / 180;
+            
+            const portLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
+            const portLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+            const starboardLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
+            const starboardLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+            
+            // Dispatch port buoy
+            if (newGatePortBuoyId && newGatePortBuoyId !== previousGatePortBuoyId) {
+              if (demoMode) {
+                sendDemoCommand(newGatePortBuoyId, "move_to_target", portLat, portLng);
+              } else {
+                buoyCommand.mutate({
+                  id: newGatePortBuoyId,
+                  command: "move_to_target",
+                  targetLat: portLat,
+                  targetLng: portLng,
+                });
+              }
+              toast({
+                title: "Port Buoy Dispatched",
+                description: `Buoy is moving to ${mark.name} (Port).`,
               });
             }
-            toast({
-              title: "Port Buoy Dispatched",
-              description: `Buoy is moving to ${mark.name} (Port).`,
-            });
-          }
-          
-          // Dispatch starboard buoy
-          if (newGateStarboardBuoyId && newGateStarboardBuoyId !== previousGateStarboardBuoyId) {
-            if (demoMode) {
-              sendDemoCommand(newGateStarboardBuoyId, "move_to_target", starboardLat, starboardLng);
-            } else {
-              buoyCommand.mutate({
-                id: newGateStarboardBuoyId,
-                command: "move_to_target",
-                targetLat: starboardLat,
-                targetLng: starboardLng,
+            
+            // Dispatch starboard buoy
+            if (newGateStarboardBuoyId && newGateStarboardBuoyId !== previousGateStarboardBuoyId) {
+              if (demoMode) {
+                sendDemoCommand(newGateStarboardBuoyId, "move_to_target", starboardLat, starboardLng);
+              } else {
+                buoyCommand.mutate({
+                  id: newGateStarboardBuoyId,
+                  command: "move_to_target",
+                  targetLat: starboardLat,
+                  targetLng: starboardLng,
+                });
+              }
+              toast({
+                title: "Starboard Buoy Dispatched",
+                description: `Buoy is moving to ${mark.name} (Starboard).`,
               });
             }
-            toast({
-              title: "Starboard Buoy Dispatched",
-              description: `Buoy is moving to ${mark.name} (Starboard).`,
-            });
+            
+            resolve();
+            return;
           }
           
-          return;
-        }
-        
-        // If a buoy was assigned to this mark, send it to the mark position
-        if (newBuoyId && newBuoyId !== previousBuoyId && mark) {
-          const targetLat = data.lat ?? mark.lat;
-          const targetLng = data.lng ?? mark.lng;
-          
-          if (demoMode) {
-            sendDemoCommand(newBuoyId, "move_to_target", targetLat, targetLng);
-            toast({
-              title: "Buoy Dispatched",
-              description: `Buoy is moving to ${mark.name} at 3.25 knots.`,
-            });
+          // If a buoy was assigned to this mark, send it to the mark position
+          if (newBuoyId && newBuoyId !== previousBuoyId && mark) {
+            const targetLat = data.lat ?? mark.lat;
+            const targetLng = data.lng ?? mark.lng;
+            
+            if (demoMode) {
+              sendDemoCommand(newBuoyId, "move_to_target", targetLat, targetLng);
+              toast({
+                title: "Buoy Dispatched",
+                description: `Buoy is moving to ${mark.name} at 3.25 knots.`,
+              });
+            } else {
+              buoyCommand.mutate({
+                id: newBuoyId,
+                command: "move_to_target",
+                targetLat,
+                targetLng,
+              });
+              toast({
+                title: "Buoy Dispatched",
+                description: `Buoy is moving to ${mark.name}.`,
+              });
+            }
           } else {
-            buoyCommand.mutate({
-              id: newBuoyId,
-              command: "move_to_target",
-              targetLat,
-              targetLng,
-            });
             toast({
-              title: "Buoy Dispatched",
-              description: `Buoy is moving to ${mark.name}.`,
+              title: "Mark Updated",
+              description: "Mark has been saved successfully.",
             });
           }
-        } else {
-          toast({
-            title: "Mark Updated",
-            description: "Mark has been saved successfully.",
-          });
-        }
-      },
+          resolve();
+        },
+      });
     });
   }, [updateMark, marks, demoMode, sendDemoCommand, buoyCommand, toast, activeWeatherData]);
 
@@ -630,13 +637,22 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     deleteMark.mutate(id, {
       onSuccess: () => {
         setSelectedMarkId(null);
+        
+        // Clean up rounding sequence - remove references to deleted mark
+        if (currentCourse && currentCourse.roundingSequence) {
+          const cleanedSequence = currentCourse.roundingSequence.filter(entry => entry !== id);
+          if (cleanedSequence.length !== currentCourse.roundingSequence.length) {
+            updateCourse.mutate({ id: currentCourse.id, data: { roundingSequence: cleanedSequence } });
+          }
+        }
+        
         toast({
           title: "Mark Deleted",
           description: "Mark has been removed from the course.",
         });
       },
     });
-  }, [deleteMark, toast]);
+  }, [deleteMark, toast, currentCourse, updateCourse]);
 
   const handleAddMark = useCallback((data: { name: string; role: MarkRole; lat?: number; lng?: number }) => {
     if (!currentCourse) {

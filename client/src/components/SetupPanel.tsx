@@ -23,7 +23,7 @@ interface SetupPanelProps {
   onMarkSelect?: (markId: string | null) => void;
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
-  onSaveMark?: (id: string, data: Partial<Mark>) => void;
+  onSaveMark?: (id: string, data: Partial<Mark>) => void | Promise<void>;
   onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onPlaceMarkOnMap?: (data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onSaveCourse?: (name: string) => void;
@@ -123,6 +123,28 @@ export function SetupPanel({
   const [phase, setPhase] = useState<SetupPhase>(getMinPhase);
   const [selectedLineMarkIds, setSelectedLineMarkIds] = useState<Set<string>>(new Set());
   const [finishConfirmed, setFinishConfirmed] = useState(false);
+  const [pendingFinishUpdate, setPendingFinishUpdate] = useState(false);
+  
+  // Track all current mark IDs for reconciliation
+  const currentMarkIds = useMemo(() => new Set(marks.map(m => m.id)), [marks]);
+  
+  // Reset finishConfirmed when finish marks are lost
+  useEffect(() => {
+    if (finishConfirmed && !hasFinishLine && !pendingFinishUpdate) {
+      setFinishConfirmed(false);
+    }
+  }, [finishConfirmed, hasFinishLine, pendingFinishUpdate]);
+  
+  // Reconcile selectedLineMarkIds with current marks - prune deleted mark IDs
+  useEffect(() => {
+    setSelectedLineMarkIds(prev => {
+      const pruned = new Set(Array.from(prev).filter(id => currentMarkIds.has(id)));
+      if (pruned.size !== prev.size) {
+        return pruned;
+      }
+      return prev;
+    });
+  }, [currentMarkIds]);
   
   // Notify parent of phase changes
   useEffect(() => {
@@ -132,6 +154,9 @@ export function SetupPanel({
   // Sync phase with data - only force phase back if current phase is invalid
   // But don't reset from later phases if user has progressed through the workflow
   useEffect(() => {
+    // Don't sync phase during pending finish update to avoid oscillation
+    if (pendingFinishUpdate) return;
+    
     const minPhase = getMinPhase();
     const currentIdx = phaseOrder.indexOf(phase);
     const minIdx = phaseOrder.indexOf(minPhase);
@@ -155,7 +180,7 @@ export function SetupPanel({
     if (currentIdx > minIdx) {
       setPhase(minPhase);
     }
-  }, [hasStartLine, hasCourseMarks, hasFinishLine, hasSequence, allAssigned, phase, finishConfirmed, hasSharedStartFinishMarks]);
+  }, [hasStartLine, hasCourseMarks, hasFinishLine, hasSequence, allAssigned, phase, finishConfirmed, hasSharedStartFinishMarks, pendingFinishUpdate]);
 
   // Initialize selection when entering finish line phase
   useEffect(() => {
@@ -185,15 +210,35 @@ export function SetupPanel({
     });
   };
 
-  const confirmFinishLineSelection = () => {
-    marks.forEach(mark => {
-      const isSelected = selectedLineMarkIds.has(mark.id);
-      if (mark.isFinishLine !== isSelected) {
-        onSaveMark?.(mark.id, { isFinishLine: isSelected });
+  const confirmFinishLineSelection = async () => {
+    // Set pending flag to prevent phase sync oscillation during async updates
+    setPendingFinishUpdate(true);
+    
+    try {
+      // Batch all mark updates
+      const updates: Promise<void>[] = [];
+      marks.forEach(mark => {
+        const isSelected = selectedLineMarkIds.has(mark.id);
+        if (mark.isFinishLine !== isSelected) {
+          // onSaveMark may return a promise
+          const result = onSaveMark?.(mark.id, { isFinishLine: isSelected });
+          if (result instanceof Promise) {
+            updates.push(result);
+          }
+        }
+      });
+      
+      // Wait for all updates to complete
+      if (updates.length > 0) {
+        await Promise.all(updates);
       }
-    });
-    setFinishConfirmed(true);
-    setPhase("sequence");
+      
+      setFinishConfirmed(true);
+      setPhase("sequence");
+    } finally {
+      // Clear pending flag after a short delay to allow React Query to update
+      setTimeout(() => setPendingFinishUpdate(false), 100);
+    }
   };
   
   // Sequence management functions
