@@ -24,7 +24,7 @@ import {
   useCreateEvent,
   useCreateCourse,
 } from "@/hooks/use-api";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useDemoMode } from "@/hooks/use-demo-mode";
 import { useToast } from "@/hooks/use-toast";
 
@@ -287,6 +287,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);
   const [showLabels, setShowLabels] = useState(true);
+  const [currentSetupPhase, setCurrentSetupPhase] = useState<string>("start_line");
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
@@ -641,15 +642,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       order,
       lat,
       lng,
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "Mark Created",
-          description: `${data.name} has been added to the course.`,
-        });
-      },
     });
-  }, [currentCourse, marks.length, createMark, toast]);
+  }, [currentCourse, marks.length, createMark]);
 
   const handlePlaceMarkOnMap = useCallback((data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => {
     if (repositioningMarkId) {
@@ -657,18 +651,51 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
     setPendingMarkData(data);
     setIsPlacingMark(true);
-    toast({
-      title: "Place Mark",
-      description: "Click on the map to place the mark.",
-    });
-  }, [repositioningMarkId, toast]);
+  }, [repositioningMarkId]);
 
   const [continuousPlacement, setContinuousPlacement] = useState(false);
   const [markCounter, setMarkCounter] = useState(1);
 
+  // Track if placement was auto-enabled by phase change (vs manual button click)
+  const [autoPlacementEnabled, setAutoPlacementEnabled] = useState(false);
+
+  // Handle phase changes from SetupPanel - auto-enable placement in marks phase
+  const handlePhaseChange = useCallback((phase: string) => {
+    setCurrentSetupPhase(phase);
+    if (phase === "marks") {
+      // Only auto-enable if not already placing marks manually
+      if (!isPlacingMark) {
+        // Auto-enable continuous placement for course marks
+        const courseMarksCount = marks.filter(m => m.isCourseMark === true).length;
+        setPendingMarkData({
+          name: `M${courseMarksCount + 1}`,
+          role: "turning_mark" as MarkRole,
+          isStartLine: false,
+          isFinishLine: false,
+          isCourseMark: true,
+        });
+        setIsPlacingMark(true);
+        setContinuousPlacement(true);
+        setAutoPlacementEnabled(true);
+        setMarkCounter(courseMarksCount + 1);
+      }
+    } else {
+      // Exiting marks phase - only stop if it was auto-enabled
+      if (autoPlacementEnabled) {
+        setIsPlacingMark(false);
+        setPendingMarkData(null);
+        setContinuousPlacement(false);
+        setAutoPlacementEnabled(false);
+        setMarkCounter(1);
+      }
+    }
+  }, [marks, isPlacingMark, autoPlacementEnabled]);
+
   const handleMapClick = useCallback((lat: number, lng: number) => {
     if (isPlacingMark && pendingMarkData && currentCourse) {
-      const markName = continuousPlacement ? `Mark ${markCounter}` : pendingMarkData.name;
+      // Use current course marks count for naming in continuous mode
+      const courseMarksCount = marks.filter(m => m.isCourseMark === true).length;
+      const markName = continuousPlacement ? `M${courseMarksCount + 1}` : pendingMarkData.name;
       createMark.mutate({
         courseId: currentCourse.id,
         name: markName,
@@ -681,10 +708,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         isCourseMark: pendingMarkData.isCourseMark ?? true,
       }, {
         onSuccess: () => {
-          toast({
-            title: "Mark Created",
-            description: `${markName} has been placed on the map.`,
-          });
           if (continuousPlacement) {
             setMarkCounter(prev => prev + 1);
           } else {
@@ -930,15 +953,87 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [marks, updateMark]);
 
-  // Save course with a name
+  // Save course with a name - duplicates the course with all marks
   const handleSaveCourse = useCallback(async (name: string) => {
-    if (!currentCourse) return;
-    await updateCourse.mutateAsync({ id: currentCourse.id, data: { name } });
-    toast({
-      title: "Course Saved",
-      description: `Race course "${name}" has been saved.`,
-    });
-  }, [currentCourse, updateCourse, toast]);
+    if (!currentCourse) {
+      toast({
+        title: "No Course",
+        description: "No course available to save.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (marks.length === 0) {
+      toast({
+        title: "No Marks",
+        description: "Add marks to the course before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Calculate course center from marks
+      const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+      const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
+      
+      // Create new course with the name
+      const newCourse = await createCourse.mutateAsync({
+        name,
+        shape: currentCourse.shape || "custom",
+        centerLat,
+        centerLng,
+        rotation: currentCourse.rotation || 0,
+        scale: currentCourse.scale || 1,
+      });
+      
+      // Copy all marks to the new course using apiRequest for proper error handling
+      for (const mark of marks) {
+        const res = await apiRequest("POST", "/api/marks", {
+          courseId: newCourse.id,
+          name: mark.name,
+          role: mark.role,
+          order: mark.order,
+          lat: mark.lat,
+          lng: mark.lng,
+          isStartLine: mark.isStartLine,
+          isFinishLine: mark.isFinishLine,
+          isCourseMark: mark.isCourseMark,
+          isGate: mark.isGate,
+          gateWidthBoatLengths: mark.gateWidthBoatLengths,
+          boatLengthMeters: mark.boatLengthMeters,
+          gateSide: mark.gateSide,
+          gatePartnerId: mark.gatePartnerId,
+        });
+        if (!res.ok) {
+          throw new Error("Failed to copy mark");
+        }
+      }
+      
+      // Update the new course with the rounding sequence
+      if (roundingSequence.length > 0) {
+        await updateCourse.mutateAsync({ 
+          id: newCourse.id, 
+          data: { roundingSequence } 
+        });
+      }
+      
+      // Invalidate courses query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      
+      toast({
+        title: "Course Saved",
+        description: `Race course "${name}" has been saved as a template.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Could not save the course. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [currentCourse, marks, roundingSequence, createCourse, updateCourse, toast]);
 
   // Load a saved course
   const handleLoadCourse = useCallback((courseId: string) => {
@@ -1385,6 +1480,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onFinishLinePreview={handleFinishLinePreview}
               onUpdateSequence={handleUpdateSequence}
               onAutoAssignBuoys={handleAutoAssignBuoys}
+              onPhaseChange={handlePhaseChange}
             />
           )}
         </aside>

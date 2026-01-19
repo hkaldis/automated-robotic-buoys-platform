@@ -31,6 +31,7 @@ interface SetupPanelProps {
   onFinishLinePreview?: (selectedMarkIds: Set<string>) => void;
   onUpdateSequence?: (sequence: string[]) => void;
   onAutoAssignBuoys?: () => void;
+  onPhaseChange?: (phase: SetupPhase) => void;
 }
 
 export function SetupPanel({
@@ -50,6 +51,7 @@ export function SetupPanel({
   onFinishLinePreview,
   onUpdateSequence,
   onAutoAssignBuoys,
+  onPhaseChange,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -115,6 +117,11 @@ export function SetupPanel({
   const [phase, setPhase] = useState<SetupPhase>(getMinPhase);
   const [selectedLineMarkIds, setSelectedLineMarkIds] = useState<Set<string>>(new Set());
   const [finishConfirmed, setFinishConfirmed] = useState(false);
+  
+  // Notify parent of phase changes
+  useEffect(() => {
+    onPhaseChange?.(phase);
+  }, [phase, onPhaseChange]);
   
   // Sync phase with data - only force phase back if current phase is invalid
   // But don't reset from later phases if user has progressed through the workflow
