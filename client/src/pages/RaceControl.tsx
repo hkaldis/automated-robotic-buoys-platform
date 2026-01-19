@@ -283,8 +283,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
-  const [isPlacingMark, setIsPlacingMark] = useState(false);
+  // Placement state: pendingMarkData being non-null means we're placing a mark
   const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean } | null>(null);
+  const isPlacingMark = pendingMarkData !== null;
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
   const [gotoMapClickMarkId, setGotoMapClickMarkId] = useState<string | null>(null);
   const [gotoMapClickBuoyId, setGotoMapClickBuoyId] = useState<string | null>(null);
@@ -733,7 +734,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setRepositioningMarkId(null);
     }
     setPendingMarkData(data);
-    setIsPlacingMark(true);
   }, [repositioningMarkId]);
 
   const [continuousPlacement, setContinuousPlacement] = useState(false);
@@ -757,7 +757,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           isFinishLine: false,
           isCourseMark: true,
         });
-        setIsPlacingMark(true);
         setContinuousPlacement(true);
         setAutoPlacementEnabled(true);
         setMarkCounter(courseMarksCount + 1);
@@ -765,7 +764,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     } else {
       // Exiting marks phase - only stop if it was auto-enabled
       if (autoPlacementEnabled) {
-        setIsPlacingMark(false);
         setPendingMarkData(null);
         setContinuousPlacement(false);
         setAutoPlacementEnabled(false);
@@ -806,7 +804,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           if (continuousPlacement) {
             setMarkCounter(prev => prev + 1);
           } else {
-            setIsPlacingMark(false);
             setPendingMarkData(null);
           }
         },
@@ -872,7 +869,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, gotoMapClickBuoyId, marks, buoyCommand]);
 
   const handleStopPlacement = useCallback(() => {
-    setIsPlacingMark(false);
     setPendingMarkData(null);
     setContinuousPlacement(false);
     setMarkCounter(1);
@@ -883,7 +879,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setRepositioningMarkId(null);
     } else {
       if (isPlacingMark) {
-        setIsPlacingMark(false);
         setPendingMarkData(null);
         setContinuousPlacement(false);
         setMarkCounter(1);
@@ -910,7 +905,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         return;
       }
       if (isPlacingMark) {
-        setIsPlacingMark(false);
         setPendingMarkData(null);
         setContinuousPlacement(false);
         setMarkCounter(1);
@@ -987,7 +981,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setGotoMapClickBuoyId(null);
     } else {
       if (isPlacingMark) {
-        setIsPlacingMark(false);
         setPendingMarkData(null);
         setContinuousPlacement(false);
         setMarkCounter(1);
@@ -1192,7 +1185,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       // Reset all local state
       setSelectedMarkId(null);
       setLocalRoundingSequence([]);
-      setIsPlacingMark(false);
       setPendingMarkData(null);
       
       toast({
@@ -1430,7 +1422,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       await queryClient.invalidateQueries({ queryKey: ["/api/courses", course.id, "marks"] });
 
       if (data.courseShape === "custom") {
-        setIsPlacingMark(true);
         setPendingMarkData({ name: "Mark 1", role: "turning_mark" });
         setContinuousPlacement(true);
         setMarkCounter(1);
