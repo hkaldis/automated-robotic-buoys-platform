@@ -184,10 +184,20 @@ All mutating operations require authentication:
 
 ### Data Validation
 - Server-side Zod validation on all inputs
+- Comprehensive validation layer in `server/validation.ts`:
+  - **Coordinate bounds**: Lat -90 to 90, Lng -180 to 180
+  - **Mark role consistency**: Enforces role/flag alignment (start_boat/pin require isStartLine, finish requires isFinishLine, gates require isCourseMark)
+  - **Cross-mark buoy uniqueness**: Prevents same buoy assigned to multiple marks
+  - **Rounding sequence integrity**: Validates mark existence, start/finish at endpoints only
+  - **Gate width validation**: 1-50 boat lengths, 1-100 meters boat length
+  - **Course transform bounds**: Scale 0.1-10, rotation 0-359 degrees
+- Mark courseId immutability: Marks cannot change their course after creation
 - Gate buoy assignments validated to prevent duplicate assignments
 - Cascade cleanup on mark/course deletion to maintain data integrity
 
 ### Error Handling
 - Global ErrorBoundary component catches React errors
 - API errors returned with appropriate HTTP status codes
-- Client-side toast notifications for user feedback
+- Client-side toast notifications for all mutation failures
+- All mutation hooks (marks, courses, buoys) support onError callbacks for user feedback
+- React Query cache invalidation captures courseId at mutation time to prevent stale data
