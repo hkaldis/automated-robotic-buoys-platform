@@ -78,10 +78,22 @@ export function MarkEditPanel({
     setHasChanges(changed);
   }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, mark]);
 
+  // Reset all state when mark changes (new mark selected)
   useEffect(() => {
+    setName(mark.name);
+    setRole(mark.role as MarkRole);
     setLat(mark.lat.toString());
     setLng(mark.lng.toString());
-  }, [mark.lat, mark.lng]);
+    setAssignedBuoyId(mark.assignedBuoyId || "");
+    setIsStartLine(mark.isStartLine ?? false);
+    setIsFinishLine(mark.isFinishLine ?? false);
+    setIsGate(mark.isGate ?? false);
+    setGateWidthBoatLengths(mark.gateWidthBoatLengths ?? 8);
+    setBoatLengthMeters(mark.boatLengthMeters ?? 6);
+    setGatePortBuoyId(mark.gatePortBuoyId || "");
+    setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
+    setHasChanges(false);
+  }, [mark.id]);
 
   // Clear assignedBuoyId when isGate is toggled on
   useEffect(() => {
