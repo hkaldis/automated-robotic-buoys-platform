@@ -353,6 +353,30 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [currentCourse?.id, currentCourse?.roundingSequence]);
 
+  // Auto-create a default course if none exists
+  const [courseCreationAttempted, setCourseCreationAttempted] = useState(false);
+  useEffect(() => {
+    if (!coursesLoading && courses.length === 0 && !courseCreationAttempted) {
+      setCourseCreationAttempted(true);
+      createCourse.mutate({
+        name: "Race Course",
+        shape: "custom",
+        centerLat: 37.8044,
+        centerLng: -122.4196,
+        rotation: 0,
+        scale: 1,
+      }, {
+        onSuccess: (newCourse) => {
+          setActiveCourseId(newCourse.id);
+          toast({
+            title: "Course Created",
+            description: "A new course has been created. You can now add marks.",
+          });
+        },
+      });
+    }
+  }, [courses.length, coursesLoading, courseCreationAttempted, createCourse, toast]);
+
   // Handler to update sequence (persists to course)
   const handleUpdateSequence = useCallback((newSequence: string[]) => {
     setLocalRoundingSequence(newSequence);
