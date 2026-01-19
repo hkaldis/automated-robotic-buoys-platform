@@ -279,6 +279,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [isPlacingMark, setIsPlacingMark] = useState(false);
   const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean } | null>(null);
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
+  const [gotoMapClickMarkId, setGotoMapClickMarkId] = useState<string | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string | null>(propEventId || null);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
@@ -301,7 +302,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const courseId = currentCourse?.id ?? "";
   const { data: marks = [], isLoading: marksLoading } = useMarks(courseId);
-  const buoyCommand = useBuoyCommand();
+  const buoyCommand = useBuoyCommand(sendDemoCommand);
   const updateMark = useUpdateMark(courseId);
   const createMark = useCreateMark(courseId);
   const deleteMark = useDeleteMark(courseId);
@@ -680,8 +681,32 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           setRepositioningMarkId(null);
         },
       });
+    } else if (gotoMapClickMarkId) {
+      const mark = marks.find(m => m.id === gotoMapClickMarkId);
+      const buoyId = mark?.assignedBuoyId;
+      if (buoyId) {
+        buoyCommand.mutate(
+          { id: buoyId, command: "move_to_target", targetLat: lat, targetLng: lng },
+          {
+            onSuccess: () => {
+              toast({
+                title: "Buoy Dispatched",
+                description: `Buoy sent to ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+              });
+            },
+            onError: () => {
+              toast({
+                title: "Command Failed",
+                description: "Failed to send buoy to location",
+                variant: "destructive",
+              });
+            },
+          }
+        );
+      }
+      setGotoMapClickMarkId(null);
     }
-  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter]);
+  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, marks, buoyCommand]);
 
   const handleStopPlacement = useCallback(() => {
     setIsPlacingMark(false);
@@ -707,6 +732,74 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       });
     }
   }, [repositioningMarkId, isPlacingMark, toast]);
+
+  const handleGotoMapClick = useCallback((markId: string) => {
+    if (gotoMapClickMarkId === markId) {
+      setGotoMapClickMarkId(null);
+    } else {
+      const mark = marks.find(m => m.id === markId);
+      if (!mark?.assignedBuoyId) {
+        toast({
+          title: "No buoy assigned",
+          description: "Assign a buoy to this mark first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (isPlacingMark) {
+        setIsPlacingMark(false);
+        setPendingMarkData(null);
+        setContinuousPlacement(false);
+        setMarkCounter(1);
+      }
+      if (repositioningMarkId) {
+        setRepositioningMarkId(null);
+      }
+      setGotoMapClickMarkId(markId);
+      toast({
+        title: "Tap Map to Go",
+        description: "Click on the map to send the buoy there.",
+      });
+    }
+  }, [gotoMapClickMarkId, isPlacingMark, repositioningMarkId, marks, toast]);
+
+  const handleNudgeBuoy = useCallback((markId: string, direction: "north" | "south" | "east" | "west") => {
+    const mark = marks.find(m => m.id === markId);
+    const buoyId = mark?.assignedBuoyId;
+    if (!buoyId) {
+      toast({
+        title: "No buoy assigned",
+        description: "Assign a buoy to this mark first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const buoy = buoys.find(b => b.id === buoyId);
+    if (!buoy) return;
+    
+    const NUDGE_AMOUNT = 0.0005; // Approx 55 meters - larger for buoy movement
+    let targetLat = buoy.targetLat ?? buoy.lat;
+    let targetLng = buoy.targetLng ?? buoy.lng;
+    
+    switch (direction) {
+      case "north": targetLat += NUDGE_AMOUNT; break;
+      case "south": targetLat -= NUDGE_AMOUNT; break;
+      case "east": targetLng += NUDGE_AMOUNT; break;
+      case "west": targetLng -= NUDGE_AMOUNT; break;
+    }
+    
+    buoyCommand.mutate(
+      { id: buoyId, command: "move_to_target", targetLat, targetLng },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Buoy Nudged",
+            description: `Buoy moved ${direction}`,
+          });
+        },
+      }
+    );
+  }, [marks, buoys, buoyCommand, toast]);
 
   const handleNudgeMark = useCallback((markId: string, direction: "north" | "south" | "east" | "west") => {
     const mark = marks.find(m => m.id === markId);
@@ -1135,7 +1228,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             onMarkDragEnd={(markId, lat, lng) => {
               updateMark.mutate({ id: markId, data: { lat, lng } });
             }}
-            isPlacingMark={isPlacingMark || !!repositioningMarkId}
+            isPlacingMark={isPlacingMark || !!repositioningMarkId || !!gotoMapClickMarkId}
             isContinuousPlacement={continuousPlacement}
             onStopPlacement={handleStopPlacement}
             finishLinePreviewIds={finishLinePreviewIds}
@@ -1161,13 +1254,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             <MarkEditPanel
               mark={selectedMark}
               buoys={buoys}
-              onClose={() => setSelectedMarkId(null)}
+              onClose={() => { setSelectedMarkId(null); setGotoMapClickMarkId(null); }}
               onSave={(data) => handleSaveMark(selectedMark.id, data)}
               onDelete={() => handleDeleteMark(selectedMark.id)}
               onReposition={() => handleRepositionMark(selectedMark.id)}
               onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
               isRepositioning={!!repositioningMarkId}
               demoSendCommand={sendDemoCommand}
+              onTapMapToGoto={() => handleGotoMapClick(selectedMark.id)}
+              isTapMapMode={gotoMapClickMarkId === selectedMark.id}
+              onNudgeBuoy={(direction) => handleNudgeBuoy(selectedMark.id, direction)}
             />
           ) : (
             <SetupPanel 

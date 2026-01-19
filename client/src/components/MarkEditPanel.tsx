@@ -23,6 +23,9 @@ interface MarkEditPanelProps {
   onNudge?: (direction: "north" | "south" | "east" | "west") => void;
   isRepositioning?: boolean;
   demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
+  onTapMapToGoto?: () => void;
+  isTapMapMode?: boolean;
+  onNudgeBuoy?: (direction: "north" | "south" | "east" | "west") => void;
 }
 
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
@@ -48,6 +51,9 @@ export function MarkEditPanel({
   onNudge,
   isRepositioning,
   demoSendCommand,
+  onTapMapToGoto,
+  isTapMapMode,
+  onNudgeBuoy,
 }: MarkEditPanelProps) {
   const { toast } = useToast();
   const buoyCommand = useBuoyCommand(demoSendCommand);
@@ -253,81 +259,133 @@ export function MarkEditPanel({
         )}
       </div>
 
-      {/* GoTo Buoy Commands - only visible when buoy is assigned */}
-      {!isGate && mark.assignedBuoyId && (
+      {/* GoTo Buoy Commands - visible for non-gate marks */}
+      {!isGate && (
         <div className="p-3 border-b bg-chart-1/5">
           <div className="flex items-center gap-2 mb-2">
             <Target className="w-4 h-4 text-chart-1" />
-            <Label className="text-sm font-medium">Buoy Commands</Label>
-            {assignedBuoy && (
+            <Label className="text-sm font-medium">Buoy GoTo</Label>
+            {assignedBuoy ? (
               <Badge variant="secondary" className="text-xs ml-auto">
                 {assignedBuoy.name}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs ml-auto text-muted-foreground">
+                No buoy assigned
               </Badge>
             )}
           </div>
           
-          <div className="space-y-2">
-            <Button 
-              className="w-full gap-2 h-10" 
-              onClick={handleSendBuoyToMark}
-              disabled={buoyCommand.isPending}
-              data-testid="button-send-buoy-to-mark"
-            >
-              {buoyCommand.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Navigation className="w-4 h-4" />
-              )}
-              Send Buoy to Mark Position
-            </Button>
-            
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  step="0.0001"
-                  placeholder="Lat"
-                  value={gotoLat}
-                  onChange={(e) => setGotoLat(e.target.value)}
-                  className="text-xs h-9"
-                  data-testid="input-goto-lat"
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  step="0.0001"
-                  placeholder="Lng"
-                  value={gotoLng}
-                  onChange={(e) => setGotoLng(e.target.value)}
-                  className="text-xs h-9"
-                  data-testid="input-goto-lng"
-                />
-              </div>
+          {!mark.assignedBuoyId ? (
+            <p className="text-xs text-muted-foreground py-2">
+              Assign a buoy to this mark to enable GoTo commands.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {/* Primary action: Send to mark */}
               <Button 
-                variant="outline"
-                size="sm"
-                onClick={handleGoToCoordinates}
-                disabled={buoyCommand.isPending || !gotoLat || !gotoLng}
-                className="h-9"
-                data-testid="button-goto-coordinates"
-              >
-                GoTo
-              </Button>
-            </div>
-
-            {assignedBuoy && (assignedBuoy.state === "moving_to_target" || assignedBuoy.state === "holding_position") && (
-              <Button 
-                variant="outline"
-                className="w-full gap-2 h-9 text-destructive border-destructive/50 hover:bg-destructive/10"
-                onClick={handleCancelBuoyCommand}
+                className="w-full gap-2" 
+                onClick={handleSendBuoyToMark}
                 disabled={buoyCommand.isPending}
-                data-testid="button-cancel-buoy"
+                data-testid="button-send-buoy-to-mark"
               >
-                Cancel & Return to Idle
+                {buoyCommand.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Navigation className="w-4 h-4" />
+                )}
+                Send Buoy to Mark Position
               </Button>
-            )}
-          </div>
+
+              {/* Tap Map to Go */}
+              {onTapMapToGoto && (
+                <Button 
+                  variant={isTapMapMode ? "default" : "outline"}
+                  className="w-full gap-2"
+                  onClick={onTapMapToGoto}
+                  data-testid="button-tap-map-goto"
+                >
+                  <MapPin className="w-4 h-4" />
+                  {isTapMapMode ? "Tap Map Now..." : "Tap Map to Go"}
+                </Button>
+              )}
+
+              {/* Directional nudge arrows for buoy */}
+              {onNudgeBuoy && (
+                <div className="flex flex-col items-center gap-1">
+                  <Label className="text-xs text-muted-foreground mb-1">Nudge Buoy Direction</Label>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("west")} data-testid="button-nudge-buoy-west">
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <div className="flex flex-col gap-1">
+                      <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("north")} data-testid="button-nudge-buoy-north">
+                        <ChevronUp className="w-4 h-4" />
+                      </Button>
+                      <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("south")} data-testid="button-nudge-buoy-south">
+                        <ChevronDown className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("east")} data-testid="button-nudge-buoy-east">
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Custom coordinate input */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Go to Coordinates</Label>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      placeholder="Latitude"
+                      value={gotoLat}
+                      onChange={(e) => setGotoLat(e.target.value)}
+                      className="text-xs"
+                      data-testid="input-goto-lat"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      placeholder="Longitude"
+                      value={gotoLng}
+                      onChange={(e) => setGotoLng(e.target.value)}
+                      className="text-xs"
+                      data-testid="input-goto-lng"
+                    />
+                  </div>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGoToCoordinates}
+                    disabled={buoyCommand.isPending || !gotoLat || !gotoLng}
+                    data-testid="button-goto-coordinates"
+                  >
+                    GoTo
+                  </Button>
+                </div>
+              </div>
+
+              {/* Cancel button when buoy is active */}
+              {assignedBuoy && (assignedBuoy.state === "moving_to_target" || assignedBuoy.state === "holding_position") && (
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 text-destructive border-destructive/50"
+                  onClick={handleCancelBuoyCommand}
+                  disabled={buoyCommand.isPending}
+                  data-testid="button-cancel-buoy"
+                >
+                  Cancel & Return to Idle
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
