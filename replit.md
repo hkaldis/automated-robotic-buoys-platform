@@ -43,7 +43,7 @@ Key UI components include:
 - `MapView`: Leaflet-based map with OpenSeaMap overlay for interactive course management.
 - `SetupPanel`: A 4-step wizard guiding users through course setup: Add Marks, Select Start Line, Select Finish Line, and Assign Buoys.
 - `BuoyCard` and `BuoyDetailPanel`: For displaying and controlling buoy status and commands.
-- `MarkEditPanel`: For editing mark details.
+- `MarkEditPanel`: For editing mark details and controlling assigned buoys with GoTo commands.
 - `SettingsDialog`: For configuring units and wind source.
 - `WindIndicator`: Visual compass for wind direction.
 
@@ -117,6 +117,16 @@ This provides accurate course length calculations that reflect the actual sailin
 - **Storage**: PostgreSQL database with Drizzle ORM (`DatabaseStorage` class) for production persistence. All data persists across server restarts.
 - **Schema Validation**: Zod with drizzle-zod for type-safe schema definitions.
 - **Authentication**: Session-based auth with bcrypt password hashing and role-based access control (RBAC).
+
+### Buoy GoTo Commands (MarkEditPanel)
+When a mark has an assigned buoy, the MarkEditPanel shows a "Buoy GoTo" section with multiple ways to command the buoy:
+- **Send Buoy to Mark Position**: Dispatches the assigned buoy to the mark's coordinates
+- **Tap Map to Go**: Enables a mode where clicking anywhere on the map sends the buoy to that location
+- **Directional Nudge Arrows**: N/S/E/W buttons that move the buoy approximately 55 meters in the specified direction
+- **Go to Coordinates**: Manual input of latitude/longitude coordinates with a GoTo button
+- **Cancel & Return to Idle**: Appears when buoy is moving/holding, cancels the current command
+
+If no buoy is assigned to the mark, a message prompts the user to assign one first.
 
 ### Demo Mode
 For testing and demonstration, a client-side demo mode provides 7 simulated buoys (Alpha through Golf):
