@@ -26,6 +26,9 @@ import {
   validateBuoyNotAssignedToOtherMarks,
   validateRoundingSequence,
   validateCourseTransformBounds,
+  validateGateSide,
+  validateDuplicateBuoyOnSameMark,
+  validateMarkOrderUniqueness,
 } from "./validation";
 
 const loginSchema = z.object({
@@ -538,6 +541,21 @@ export async function registerRoutes(
         return res.status(400).json({ error: gateResult.error });
       }
       
+      const gateSideResult = validateGateSide(validatedData);
+      if (!gateSideResult.valid) {
+        return res.status(400).json({ error: gateSideResult.error });
+      }
+      
+      const duplicateBuoyResult = validateDuplicateBuoyOnSameMark(validatedData);
+      if (!duplicateBuoyResult.valid) {
+        return res.status(400).json({ error: duplicateBuoyResult.error });
+      }
+      
+      const orderResult = await validateMarkOrderUniqueness(storage, validatedData.courseId, null, validatedData.order);
+      if (!orderResult.valid) {
+        return res.status(400).json({ error: orderResult.error });
+      }
+      
       const buoyIds = [validatedData.assignedBuoyId, validatedData.gatePortBuoyId, validatedData.gateStarboardBuoyId];
       const buoyResult = await validateBuoyNotAssignedToOtherMarks(storage, validatedData.courseId, null, buoyIds);
       if (!buoyResult.valid) {
@@ -588,16 +606,30 @@ export async function registerRoutes(
         }
       }
       
-      if (validatedData.assignedBuoyId || validatedData.gatePortBuoyId || validatedData.gateStarboardBuoyId) {
-        const buoyIds = [validatedData.assignedBuoyId, validatedData.gatePortBuoyId, validatedData.gateStarboardBuoyId].filter(Boolean);
-        const uniqueBuoyIds = new Set(buoyIds);
-        if (buoyIds.length !== uniqueBuoyIds.size) {
-          return res.status(400).json({ error: "Cannot assign the same buoy to multiple roles on a mark" });
+      if (validatedData.isGate !== undefined || validatedData.gateSide !== undefined) {
+        const gateSideResult = validateGateSide(mergedData);
+        if (!gateSideResult.valid) {
+          return res.status(400).json({ error: gateSideResult.error });
+        }
+      }
+      
+      if (validatedData.assignedBuoyId !== undefined || validatedData.gatePortBuoyId !== undefined || validatedData.gateStarboardBuoyId !== undefined) {
+        const duplicateBuoyResult = validateDuplicateBuoyOnSameMark(mergedData);
+        if (!duplicateBuoyResult.valid) {
+          return res.status(400).json({ error: duplicateBuoyResult.error });
         }
         
-        const buoyResult = await validateBuoyNotAssignedToOtherMarks(storage, existingMark.courseId, markId, buoyIds);
+        const buoyIds = [mergedData.assignedBuoyId, mergedData.gatePortBuoyId, mergedData.gateStarboardBuoyId].filter(Boolean);
+        const buoyResult = await validateBuoyNotAssignedToOtherMarks(storage, existingMark.courseId, markId, buoyIds as string[]);
         if (!buoyResult.valid) {
           return res.status(400).json({ error: buoyResult.error });
+        }
+      }
+      
+      if (validatedData.order !== undefined) {
+        const orderResult = await validateMarkOrderUniqueness(storage, existingMark.courseId, markId, validatedData.order);
+        if (!orderResult.valid) {
+          return res.status(400).json({ error: orderResult.error });
         }
       }
       

@@ -57,9 +57,14 @@ export function MarkEditPanel({
   const [gatePortBuoyId, setGatePortBuoyId] = useState<string>(mark.gatePortBuoyId || "");
   const [gateStarboardBuoyId, setGateStarboardBuoyId] = useState<string>(mark.gateStarboardBuoyId || "");
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Track which fields the user has edited (dirty flags)
+  // This prevents external updates from overwriting user edits
+  const dirtyFieldsRef = useRef<Set<string>>(new Set());
 
   const gateWidthMeters = gateWidthBoatLengths * boatLengthMeters;
 
+  // Calculate hasChanges based on local vs mark values
   useEffect(() => {
     const changed = 
       name !== mark.name ||
@@ -77,38 +82,101 @@ export function MarkEditPanel({
     setHasChanges(changed);
   }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, mark]);
 
-  // Reset all state when mark changes (new mark selected)
+  // Track previous mark ID to detect selection changes
+  const prevMarkIdRef = useRef(mark.id);
+
+  // Sync fields from mark prop - only depends on mark prop, not local state
+  // Uses dirty flags to preserve user edits
   useEffect(() => {
-    setName(mark.name);
-    setRole(mark.role as MarkRole);
-    setLat(mark.lat.toString());
-    setLng(mark.lng.toString());
-    setAssignedBuoyId(mark.assignedBuoyId || "");
-    setIsStartLine(mark.isStartLine ?? false);
-    setIsFinishLine(mark.isFinishLine ?? false);
-    setIsGate(mark.isGate ?? false);
-    setGateWidthBoatLengths(mark.gateWidthBoatLengths ?? 8);
-    setBoatLengthMeters(mark.boatLengthMeters ?? 6);
-    setGatePortBuoyId(mark.gatePortBuoyId || "");
-    setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
-    setHasChanges(false);
-  }, [mark.id]);
-  
-  // Sync lat/lng when mark position changes externally (e.g., from map drag)
-  // This prevents autosave from reverting drag changes
-  const prevMarkLatRef = useRef(mark.lat);
-  const prevMarkLngRef = useRef(mark.lng);
-  useEffect(() => {
-    // Check if mark position changed externally (not from local state)
-    if (mark.lat !== prevMarkLatRef.current || mark.lng !== prevMarkLngRef.current) {
+    const dirty = dirtyFieldsRef.current;
+    
+    // If mark ID changed, reset everything and clear dirty flags
+    if (mark.id !== prevMarkIdRef.current) {
+      setName(mark.name);
+      setRole(mark.role as MarkRole);
       setLat(mark.lat.toString());
       setLng(mark.lng.toString());
-      prevMarkLatRef.current = mark.lat;
-      prevMarkLngRef.current = mark.lng;
+      setAssignedBuoyId(mark.assignedBuoyId || "");
+      setIsStartLine(mark.isStartLine ?? false);
+      setIsFinishLine(mark.isFinishLine ?? false);
+      setIsGate(mark.isGate ?? false);
+      setGateWidthBoatLengths(mark.gateWidthBoatLengths ?? 8);
+      setBoatLengthMeters(mark.boatLengthMeters ?? 6);
+      setGatePortBuoyId(mark.gatePortBuoyId || "");
+      setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
+      setHasChanges(false);
+      dirtyFieldsRef.current = new Set();
+      prevMarkIdRef.current = mark.id;
+      return;
     }
-  }, [mark.lat, mark.lng]);
+    
+    // Same mark - sync only non-dirty fields from external updates
+    if (!dirty.has("lat")) setLat(mark.lat.toString());
+    if (!dirty.has("lng")) setLng(mark.lng.toString());
+    if (!dirty.has("name")) setName(mark.name);
+    if (!dirty.has("role")) setRole(mark.role as MarkRole);
+    if (!dirty.has("assignedBuoyId")) setAssignedBuoyId(mark.assignedBuoyId || "");
+    if (!dirty.has("isStartLine")) setIsStartLine(mark.isStartLine ?? false);
+    if (!dirty.has("isFinishLine")) setIsFinishLine(mark.isFinishLine ?? false);
+    if (!dirty.has("isGate")) setIsGate(mark.isGate ?? false);
+    if (!dirty.has("gateWidthBoatLengths")) setGateWidthBoatLengths(mark.gateWidthBoatLengths ?? 8);
+    if (!dirty.has("boatLengthMeters")) setBoatLengthMeters(mark.boatLengthMeters ?? 6);
+    if (!dirty.has("gatePortBuoyId")) setGatePortBuoyId(mark.gatePortBuoyId || "");
+    if (!dirty.has("gateStarboardBuoyId")) setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
+  }, [mark]);
+  
+  // Wrapper functions to mark fields as dirty when user edits them
+  const setNameDirty = useCallback((value: string) => {
+    dirtyFieldsRef.current.add("name");
+    setName(value);
+  }, []);
+  const setRoleDirty = useCallback((value: MarkRole) => {
+    dirtyFieldsRef.current.add("role");
+    setRole(value);
+  }, []);
+  const setLatDirty = useCallback((value: string) => {
+    dirtyFieldsRef.current.add("lat");
+    setLat(value);
+  }, []);
+  const setLngDirty = useCallback((value: string) => {
+    dirtyFieldsRef.current.add("lng");
+    setLng(value);
+  }, []);
+  const setAssignedBuoyIdDirty = useCallback((value: string) => {
+    dirtyFieldsRef.current.add("assignedBuoyId");
+    setAssignedBuoyId(value);
+  }, []);
+  const setIsStartLineDirty = useCallback((value: boolean) => {
+    dirtyFieldsRef.current.add("isStartLine");
+    setIsStartLine(value);
+  }, []);
+  const setIsFinishLineDirty = useCallback((value: boolean) => {
+    dirtyFieldsRef.current.add("isFinishLine");
+    setIsFinishLine(value);
+  }, []);
+  const setIsGateDirty = useCallback((value: boolean) => {
+    dirtyFieldsRef.current.add("isGate");
+    setIsGate(value);
+  }, []);
+  const setGateWidthBoatLengthsDirty = useCallback((value: number) => {
+    dirtyFieldsRef.current.add("gateWidthBoatLengths");
+    setGateWidthBoatLengths(value);
+  }, []);
+  const setBoatLengthMetersDirty = useCallback((value: number) => {
+    dirtyFieldsRef.current.add("boatLengthMeters");
+    setBoatLengthMeters(value);
+  }, []);
+  const setGatePortBuoyIdDirty = useCallback((value: string) => {
+    dirtyFieldsRef.current.add("gatePortBuoyId");
+    setGatePortBuoyId(value);
+  }, []);
+  const setGateStarboardBuoyIdDirty = useCallback((value: string) => {
+    dirtyFieldsRef.current.add("gateStarboardBuoyId");
+    setGateStarboardBuoyId(value);
+  }, []);
 
   // Sync role with isGate to satisfy validation constraints
+  // These are cascading effects from user toggling isGate, so mark fields dirty
   const prevIsGateRef = useRef(isGate);
   useEffect(() => {
     const wasGate = prevIsGateRef.current;
@@ -116,13 +184,16 @@ export function MarkEditPanel({
     
     if (isGate && !wasGate) {
       // Turning gate ON: clear single buoy and set role if needed
+      dirtyFieldsRef.current.add("assignedBuoyId");
       setAssignedBuoyId("");
       if (!["gate", "leeward", "windward"].includes(role)) {
+        dirtyFieldsRef.current.add("role");
         setRole("gate");
       }
     } else if (!isGate && wasGate) {
       // Turning gate OFF: reset role if it was "gate"
       if (role === "gate") {
+        dirtyFieldsRef.current.add("role");
         setRole("turning_mark");
       }
     }
@@ -155,6 +226,9 @@ export function MarkEditPanel({
       gatePortBuoyId: isGate ? (gatePortBuoyId || null) : null,
       gateStarboardBuoyId: isGate ? (gateStarboardBuoyId || null) : null,
     });
+    
+    // Clear dirty flags after save - server now has these values
+    dirtyFieldsRef.current = new Set();
     
     setTimeout(() => setSaveStatus("saved"), 100);
     setTimeout(() => setSaveStatus("idle"), 2000);
@@ -273,14 +347,14 @@ export function MarkEditPanel({
             <Input
               id="mark-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => setNameDirty(e.target.value)}
               placeholder="Mark name"
               data-testid="input-mark-name"
             />
           </div>
           <div className="space-y-1">
             <Label htmlFor="mark-role" className="text-xs">Role</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as MarkRole)}>
+            <Select value={role} onValueChange={(v) => setRoleDirty(v as MarkRole)}>
               <SelectTrigger id="mark-role" data-testid="select-mark-role">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
@@ -307,7 +381,7 @@ export function MarkEditPanel({
               <Switch
                 id="start-line"
                 checked={isStartLine}
-                onCheckedChange={setIsStartLine}
+                onCheckedChange={setIsStartLineDirty}
                 data-testid="switch-start-line"
               />
             </div>
@@ -321,7 +395,7 @@ export function MarkEditPanel({
               <Switch
                 id="finish-line"
                 checked={isFinishLine}
-                onCheckedChange={setIsFinishLine}
+                onCheckedChange={setIsFinishLineDirty}
                 data-testid="switch-finish-line"
               />
             </div>
@@ -345,7 +419,7 @@ export function MarkEditPanel({
               <Switch
                 id="gate-toggle"
                 checked={isGate}
-                onCheckedChange={setIsGate}
+                onCheckedChange={setIsGateDirty}
                 data-testid="switch-gate"
               />
             </div>
@@ -368,7 +442,7 @@ export function MarkEditPanel({
                       max="20"
                       step="1"
                       value={gateWidthBoatLengths}
-                      onChange={(e) => setGateWidthBoatLengths(parseFloat(e.target.value) || 8)}
+                      onChange={(e) => setGateWidthBoatLengthsDirty(parseFloat(e.target.value) || 8)}
                       className="text-sm"
                       data-testid="input-gate-width"
                     />
@@ -384,7 +458,7 @@ export function MarkEditPanel({
                       max="20"
                       step="0.5"
                       value={boatLengthMeters}
-                      onChange={(e) => setBoatLengthMeters(parseFloat(e.target.value) || 6)}
+                      onChange={(e) => setBoatLengthMetersDirty(parseFloat(e.target.value) || 6)}
                       className="text-sm"
                       data-testid="input-boat-length"
                     />
@@ -424,7 +498,7 @@ export function MarkEditPanel({
                 </Label>
                 <Select 
                   value={gatePortBuoyId || "unassigned"} 
-                  onValueChange={(v) => setGatePortBuoyId(v === "unassigned" ? "" : v)}
+                  onValueChange={(v) => setGatePortBuoyIdDirty(v === "unassigned" ? "" : v)}
                 >
                   <SelectTrigger id="gate-port-buoy" data-testid="select-gate-port-buoy">
                     <SelectValue placeholder="Select buoy" />
@@ -449,7 +523,7 @@ export function MarkEditPanel({
                 </Label>
                 <Select 
                   value={gateStarboardBuoyId || "unassigned"} 
-                  onValueChange={(v) => setGateStarboardBuoyId(v === "unassigned" ? "" : v)}
+                  onValueChange={(v) => setGateStarboardBuoyIdDirty(v === "unassigned" ? "" : v)}
                 >
                   <SelectTrigger id="gate-starboard-buoy" data-testid="select-gate-starboard-buoy">
                     <SelectValue placeholder="Select buoy" />
@@ -486,7 +560,7 @@ export function MarkEditPanel({
         ) : (
           <div className="space-y-2">
             <Label htmlFor="assigned-buoy">Assigned Buoy</Label>
-            <Select value={assignedBuoyId || "unassigned"} onValueChange={(v) => setAssignedBuoyId(v === "unassigned" ? "" : v)}>
+            <Select value={assignedBuoyId || "unassigned"} onValueChange={(v) => setAssignedBuoyIdDirty(v === "unassigned" ? "" : v)}>
               <SelectTrigger id="assigned-buoy" data-testid="select-assigned-buoy">
                 <SelectValue placeholder="Select buoy" />
               </SelectTrigger>

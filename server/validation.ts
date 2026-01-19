@@ -100,6 +100,35 @@ export function validateMarkRoleConsistency(data: Partial<InsertMark>): Validati
   return { valid: true };
 }
 
+export function validateGateSide(data: Partial<InsertMark>): ValidationResult {
+  const { isGate, gateSide } = data;
+  
+  if (isGate === true && !gateSide) {
+    return { valid: false, error: "Gate marks must specify a side (port or starboard)" };
+  }
+  
+  if (gateSide && gateSide !== "port" && gateSide !== "starboard") {
+    return { valid: false, error: "Gate side must be 'port' or 'starboard'" };
+  }
+  
+  return { valid: true };
+}
+
+export function validateDuplicateBuoyOnSameMark(data: Partial<InsertMark>): ValidationResult {
+  const buoyIds = [
+    data.assignedBuoyId,
+    data.gatePortBuoyId,
+    data.gateStarboardBuoyId
+  ].filter(Boolean);
+  
+  const uniqueIds = new Set(buoyIds);
+  if (buoyIds.length !== uniqueIds.size) {
+    return { valid: false, error: "Cannot assign the same buoy to multiple roles on a mark" };
+  }
+  
+  return { valid: true };
+}
+
 export async function validateBuoyNotAssignedToOtherMarks(
   storage: IStorage,
   courseId: string,
@@ -179,6 +208,34 @@ export async function validateRoundingSequence(
   }
   if (finishCount > 1) {
     return { valid: false, error: "'finish' can only appear once in the rounding sequence" };
+  }
+  
+  return { valid: true };
+}
+
+export async function validateMarkOrderUniqueness(
+  storage: IStorage,
+  courseId: string,
+  currentMarkId: string | null,
+  order: number | undefined | null
+): Promise<ValidationResult> {
+  if (order === undefined || order === null) {
+    return { valid: true };
+  }
+  
+  const courseMarks = await storage.getMarksByCourse(courseId);
+  
+  for (const mark of courseMarks) {
+    if (currentMarkId && mark.id === currentMarkId) {
+      continue;
+    }
+    
+    if (mark.order === order) {
+      return { 
+        valid: false, 
+        error: `Another mark already has order ${order}. Each mark must have a unique order value.`
+      };
+    }
   }
   
   return { valid: true };
