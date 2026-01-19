@@ -124,7 +124,27 @@ VMG-based race time estimation using sailing physics and boat class performance 
    - Per-leg estimates with point-of-sail color coding (red=upwind, green=reach, blue=downwind)
    - Total estimated race time shown with "(VMG)" indicator when using physics-based calculation
    - Falls back to simple estimate (distance/4.5kts) if no boat class selected
+   - **Boat class selector** in Review phase for quick at-sea changes (session-only override)
 
 4. **API Endpoints**:
    - GET /api/boat-classes - List all boat classes
    - GET /api/boat-classes/:id - Get single boat class by ID
+
+### Wind Angle Calculation Unification (January 2026)
+Centralized wind angle calculation in `client/src/lib/course-bearings.ts`:
+
+1. **`calculateWindAngle(legBearing, windDirection)`**: Returns both:
+   - `signedRelative`: -180 to +180° (for display, "+X° to wind")
+   - `absoluteTwa`: 0-180° (True Wind Angle for physics calculations)
+
+2. **`formatWindRelative(signedRelative)`**: Formats as "+X° to wind" or "-X° to wind"
+
+3. **Used consistently across**:
+   - Map leg labels (LeafletMap.tsx)
+   - SetupPanel route legs display
+   - Race time estimation physics (race-time-estimation.ts)
+
+4. **Boat Class Database Integration**:
+   - Events store both `boatClass` (name for display) and `boatClassId` (database reference)
+   - CreateRaceDialog, ClubDashboard, AdminDashboard use `useBoatClasses()` hook
+   - Dropdown selection from 20 boat classes in database
