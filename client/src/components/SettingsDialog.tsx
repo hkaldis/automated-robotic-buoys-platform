@@ -1,4 +1,4 @@
-import { Ruler, Gauge, Wind, Eye } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye, Anchor } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings } from "@/hooks/use-settings";
+import { useSettings, type StartLineResizeMode, type StartLineFixBearingMode } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -39,8 +39,28 @@ const windSourceOptions: { value: WindSource; label: string; description: string
   { value: "manual", label: "Manual Input", description: "Enter wind data manually" },
 ];
 
+const resizeModeOptions: { value: StartLineResizeMode; label: string }[] = [
+  { value: "both", label: "Move Both" },
+  { value: "pin", label: "Move Pin Only" },
+  { value: "committee_boat", label: "Move Committee Boat Only" },
+];
+
+const fixBearingModeOptions: { value: StartLineFixBearingMode; label: string }[] = [
+  { value: "pin", label: "Move Pin" },
+  { value: "committee_boat", label: "Move Committee Boat" },
+];
+
 export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = true, onToggleWindArrows }: SettingsDialogProps) {
-  const { distanceUnit, speedUnit, setDistanceUnit, setSpeedUnit } = useSettings();
+  const { 
+    distanceUnit, 
+    speedUnit, 
+    setDistanceUnit, 
+    setSpeedUnit,
+    startLineResizeMode,
+    startLineFixBearingMode,
+    setStartLineResizeMode,
+    setStartLineFixBearingMode,
+  } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
   const [manualDirection, setManualDirection] = useState("180");
@@ -219,6 +239,51 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Anchor className="w-4 h-4" />
+                Start Line Adjustments
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label className="text-sm text-muted-foreground mb-2 block">
+                  When resizing line (bigger/smaller)
+                </Label>
+                <Select value={startLineResizeMode} onValueChange={(v) => setStartLineResizeMode(v as StartLineResizeMode)}>
+                  <SelectTrigger data-testid="select-resize-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resizeModeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground mb-2 block">
+                  When fixing bearing to wind
+                </Label>
+                <Select value={startLineFixBearingMode} onValueChange={(v) => setStartLineFixBearingMode(v as StartLineFixBearingMode)}>
+                  <SelectTrigger data-testid="select-fix-bearing-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fixBearingModeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardContent>
           </Card>
         </div>

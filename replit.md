@@ -148,3 +148,28 @@ Centralized wind angle calculation in `client/src/lib/course-bearings.ts`:
    - Events store both `boatClass` (name for display) and `boatClassId` (database reference)
    - CreateRaceDialog, ClubDashboard, AdminDashboard use `useBoatClasses()` hook
    - Dropdown selection from 20 boat classes in database
+
+### Start Line Adjustment Controls (January 2026)
+Simple touch-friendly controls for adjusting start line at sea:
+
+1. **Resize Controls** (SetupPanel Start phase):
+   - Line length display in meters
+   - Grow (+) and shrink (-) buttons: Scale line by 10% per click
+   - Mode setting: Move both marks (default), move pin only, or move committee boat only
+
+2. **Fix Bearing to Wind** (SetupPanel Start phase):
+   - One-tap button to rotate line perpendicular to current wind direction
+   - Uses geodesic destination-point formula (Haversine) for accurate positioning
+   - Preserves line length during rotation
+   - Mode setting: Move pin (default) or move committee boat
+
+3. **Settings** (SettingsDialog, localStorage-persisted):
+   - `startLineResizeMode`: "both" | "pin" | "committee_boat" (default: "both")
+   - `startLineFixBearingMode`: "pin" | "committee_boat" (default: "pin")
+   - Persisted via localStorage for device-specific preferences
+
+4. **Implementation Details**:
+   - `calculateStartLineLength()`: Haversine distance in meters
+   - `calculateStartLineBearing()`: Bearing from pin to committee boat
+   - `handleResizeStartLine()`: Scales from center (both) or fixed mark (pin/cb)
+   - `handleFixBearing()`: Geodesic destination-point calculation for spherical accuracy

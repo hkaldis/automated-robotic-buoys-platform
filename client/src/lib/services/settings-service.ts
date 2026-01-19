@@ -2,15 +2,22 @@ import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 
 type SettingsListener = () => void;
 
+export type StartLineResizeMode = "both" | "pin" | "committee_boat";
+export type StartLineFixBearingMode = "pin" | "committee_boat";
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
+  startLineResizeMode: StartLineResizeMode;
+  startLineFixBearingMode: StartLineFixBearingMode;
 }
 
 class SettingsService {
   private settings: UserSettings = {
     distanceUnit: "nautical_miles",
     speedUnit: "knots",
+    startLineResizeMode: "both",
+    startLineFixBearingMode: "pin",
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -50,6 +57,24 @@ class SettingsService {
 
   setSpeedUnit(unit: SpeedUnit): void {
     this.settings.speedUnit = unit;
+    this.notify();
+  }
+
+  getStartLineResizeMode(): StartLineResizeMode {
+    return this.settings.startLineResizeMode;
+  }
+
+  setStartLineResizeMode(mode: StartLineResizeMode): void {
+    this.settings.startLineResizeMode = mode;
+    this.notify();
+  }
+
+  getStartLineFixBearingMode(): StartLineFixBearingMode {
+    return this.settings.startLineFixBearingMode;
+  }
+
+  setStartLineFixBearingMode(mode: StartLineFixBearingMode): void {
+    this.settings.startLineFixBearingMode = mode;
     this.notify();
   }
 

@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Plus, Minus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,8 +17,32 @@ import { useBoatClass, useBoatClasses } from "@/hooks/use-api";
 import { estimateRaceTime, buildLegsFromRoundingSequence } from "@/lib/race-time-estimation";
 import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useSettings } from "@/hooks/use-settings";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
+
+function calculateStartLineLength(pinMark: Mark | undefined, cbMark: Mark | undefined): number {
+  if (!pinMark || !cbMark) return 0;
+  const R = 6371e3;
+  const lat1 = pinMark.lat * Math.PI / 180;
+  const lat2 = cbMark.lat * Math.PI / 180;
+  const dLat = (cbMark.lat - pinMark.lat) * Math.PI / 180;
+  const dLon = (cbMark.lng - pinMark.lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function calculateStartLineBearing(pinMark: Mark | undefined, cbMark: Mark | undefined): number {
+  if (!pinMark || !cbMark) return 0;
+  const lat1 = pinMark.lat * Math.PI / 180;
+  const lat2 = cbMark.lat * Math.PI / 180;
+  const dLon = (cbMark.lng - pinMark.lng) * Math.PI / 180;
+  const x = Math.sin(dLon) * Math.cos(lat2);
+  const y = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  let bearing = Math.atan2(x, y) * 180 / Math.PI;
+  return (bearing + 360) % 360;
+}
 
 interface SetupPanelProps {
   event: Event;
@@ -78,6 +102,9 @@ export function SetupPanel({
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
   const { data: boatClassesData } = useBoatClasses();
   const boatClasses = boatClassesData || [];
+  
+  // Start line adjustment settings
+  const { startLineResizeMode, startLineFixBearingMode } = useSettings();
   
   // Allow override of boat class in Review phase for quick at-sea comparisons
   const [boatClassOverrideId, setBoatClassOverrideId] = useState<string>("");
@@ -505,6 +532,87 @@ export function SetupPanel({
     });
   };
 
+  // Get pin and committee boat marks for start line operations
+  const pinMark = useMemo(() => startLineMarks.find(m => m.role === "pin"), [startLineMarks]);
+  const committeeMark = useMemo(() => startLineMarks.find(m => m.role === "start_boat"), [startLineMarks]);
+  const startLineLength = useMemo(() => calculateStartLineLength(pinMark, committeeMark), [pinMark, committeeMark]);
+
+  // Resize start line (make bigger or smaller)
+  const handleResizeStartLine = useCallback((increase: boolean) => {
+    if (!pinMark || !committeeMark) return;
+    
+    const scaleFactor = increase ? 1.1 : 0.9;
+    const centerLat = (pinMark.lat + committeeMark.lat) / 2;
+    const centerLng = (pinMark.lng + committeeMark.lng) / 2;
+    
+    if (startLineResizeMode === "both") {
+      const newPinLat = centerLat + (pinMark.lat - centerLat) * scaleFactor;
+      const newPinLng = centerLng + (pinMark.lng - centerLng) * scaleFactor;
+      const newCbLat = centerLat + (committeeMark.lat - centerLat) * scaleFactor;
+      const newCbLng = centerLng + (committeeMark.lng - centerLng) * scaleFactor;
+      onSaveMark?.(pinMark.id, { lat: newPinLat, lng: newPinLng });
+      onSaveMark?.(committeeMark.id, { lat: newCbLat, lng: newCbLng });
+    } else if (startLineResizeMode === "pin") {
+      const newPinLat = committeeMark.lat + (pinMark.lat - committeeMark.lat) * scaleFactor;
+      const newPinLng = committeeMark.lng + (pinMark.lng - committeeMark.lng) * scaleFactor;
+      onSaveMark?.(pinMark.id, { lat: newPinLat, lng: newPinLng });
+    } else {
+      const newCbLat = pinMark.lat + (committeeMark.lat - pinMark.lat) * scaleFactor;
+      const newCbLng = pinMark.lng + (committeeMark.lng - pinMark.lng) * scaleFactor;
+      onSaveMark?.(committeeMark.id, { lat: newCbLat, lng: newCbLng });
+    }
+  }, [pinMark, committeeMark, startLineResizeMode, onSaveMark]);
+
+  // Fix bearing to be perpendicular to wind using geodesic destination-point formula
+  const handleFixBearing = useCallback(() => {
+    if (!pinMark || !committeeMark || windDirection === undefined) return;
+    
+    const distanceM = startLineLength;
+    const targetBearing = (windDirection + 90) % 360;
+    const R = 6371e3;
+    
+    if (startLineFixBearingMode === "pin") {
+      const lat1 = committeeMark.lat * Math.PI / 180;
+      const lng1 = committeeMark.lng * Math.PI / 180;
+      const brng = targetBearing * Math.PI / 180;
+      const angularDist = distanceM / R;
+      
+      const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(angularDist) +
+        Math.cos(lat1) * Math.sin(angularDist) * Math.cos(brng)
+      );
+      const lng2 = lng1 + Math.atan2(
+        Math.sin(brng) * Math.sin(angularDist) * Math.cos(lat1),
+        Math.cos(angularDist) - Math.sin(lat1) * Math.sin(lat2)
+      );
+      
+      onSaveMark?.(pinMark.id, { 
+        lat: lat2 * 180 / Math.PI, 
+        lng: lng2 * 180 / Math.PI 
+      });
+    } else {
+      const reverseBearing = (targetBearing + 180) % 360;
+      const lat1 = pinMark.lat * Math.PI / 180;
+      const lng1 = pinMark.lng * Math.PI / 180;
+      const brng = reverseBearing * Math.PI / 180;
+      const angularDist = distanceM / R;
+      
+      const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(angularDist) +
+        Math.cos(lat1) * Math.sin(angularDist) * Math.cos(brng)
+      );
+      const lng2 = lng1 + Math.atan2(
+        Math.sin(brng) * Math.sin(angularDist) * Math.cos(lat1),
+        Math.cos(angularDist) - Math.sin(lat1) * Math.sin(lat2)
+      );
+      
+      onSaveMark?.(committeeMark.id, { 
+        lat: lat2 * 180 / Math.PI, 
+        lng: lng2 * 180 / Math.PI 
+      });
+    }
+  }, [pinMark, committeeMark, windDirection, startLineLength, startLineFixBearingMode, onSaveMark]);
+
   // Add course mark (M1, M2, M3, etc.)
   const handleAddCourseMark = () => {
     const markNumber = courseMarks.length + 1;
@@ -632,6 +740,46 @@ export function SetupPanel({
                   ))}
                 </div>
               </ScrollArea>
+            )}
+
+            {hasStartLine && (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Line Length</p>
+                    <p className="text-sm font-semibold">{startLineLength.toFixed(0)} m</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleResizeStartLine(false)}
+                      data-testid="button-shrink-line"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleResizeStartLine(true)}
+                      data-testid="button-grow-line"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleFixBearing}
+                  disabled={windDirection === undefined}
+                  data-testid="button-fix-bearing"
+                >
+                  <Compass className="w-4 h-4" />
+                  Fix Bearing to Wind
+                </Button>
+              </div>
             )}
 
             <div className="pt-3 border-t mt-auto">

@@ -1,6 +1,8 @@
-import { useCallback } from "react";
+import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
+import type { StartLineResizeMode, StartLineFixBearingMode } from "@/lib/services/settings-service";
+import { settingsService } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -55,6 +57,29 @@ export function useSettings() {
   const distanceUnit = (settings?.distanceUnit ?? "nautical_miles") as DistanceUnit;
   const speedUnit = (settings?.speedUnit ?? "knots") as SpeedUnit;
 
+  const [startLineResizeMode, setStartLineResizeModeState] = useState<StartLineResizeMode>(
+    settingsService.getStartLineResizeMode()
+  );
+  const [startLineFixBearingMode, setStartLineFixBearingModeState] = useState<StartLineFixBearingMode>(
+    settingsService.getStartLineFixBearingMode()
+  );
+
+  useEffect(() => {
+    const unsubscribe = settingsService.subscribe(() => {
+      setStartLineResizeModeState(settingsService.getStartLineResizeMode());
+      setStartLineFixBearingModeState(settingsService.getStartLineFixBearingMode());
+    });
+    return unsubscribe;
+  }, []);
+
+  const setStartLineResizeMode = useCallback((mode: StartLineResizeMode) => {
+    settingsService.setStartLineResizeMode(mode);
+  }, []);
+
+  const setStartLineFixBearingMode = useCallback((mode: StartLineFixBearingMode) => {
+    settingsService.setStartLineFixBearingMode(mode);
+  }, []);
+
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
     updateSettings.mutate({ distanceUnit: unit });
   }, [updateSettings]);
@@ -91,5 +116,11 @@ export function useSettings() {
     formatDistance,
     formatSpeed,
     formatBearing,
+    startLineResizeMode,
+    startLineFixBearingMode,
+    setStartLineResizeMode,
+    setStartLineFixBearingMode,
   };
 }
+
+export type { StartLineResizeMode, StartLineFixBearingMode };
