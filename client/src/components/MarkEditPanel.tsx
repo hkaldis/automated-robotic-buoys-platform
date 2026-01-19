@@ -24,12 +24,11 @@ interface MarkEditPanelProps {
 
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
   { value: "start_boat", label: "Committee Boat" },
-  { value: "pin", label: "Pin Mark" },
-  { value: "windward", label: "Mark 1 (Windward)" },
-  { value: "wing", label: "Mark 2 (Wing)" },
-  { value: "leeward", label: "Mark 3 (Leeward)" },
-  { value: "gate", label: "Gate Mark" },
-  { value: "offset", label: "Offset Mark" },
+  { value: "pin", label: "Pin End" },
+  { value: "windward", label: "Windward" },
+  { value: "wing", label: "Wing" },
+  { value: "leeward", label: "Leeward" },
+  { value: "offset", label: "Offset" },
   { value: "turning_mark", label: "Turning Mark" },
   { value: "finish", label: "Finish" },
   { value: "other", label: "Other" },
