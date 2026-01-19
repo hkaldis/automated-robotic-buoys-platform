@@ -2,17 +2,7 @@
 
 ## Overview
 
-This is a maritime control system designed for managing automated robotic buoys during sailing races and training events. The platform allows Race Officers to create, modify, and manage race courses in real-time using robotic marker buoys. It is a tablet-first web application, optimized for landscape orientation.
-
-Key capabilities include:
-- Real-time monitoring of buoy positioning and telemetry.
-- Creation of various course layouts (triangle, trapezoid, windward-leeward, custom).
-- Integration of weather data from multiple sources.
-- Interactive map visualization with course marks and buoy positions.
-- Unit conversion for distance and speed.
-- Persistence of user settings via a backend API.
-
-The project aims to provide a robust and intuitive system for modern race management, enhancing the efficiency and fairness of sailing competitions.
+This project is a tablet-first web application designed to manage automated robotic buoys for sailing races and training events. It enables Race Officers to create, modify, and manage race courses in real-time, offering capabilities such as real-time buoy monitoring, various course layout creations (triangle, trapezoid, windward-leeward, custom), weather data integration, interactive map visualization, and unit conversion. The platform aims to enhance the efficiency and fairness of sailing competitions through a robust and intuitive system.
 
 ## User Preferences
 
@@ -20,141 +10,37 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Data Flow
-The system utilizes React Query as the central data layer for all application data (buoys, courses, marks, events, weather, settings). Data is fetched from the backend via React Query hooks, and mutations update the backend while invalidating the cache for automatic refetching. Real-time updates are handled by polling mechanisms (e.g., buoys every 5 seconds, weather every 10 seconds).
+### Frontend
+The frontend is built with React 18 and TypeScript, using Wouter for routing and TanStack React Query v5 for server state management. UI components are developed with Shadcn/ui (based on Radix UI primitives) and styled using Tailwind CSS, featuring a maritime-themed design. Vite is used as the build tool. The application is optimized for landscape orientation on tablets and is installable as a Progressive Web App (PWA) for a native-like experience.
 
-### Frontend Architecture
-- **Framework**: React 18 with TypeScript.
-- **Routing**: Wouter.
-- **State Management**: TanStack React Query v5 for server state.
-- **UI Components**: Shadcn/ui built on Radix UI primitives.
-- **Styling**: Tailwind CSS with custom maritime-themed design.
-- **Build Tool**: Vite.
+### Backend
+The backend utilizes Node.js with Express 5 and TypeScript. It provides RESTful JSON endpoints and uses PostgreSQL with Drizzle ORM for data persistence. Zod with drizzle-zod is employed for type-safe schema validation. Authentication is session-based with bcrypt password hashing and role-based access control.
 
-### API Hooks
-Custom React Query hooks manage all data interactions, including fetching buoys, courses, marks, events, weather, user settings, and sending commands to buoys (move, hold, cancel).
+### Data Flow and State Management
+React Query manages all application data, handling fetching, mutations, and cache invalidation. Real-time updates are achieved through polling mechanisms. The system includes cross-entity cache coordination, isolated demo mode, exponential backoff retry logic, and optimistic updates for immediate UI feedback. A transaction pattern is used for complex operations like auto-assignment of buoys.
 
-### Settings Hook
-A dedicated hook handles unit formatting and settings management, providing functions to format distance, speed, and bearing according to user preferences, and to update these settings.
+### Core Features and Workflow
+The application supports a structured course creation process via a 6-phase `SetupPanel`: setting start and finish lines, adding course marks (including conversion to gates), defining the rounding sequence, reviewing course summaries, and assigning buoys.
+- **Gates Support**: Course marks can be converted to wind-responsive gates with configurable width, requiring dual buoy assignment.
+- **Course Transformation**: Tools are available to scale, rotate, and move the entire course.
+- **Auto-Assign Buoys**: A greedy optimization algorithm automatically assigns the closest available buoys to unassigned marks.
+- **Buoy GoTo Commands**: The `MarkEditPanel` provides multiple ways to command assigned buoys, including sending to mark position, tap-to-go, directional nudges, and coordinate input.
+- **Demo Mode**: A client-side demo mode simulates buoy behavior for testing and demonstration purposes.
 
-### Components
-Key UI components include:
-- `TopBar`: Displays event name, wind indicator, fullscreen toggle, and settings access.
-- `MapView`: Leaflet-based map with OpenSeaMap overlay for interactive course management.
-- `SetupPanel`: A 4-step wizard guiding users through course setup: Add Marks, Select Start Line, Select Finish Line, and Assign Buoys.
-- `BuoyCard` and `BuoyDetailPanel`: For displaying and controlling buoy status and commands.
-- `MarkEditPanel`: For editing mark details and controlling assigned buoys with GoTo commands.
-- `SettingsDialog`: For configuring units and wind source.
-- `WindIndicator`: Visual compass for wind direction.
-
-### Setup Workflow Phases
-The `SetupPanel` orchestrates a 6-phase course creation process:
-1.  **Set Start Line**: Placing Pin End (Port) and Committee Boat (Starboard) marks using dedicated buttons.
-2.  **Add Course Marks**: Adding course marks (M1, M2, M3, etc.) to define the racing route. Marks can be converted to Gates.
-3.  **Set Finish Line**: Selecting any 2 marks for the finish line, with flexibility to reuse start line marks. During selection, a dashed red preview line appears on the map between selected marks before confirmation.
-4.  **Set Route (Sequence)**: Defining the rounding sequence - the order in which sailors round each mark. Supports custom sequences where marks can be passed multiple times (e.g., windward-leeward courses).
-5.  **Course Summary (Review)**: Displays course statistics (total distance, estimated race time, line lengths), leg-by-leg breakdown, and provides course transformation tools.
-6.  **Assign Buoys**: Assigning physical robotic buoys to each mark. Gates require 2 buoys (Port and Starboard).
-
-The system ensures robust state management, auto-correcting the phase based on data changes and preventing invalid progress. Phase gating requires completing start line before adding course marks, and course marks before setting finish line. Large, touch-friendly controls (48px minimum) are integrated for tablet use.
-
-### Auto-Assign Buoys
-The Assign Buoys phase includes an "Auto" button that uses a greedy optimization algorithm to automatically assign the closest available buoys to all unassigned marks. The algorithm minimizes maximum deployment time by:
-- Sorting marks by difficulty (hardest-to-reach first)
-- Assigning the closest available buoy to each mark/gate slot
-- Dispatching all buoys to their target positions
-
-### Fullscreen Mode
-A fullscreen toggle button in the TopBar allows the app to enter browser fullscreen mode, hiding the browser chrome for an immersive tablet experience. Users can exit with the Escape key or by clicking the button again.
-
-### Progressive Web App (PWA)
-The application is installable as a PWA:
-- **manifest.json**: Defines app name, icons, theme colors, and standalone display mode
-- **Service Worker**: Provides basic offline support
-- **Apple Web App Tags**: Optimized for iOS Safari "Add to Home Screen"
-When installed, the app opens in standalone mode without browser UI, providing a native app-like experience on tablets.
-
-### Sailing Gates Support
-Course marks can be converted to Gates (leeward gates) via the MarkEditPanel:
-- **Gate Toggle**: Enable gate mode for any course mark
-- **Gate Width**: Configurable in boat lengths (default 8, recommended 8-10 for safe racing)
-- **Boat Length**: Configurable in meters (default 6m) for accurate gate width calculation
-- **Gate Visualization**: Two connected markers perpendicular to wind direction, with a dashed orange line between them
-- **Dual Buoy Assignment**: Gates require 2 buoys - Port (red) and Starboard (green) positioned on opposite sides
-- **Wind-Responsive Positioning**: Gate markers automatically orient perpendicular to current wind direction
-
-Gate schema fields: `isGate`, `gateWidthBoatLengths`, `boatLengthMeters`, `gatePortBuoyId`, `gateStarboardBuoyId`
-
-### Course Transformation Features
-The Summary phase provides tools to adjust the entire course layout:
-- **Scale**: Enlarge (1.1x) or reduce (0.9x) the course size relative to its center
-- **Rotate**: Rotate the course by 15° increments
-- **Move**: Directional pad (N/S/E/W) to translate the entire course
-
-### Save/Load Course
-Courses can be saved with custom names for later reuse. The Save Course dialog allows naming and persisting course configurations, while Load Course displays available saved courses for selection.
-
-### Course Rounding Sequence
-The sequence step allows defining a custom rounding order:
-- **Waypoint Types**: "start" (start line center), mark IDs (course marks), "finish" (finish line center)
-- **Flexible Routing**: Same mark can appear multiple times (e.g., M1 → M2 → M1 for windward-leeward)
-- **Auto-Generate**: Simple sequential route can be auto-generated (Start → M1 → M2 → ... → Finish)
-- **Undo/Clear**: Easy sequence editing with undo last and clear all functions
-- **Minimum Requirement**: Sequence needs at least 3 entries (start + 1 mark + finish)
-
-### Distance/Bearing Calculations
-Course distances and bearings are calculated based on the rounding sequence:
-- **Sequence-Based**: Distance is calculated leg-by-leg following the defined route
-- **Leg Breakdown**: Each leg (e.g., Start→M1, M1→M2, M2→Finish) shows individual distance
-- **Line Centers**: Start and finish entries use the center of their respective lines
-
-This provides accurate course length calculations that reflect the actual sailing path through the defined sequence.
-
-### Backend Architecture
-- **Runtime**: Node.js with Express 5.
-- **Language**: TypeScript.
-- **API Style**: RESTful JSON endpoints.
-- **Storage**: PostgreSQL database with Drizzle ORM (`DatabaseStorage` class) for production persistence. All data persists across server restarts.
-- **Schema Validation**: Zod with drizzle-zod for type-safe schema definitions.
-- **Authentication**: Session-based auth with bcrypt password hashing and role-based access control (RBAC).
-
-### Buoy GoTo Commands (MarkEditPanel)
-When a mark has an assigned buoy, the MarkEditPanel shows a "Buoy GoTo" section with multiple ways to command the buoy:
-- **Send Buoy to Mark Position**: Dispatches the assigned buoy to the mark's coordinates
-- **Tap Map to Go**: Enables a mode where clicking anywhere on the map sends the buoy to that location
-- **Directional Nudge Arrows**: N/S/E/W buttons that move the buoy approximately 55 meters in the specified direction
-- **Go to Coordinates**: Manual input of latitude/longitude coordinates with a GoTo button
-- **Cancel & Return to Idle**: Appears when buoy is moving/holding, cancels the current command
-
-If no buoy is assigned to the mark, a message prompts the user to assign one first.
-
-### Demo Mode
-For testing and demonstration, a client-side demo mode provides 7 simulated buoys (Alpha through Golf):
-- Demo buoys have IDs prefixed with "demo-" (e.g., demo-1, demo-2)
-- Commands (move, hold, cancel) are handled client-side via the `useDemoMode` hook
-- Demo buoys simulate realistic GPS movement toward targets at ~3.25 knots
-- The `useBuoyCommand` hook automatically routes demo buoy commands to client-side handlers
-
-### API Endpoints
-A comprehensive set of RESTful API endpoints exists for managing sail clubs, events, courses, buoys, weather data, and user settings. Endpoints support CRUD operations and specific actions like sending commands to buoys.
-
-### Shared Code
-A `shared/schema.ts` file defines common TypeScript types and Zod schemas for entities (Buoy, Course, Mark, Event, SailClub, UserSettings), enums (BuoyState, CourseShape, MarkRole, EventType, DistanceUnit, SpeedUnit, WindSource), and GeoPosition interface.
-
-### UI/UX Decisions
-The application prioritizes a tablet-first approach with a clear, maritime-themed design. Features like a visual progress stepper, large touch-friendly controls (minimum 48px touch targets), and role-specific mark visualizations (colors and shapes on the map) enhance usability. Course geometry adheres to World Sailing standards, including predefined shapes and specific mark naming conventions. "Align to Wind" logic correctly aligns the start line perpendicular to the wind.
+### UI/UX
+The design prioritizes a tablet-first approach with large, touch-friendly controls (minimum 48px touch targets), a visual progress stepper, and maritime-themed aesthetics. Role-specific mark visualizations and adherence to World Sailing standards for course geometry enhance usability.
 
 ## External Dependencies
 
-### UI Framework
-- **Radix UI**: Headless component primitives for accessibility.
-- **Shadcn/ui**: Pre-styled component collection for consistent UI.
+### UI Frameworks & Libraries
+- **Radix UI**: Headless component primitives.
+- **Shadcn/ui**: Pre-styled component collection.
 - **Lucide React**: Icon library.
 
 ### Frontend Libraries
-- **TanStack React Query v5**: For server state management and caching.
-- **React Hook Form**: For robust form handling with Zod resolver.
-- **class-variance-authority**: For flexible component variant styling.
+- **TanStack React Query v5**: Server state management and caching.
+- **React Hook Form**: Form handling with Zod resolver.
+- **class-variance-authority**: Flexible component styling.
 
 ### Backend Libraries
 - **Express 5**: HTTP server framework.
@@ -162,42 +48,4 @@ The application prioritizes a tablet-first approach with a clear, maritime-theme
 
 ### Development Tools
 - **Vite**: Frontend build tool and development server.
-- **tsx**: TypeScript execution for development workflows.
-
-## Security Architecture
-
-### Authentication
-- **Session-based**: Express sessions with bcrypt password hashing
-- **Role-based Access Control (RBAC)**: super_admin, club_manager, event_manager roles
-- **Middleware**: `requireAuth` and `requireRole` protect all sensitive endpoints
-
-### Environment Variables Required
-- **SESSION_SECRET**: Required in production (auto-generated insecure default in development only)
-- **ADMIN_PASSWORD**: Required to seed super admin user (minimum 8 characters)
-
-### Protected Endpoints
-All mutating operations require authentication:
-- Events: Create/Update require club_manager or super_admin role
-- Courses, Marks: Create/Update/Delete require authentication
-- Buoys: Create requires club_manager or super_admin, Update/Command requires authentication
-- User Settings: Scoped to authenticated user only
-
-### Data Validation
-- Server-side Zod validation on all inputs
-- Comprehensive validation layer in `server/validation.ts`:
-  - **Coordinate bounds**: Lat -90 to 90, Lng -180 to 180
-  - **Mark role consistency**: Enforces role/flag alignment (start_boat/pin require isStartLine, finish requires isFinishLine, gates require isCourseMark)
-  - **Cross-mark buoy uniqueness**: Prevents same buoy assigned to multiple marks
-  - **Rounding sequence integrity**: Validates mark existence, start/finish at endpoints only
-  - **Gate width validation**: 1-50 boat lengths, 1-100 meters boat length
-  - **Course transform bounds**: Scale 0.1-10, rotation 0-359 degrees
-- Mark courseId immutability: Marks cannot change their course after creation
-- Gate buoy assignments validated to prevent duplicate assignments
-- Cascade cleanup on mark/course deletion to maintain data integrity
-
-### Error Handling
-- Global ErrorBoundary component catches React errors
-- API errors returned with appropriate HTTP status codes
-- Client-side toast notifications for all mutation failures
-- All mutation hooks (marks, courses, buoys) support onError callbacks for user feedback
-- React Query cache invalidation captures courseId at mutation time to prevent stale data
+- **tsx**: TypeScript execution for development.
