@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -29,7 +29,8 @@ interface SetupPanelProps {
   onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onPlaceMarkOnMap?: (data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onSaveCourse?: (name: string) => void;
-  onLoadCourse?: (courseId: string) => void;
+  onLoadCourse?: (courseId: string, mode: "exact" | "shape_only") => void;
+  mapCenter?: { lat: number; lng: number };
   onTransformCourse?: (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => void;
   onFinishLinePreview?: (selectedMarkIds: Set<string>) => void;
   onUpdateSequence?: (sequence: string[]) => void;
@@ -54,6 +55,7 @@ export function SetupPanel({
   onPlaceMarkOnMap,
   onSaveCourse,
   onLoadCourse,
+  mapCenter,
   onTransformCourse,
   onFinishLinePreview,
   onUpdateSequence,
@@ -435,9 +437,15 @@ export function SetupPanel({
     }
   };
 
-  const handleLoadCourse = (courseId: string) => {
-    onLoadCourse?.(courseId);
-    setShowLoadDialog(false);
+  // State for load course selection
+  const [selectedLoadCourse, setSelectedLoadCourse] = useState<string | null>(null);
+  
+  const handleLoadCourse = (mode: "exact" | "shape_only") => {
+    if (selectedLoadCourse) {
+      onLoadCourse?.(selectedLoadCourse, mode);
+      setShowLoadDialog(false);
+      setSelectedLoadCourse(null);
+    }
   };
 
   // Add start line mark (Pin End or Committee Boat/Starboard)
@@ -1719,21 +1727,68 @@ export function SetupPanel({
       </Dialog>
 
       {/* Load Course Dialog */}
-      <Dialog open={showLoadDialog} onOpenChange={setShowLoadDialog}>
+      <Dialog open={showLoadDialog} onOpenChange={(open) => {
+        setShowLoadDialog(open);
+        if (!open) setSelectedLoadCourse(null);
+      }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Load Race Course</DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-2">
+          <div className="py-4 space-y-3">
             {savedCourses.length === 0 ? (
               <p className="text-center text-muted-foreground">No saved courses</p>
+            ) : selectedLoadCourse ? (
+              // Step 2: Choose load mode
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Loading: <span className="font-semibold text-foreground">{savedCourses.find(c => c.id === selectedLoadCourse)?.name}</span>
+                </p>
+                <div className="grid gap-2">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full justify-start gap-3 h-auto py-3"
+                    onClick={() => handleLoadCourse("shape_only")}
+                    data-testid="button-load-shape-only"
+                  >
+                    <MapPin className="w-5 h-5 text-primary" />
+                    <div className="text-left">
+                      <p className="font-semibold">Shape Only</p>
+                      <p className="text-xs text-muted-foreground">Place marks at current map center</p>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full justify-start gap-3 h-auto py-3"
+                    onClick={() => handleLoadCourse("exact")}
+                    data-testid="button-load-exact"
+                  >
+                    <Navigation className="w-5 h-5 text-primary" />
+                    <div className="text-left">
+                      <p className="font-semibold">Exact Location</p>
+                      <p className="text-xs text-muted-foreground">Load marks at their saved positions</p>
+                    </div>
+                  </Button>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedLoadCourse(null)}
+                  className="w-full"
+                >
+                  Back to course list
+                </Button>
+              </div>
             ) : (
+              // Step 1: Select a course
               savedCourses.map((course) => (
                 <button
                   key={course.id}
-                  onClick={() => handleLoadCourse(course.id)}
+                  onClick={() => setSelectedLoadCourse(course.id)}
                   className="w-full p-3 rounded-lg bg-muted/50 hover-elevate text-left"
-                  data-testid={`button-load-course-${course.id}`}
+                  data-testid={`button-select-course-${course.id}`}
                 >
                   <p className="font-semibold">{course.name}</p>
                   <p className="text-sm text-muted-foreground">{course.shape}</p>
@@ -1742,7 +1797,10 @@ export function SetupPanel({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLoadDialog(false)}>
+            <Button variant="outline" onClick={() => {
+              setShowLoadDialog(false);
+              setSelectedLoadCourse(null);
+            }}>
               Cancel
             </Button>
           </DialogFooter>

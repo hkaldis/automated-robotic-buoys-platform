@@ -48,6 +48,7 @@ interface LeafletMapProps {
   onToggleSidebar?: () => void;
   lastMarkMove?: { markId: string; prevLat: number; prevLng: number; timestamp: number } | null;
   onUndoMarkMove?: () => void;
+  onMapMoveEnd?: (lat: number, lng: number) => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -203,6 +204,27 @@ function MapClickHandler({ onMapClick, isPlacingMark }: { onMapClick?: (lat: num
       map.getContainer().style.cursor = "";
     };
   }, [map, onMapClick, isPlacingMark]);
+  
+  return null;
+}
+
+function MapMoveHandler({ onMapMoveEnd }: { onMapMoveEnd?: (lat: number, lng: number) => void }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!onMapMoveEnd) return;
+    
+    const handleMoveEnd = () => {
+      const center = map.getCenter();
+      onMapMoveEnd(center.lat, center.lng);
+    };
+    
+    map.on("moveend", handleMoveEnd);
+    
+    return () => {
+      map.off("moveend", handleMoveEnd);
+    };
+  }, [map, onMapMoveEnd]);
   
   return null;
 }
@@ -698,6 +720,7 @@ export function LeafletMap({
   onToggleSidebar,
   lastMarkMove,
   onUndoMarkMove,
+  onMapMoveEnd,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -849,6 +872,7 @@ export function LeafletMap({
         />
         
         <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} />
+        <MapMoveHandler onMapMoveEnd={onMapMoveEnd} />
         <TouchConfig />
         <MapResizeHandler showSidebar={showSidebar} />
         

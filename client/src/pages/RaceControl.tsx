@@ -303,6 +303,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   // Undo state for auto-adjust
   const [lastAutoAdjust, setLastAutoAdjust] = useState<{ positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null>(null);
+  
+  // Current map center for loading courses at current location
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(DEFAULT_CENTER);
   const [currentSetupPhase, setCurrentSetupPhase] = useState<string>("start_line");
   
   // Confirmation dialog state for mark movement with assigned buoys
@@ -1136,7 +1139,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         scale: currentCourse.scale || 1,
       });
       
-      // Copy all marks to the new course using apiRequest for proper error handling
+      // Copy all marks to the new course and track old->new ID mapping
+      const markIdMapping: Record<string, string> = {};
+      
       for (const mark of marks) {
         const res = await apiRequest("POST", "/api/marks", {
           courseId: newCourse.id,
@@ -1157,13 +1162,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         if (!res.ok) {
           throw new Error("Failed to copy mark");
         }
+        const newMark = await res.json();
+        markIdMapping[mark.id] = newMark.id;
       }
       
-      // Update the new course with the rounding sequence
+      // Update the new course with the rounding sequence (mapped to new IDs)
       if (roundingSequence.length > 0) {
+        const mappedSequence = roundingSequence.map(item => {
+          // Keep special tokens like "start" and "finish" as-is
+          if (item === "start" || item === "finish") return item;
+          // Map mark IDs to new IDs
+          return markIdMapping[item] || item;
+        });
         await updateCourse.mutateAsync({ 
           id: newCourse.id, 
-          data: { roundingSequence } 
+          data: { roundingSequence: mappedSequence } 
         });
       }
       
@@ -1184,13 +1197,118 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [currentCourse, marks, roundingSequence, createCourse, updateCourse, toast]);
 
   // Load a saved course
-  const handleLoadCourse = useCallback((courseId: string) => {
-    setActiveCourseId(courseId);
-    toast({
-      title: "Course Loaded",
-      description: "Race course has been loaded.",
-    });
-  }, [toast]);
+  const handleLoadCourse = useCallback(async (courseId: string, mode: "exact" | "shape_only") => {
+    if (mode === "exact") {
+      // Load course at its exact saved location
+      setActiveCourseId(courseId);
+      toast({
+        title: "Course Loaded",
+        description: "Race course has been loaded at its saved location.",
+      });
+    } else {
+      // Load shape only - copy marks centered on current map position
+      const sourceCourse = courses.find(c => c.id === courseId);
+      if (!sourceCourse) {
+        toast({
+          title: "Error",
+          description: "Could not find the selected course.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Get the source course marks
+      const response = await fetch(`/api/courses/${courseId}/marks`);
+      if (!response.ok) {
+        toast({
+          title: "Error",
+          description: "Could not load course marks.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const sourceMarks = await response.json() as Mark[];
+      
+      if (sourceMarks.length === 0) {
+        toast({
+          title: "No Marks",
+          description: "The selected course has no marks to copy.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Calculate the offset to recenter marks to current map position
+      const sourceCenter = {
+        lat: sourceMarks.reduce((sum, m) => sum + m.lat, 0) / sourceMarks.length,
+        lng: sourceMarks.reduce((sum, m) => sum + m.lng, 0) / sourceMarks.length,
+      };
+      const offsetLat = mapCenter.lat - sourceCenter.lat;
+      const offsetLng = mapCenter.lng - sourceCenter.lng;
+      
+      // Create marks in the current course with offset positions
+      if (!currentCourse) {
+        toast({
+          title: "No Active Course",
+          description: "Please create or select a course first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Clear existing marks first
+      await Promise.all(marks.map(m => deleteMark.mutateAsync(m.id)));
+      
+      // Create new marks with offset positions and track old->new ID mapping
+      const markIdMapping: Record<string, string> = {};
+      
+      for (const sourceMark of sourceMarks) {
+        // Copy shape and metadata but NOT buoy assignments (those are location-specific)
+        const newMark = await createMark.mutateAsync({
+          courseId: currentCourse.id,
+          name: sourceMark.name,
+          role: sourceMark.role,
+          order: sourceMark.order,
+          lat: sourceMark.lat + offsetLat,
+          lng: sourceMark.lng + offsetLng,
+          isStartLine: sourceMark.isStartLine ?? false,
+          isFinishLine: sourceMark.isFinishLine ?? false,
+          isCourseMark: sourceMark.isCourseMark ?? false,
+          isGate: sourceMark.isGate,
+          gateWidthBoatLengths: sourceMark.gateWidthBoatLengths,
+          boatLengthMeters: sourceMark.boatLengthMeters,
+          gateSide: sourceMark.gateSide,
+          // Note: Not copying gatePartnerId, gatePortBuoyId, gateStarboardBuoyId, assignedBuoyId
+          // as these reference old marks/buoys and don't apply to new location
+        });
+        markIdMapping[sourceMark.id] = newMark.id;
+      }
+      
+      // Copy and remap rounding sequence to use new mark IDs
+      if (sourceCourse.roundingSequence && sourceCourse.roundingSequence.length > 0) {
+        const mappedSequence = sourceCourse.roundingSequence.map(item => {
+          // Keep special tokens like "start" and "finish" as-is
+          if (item === "start" || item === "finish") return item;
+          // Map old mark IDs to new IDs
+          return markIdMapping[item] || item;
+        });
+        setLocalRoundingSequence(mappedSequence);
+        
+        // Persist the remapped sequence to the current course
+        await updateCourse.mutateAsync({
+          id: currentCourse.id,
+          data: { roundingSequence: mappedSequence }
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", currentCourse.id, "marks"] });
+      
+      toast({
+        title: "Course Shape Loaded",
+        description: "Course shape has been placed at your current map location.",
+      });
+    }
+  }, [courses, currentCourse, marks, mapCenter, createMark, deleteMark, updateCourse, toast]);
 
   // Clear all marks from the current course and set assigned buoys to idle
   const handleClearAllMarks = useCallback(async () => {
@@ -1869,6 +1987,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
                 setLastMarkMove(null);
               }
             }}
+            onMapMoveEnd={(lat, lng) => setMapCenter({ lat, lng })}
           />
         </main>
 
@@ -1910,6 +2029,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onPlaceMarkOnMap={handlePlaceMarkOnMap}
               onSaveCourse={handleSaveCourse}
               onLoadCourse={handleLoadCourse}
+              mapCenter={mapCenter}
               onTransformCourse={handleTransformCourse}
               onFinishLinePreview={handleFinishLinePreview}
               onUpdateSequence={handleUpdateSequence}

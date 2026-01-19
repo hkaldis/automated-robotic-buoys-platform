@@ -199,6 +199,13 @@ export function useCreateMark(courseId?: string, onError?: (error: Error) => voi
       isStartLine?: boolean;
       isFinishLine?: boolean;
       isCourseMark?: boolean;
+      isGate?: boolean | null;
+      gateWidthBoatLengths?: number | null;
+      boatLengthMeters?: number | null;
+      gateSide?: string | null;
+      gatePartnerId?: string | null;
+      gatePortBuoyId?: string | null;
+      gateStarboardBuoyId?: string | null;
     }) => {
       const res = await apiRequest("POST", "/api/marks", data);
       if (!res.ok) {
