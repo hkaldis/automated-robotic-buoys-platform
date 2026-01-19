@@ -223,25 +223,45 @@ export function MarkEditPanel({
           )}
         </div>
         
-        {/* Compact nudge controls in a row */}
+        {/* Prominent nudge controls for wet finger use */}
         {onNudge && (
-          <div className="flex items-center justify-center gap-1">
-            <Button variant="outline" size="icon" onClick={() => onNudge("west")} data-testid="button-nudge-west">
-              <ChevronLeft className="w-4 h-4" />
+          <div className="flex items-center justify-center gap-2">
+            <Button 
+              variant="outline" 
+              className="h-14 w-14 p-0" 
+              onClick={() => onNudge("west")} 
+              data-testid="button-nudge-west"
+            >
+              <ChevronLeft className="w-7 h-7" />
             </Button>
-            <div className="flex flex-col gap-1">
-              <Button variant="outline" size="icon" onClick={() => onNudge("north")} data-testid="button-nudge-north">
-                <ChevronUp className="w-4 h-4" />
+            <div className="flex flex-col gap-2">
+              <Button 
+                variant="outline" 
+                className="h-14 w-14 p-0" 
+                onClick={() => onNudge("north")} 
+                data-testid="button-nudge-north"
+              >
+                <ChevronUp className="w-7 h-7" />
               </Button>
-              <Button variant="outline" size="icon" onClick={() => onNudge("south")} data-testid="button-nudge-south">
-                <ChevronDown className="w-4 h-4" />
+              <Button 
+                variant="outline" 
+                className="h-14 w-14 p-0" 
+                onClick={() => onNudge("south")} 
+                data-testid="button-nudge-south"
+              >
+                <ChevronDown className="w-7 h-7" />
               </Button>
             </div>
-            <Button variant="outline" size="icon" onClick={() => onNudge("east")} data-testid="button-nudge-east">
-              <ChevronRight className="w-4 h-4" />
+            <Button 
+              variant="outline" 
+              className="h-14 w-14 p-0" 
+              onClick={() => onNudge("east")} 
+              data-testid="button-nudge-east"
+            >
+              <ChevronRight className="w-7 h-7" />
             </Button>
-            <div className="ml-3 text-xs text-muted-foreground font-mono">
-              {parseFloat(lat).toFixed(4)}, {parseFloat(lng).toFixed(4)}
+            <div className="ml-4 text-xs text-muted-foreground font-mono">
+              {parseFloat(lat).toFixed(4)}<br/>{parseFloat(lng).toFixed(4)}
             </div>
           </div>
         )}

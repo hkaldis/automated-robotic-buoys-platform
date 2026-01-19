@@ -1,10 +1,11 @@
-import { Ruler, Gauge, Wind } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { useState } from "react";
@@ -13,6 +14,8 @@ interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   buoys: Buoy[];
+  showWindArrows?: boolean;
+  onToggleWindArrows?: () => void;
 }
 
 const distanceOptions: { value: DistanceUnit; label: string }[] = [
@@ -36,7 +39,7 @@ const windSourceOptions: { value: WindSource; label: string; description: string
   { value: "manual", label: "Manual Input", description: "Enter wind data manually" },
 ];
 
-export function SettingsDialog({ open, onOpenChange, buoys }: SettingsDialogProps) {
+export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = true, onToggleWindArrows }: SettingsDialogProps) {
   const { distanceUnit, speedUnit, setDistanceUnit, setSpeedUnit } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -57,6 +60,28 @@ export function SettingsDialog({ open, onOpenChange, buoys }: SettingsDialogProp
         </DialogHeader>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Eye className="w-4 h-4" />
+                Display Options
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="wind-arrows-toggle" className="text-sm">
+                  Show Wind Arrows on Map
+                </Label>
+                <Switch
+                  id="wind-arrows-toggle"
+                  checked={showWindArrows}
+                  onCheckedChange={() => onToggleWindArrows?.()}
+                  data-testid="switch-wind-arrows"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">

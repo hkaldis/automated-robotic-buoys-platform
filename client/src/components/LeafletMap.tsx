@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,12 @@ interface LeafletMapProps {
   roundingSequence?: string[];
   showLabels?: boolean;
   onToggleLabels?: () => void;
+  showWindArrows?: boolean;
+  onToggleWindArrows?: () => void;
+  showSidebar?: boolean;
+  onToggleSidebar?: () => void;
+  lastMarkMove?: { markId: string; prevLat: number; prevLng: number; timestamp: number } | null;
+  onUndoMarkMove?: () => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -672,10 +678,15 @@ export function LeafletMap({
   roundingSequence = [],
   showLabels = true,
   onToggleLabels,
+  showWindArrows = true,
+  onToggleWindArrows,
+  showSidebar,
+  onToggleSidebar,
+  lastMarkMove,
+  onUndoMarkMove,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
-  const [showWindArrows, setShowWindArrows] = useState(false);
   const [showWindRelative, setShowWindRelative] = useState(false);
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
@@ -968,33 +979,23 @@ export function LeafletMap({
           <TooltipTrigger asChild>
             <Card className="p-1">
               <Button 
-                variant={mapOrientation === "north" ? "default" : "ghost"} 
-                size="icon" 
-                onClick={() => onOrientationChange?.("north")}
-                data-testid="button-orient-north"
-              >
-                <Compass className="w-4 h-4" />
-              </Button>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent side="right">North Up</TooltipContent>
-        </UITooltip>
-        
-        <UITooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-1">
-              <Button 
                 variant={mapOrientation === "head-to-wind" ? "default" : "ghost"} 
                 size="icon" 
-                onClick={() => onOrientationChange?.("head-to-wind")}
+                onClick={() => onOrientationChange?.(mapOrientation === "north" ? "head-to-wind" : "north")}
                 disabled={!weatherData}
-                data-testid="button-orient-wind"
+                data-testid="button-orient-toggle"
               >
-                <Navigation className="w-4 h-4" style={{ transform: mapOrientation === "head-to-wind" ? "rotate(0deg)" : `rotate(${weatherData?.windDirection ?? 0}deg)` }} />
+                {mapOrientation === "head-to-wind" ? (
+                  <Navigation className="w-4 h-4" />
+                ) : (
+                  <Compass className="w-4 h-4" />
+                )}
               </Button>
             </Card>
           </TooltipTrigger>
-          <TooltipContent side="right">Head to Wind</TooltipContent>
+          <TooltipContent side="right">
+            {mapOrientation === "head-to-wind" ? "Switch to North Up" : "Switch to Head to Wind"}
+          </TooltipContent>
         </UITooltip>
         
         <div className="h-2" />
@@ -1048,25 +1049,6 @@ export function LeafletMap({
           <TooltipTrigger asChild>
             <Card className="p-1">
               <Button 
-                variant={showWindArrows ? "default" : "ghost"} 
-                size="icon" 
-                onClick={() => setShowWindArrows(!showWindArrows)}
-                disabled={!weatherData}
-                data-testid="button-toggle-wind-arrows"
-              >
-                <ArrowUp className="w-4 h-4" />
-              </Button>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {showWindArrows ? "Hide Wind Arrows" : "Show Wind Arrows"}
-          </TooltipContent>
-        </UITooltip>
-        
-        <UITooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-1">
-              <Button 
                 variant={showWindRelative ? "default" : "ghost"} 
                 size="icon" 
                 onClick={() => setShowWindRelative(!showWindRelative)}
@@ -1092,7 +1074,7 @@ export function LeafletMap({
                   onClick={onToggleLabels}
                   data-testid="button-toggle-labels"
                 >
-                  <Compass className="w-4 h-4" style={{ opacity: showLabels ? 1 : 0.5 }} />
+                  {showLabels ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </Button>
               </Card>
             </TooltipTrigger>
@@ -1101,10 +1083,30 @@ export function LeafletMap({
             </TooltipContent>
           </UITooltip>
         )}
+        
+        {onToggleSidebar && (
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={onToggleSidebar}
+                  data-testid="button-toggle-sidebar"
+                >
+                  {showSidebar ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+                </Button>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {showSidebar ? "Hide Panel" : "Show Panel"}
+            </TooltipContent>
+          </UITooltip>
+        )}
       </div>
 
       {weatherData && (
-        <Card className="absolute top-4 right-4 p-3 z-[1000]" data-testid="map-wind-badge">
+        <Card className="absolute top-4 right-4 p-3 z-[400]" data-testid="map-wind-badge">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <Wind className="w-4 h-4 text-chart-1 shrink-0" />
@@ -1156,6 +1158,21 @@ export function LeafletMap({
               </Button>
             )}
           </Card>
+        </div>
+      )}
+
+      {lastMarkMove && onUndoMarkMove && (Date.now() - lastMarkMove.timestamp) < 30000 && (
+        <div className="absolute bottom-4 right-4 z-[500]">
+          <Button 
+            variant="secondary" 
+            size="lg"
+            className="gap-2 shadow-lg"
+            onClick={onUndoMarkMove}
+            data-testid="button-undo-mark-move"
+          >
+            <Undo2 className="w-5 h-5" />
+            Undo Move
+          </Button>
         </div>
       )}
     </div>

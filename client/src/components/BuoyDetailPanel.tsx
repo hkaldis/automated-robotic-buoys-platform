@@ -71,7 +71,7 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
       variant: "destructive",
     });
   }, [toast]);
-  const buoyCommand = useBuoyCommand(demoSendCommand, handleBuoyCommandError);
+  const buoyCommand = useBuoyCommand(demoSendCommand, undefined, handleBuoyCommandError);
   const [gotoLat, setGotoLat] = useState("");
   const [gotoLng, setGotoLng] = useState("");
 
@@ -274,24 +274,44 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
               </Button>
             )}
 
-            {/* Directional nudge arrows */}
+            {/* Directional nudge arrows - prominent for wet finger use */}
             {onNudgeBuoy && (
-              <div className="flex flex-col items-center gap-1">
-                <Label className="text-xs text-muted-foreground mb-1">Nudge Direction (~55m)</Label>
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("west")} data-testid="button-nudge-buoy-west">
-                    <ChevronLeft className="w-4 h-4" />
+              <div className="flex flex-col items-center gap-2">
+                <Label className="text-xs text-muted-foreground">Nudge Direction (~55m)</Label>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="h-14 w-14 p-0" 
+                    onClick={() => onNudgeBuoy("west")} 
+                    data-testid="button-nudge-buoy-west"
+                  >
+                    <ChevronLeft className="w-7 h-7" />
                   </Button>
-                  <div className="flex flex-col gap-1">
-                    <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("north")} data-testid="button-nudge-buoy-north">
-                      <ChevronUp className="w-4 h-4" />
+                  <div className="flex flex-col gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="h-14 w-14 p-0" 
+                      onClick={() => onNudgeBuoy("north")} 
+                      data-testid="button-nudge-buoy-north"
+                    >
+                      <ChevronUp className="w-7 h-7" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("south")} data-testid="button-nudge-buoy-south">
-                      <ChevronDown className="w-4 h-4" />
+                    <Button 
+                      variant="outline" 
+                      className="h-14 w-14 p-0" 
+                      onClick={() => onNudgeBuoy("south")} 
+                      data-testid="button-nudge-buoy-south"
+                    >
+                      <ChevronDown className="w-7 h-7" />
                     </Button>
                   </div>
-                  <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("east")} data-testid="button-nudge-buoy-east">
-                    <ChevronRight className="w-4 h-4" />
+                  <Button 
+                    variant="outline" 
+                    className="h-14 w-14 p-0" 
+                    onClick={() => onNudgeBuoy("east")} 
+                    data-testid="button-nudge-buoy-east"
+                  >
+                    <ChevronRight className="w-7 h-7" />
                   </Button>
                 </div>
               </div>

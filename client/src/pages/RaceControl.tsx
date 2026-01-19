@@ -295,6 +295,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);
   const [showLabels, setShowLabels] = useState(true);
+  const [showWindArrows, setShowWindArrows] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(true);
+  
+  // Undo state for last mark position change
+  const [lastMarkMove, setLastMarkMove] = useState<{ markId: string; prevLat: number; prevLng: number; timestamp: number } | null>(null);
   const [currentSetupPhase, setCurrentSetupPhase] = useState<string>("start_line");
   
   // Confirmation dialog state for mark movement with assigned buoys
@@ -1704,6 +1709,10 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             onMapClick={handleMapClick}
             onMarkDragEnd={(markId, lat, lng) => {
               const mark = marks.find(m => m.id === markId);
+              if (mark) {
+                // Store previous position for undo
+                setLastMarkMove({ markId, prevLat: mark.lat, prevLng: mark.lng, timestamp: Date.now() });
+              }
               const hasAssignedBuoy = !!(mark?.assignedBuoyId || mark?.gatePortBuoyId || mark?.gateStarboardBuoyId);
               if (hasAssignedBuoy) {
                 // Show confirmation dialog for marks with assigned buoys
@@ -1725,10 +1734,20 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             roundingSequence={roundingSequence}
             showLabels={showLabels}
             onToggleLabels={() => setShowLabels(!showLabels)}
+            showWindArrows={showWindArrows}
+            showSidebar={showSidebar}
+            onToggleSidebar={() => setShowSidebar(!showSidebar)}
+            lastMarkMove={lastMarkMove}
+            onUndoMarkMove={() => {
+              if (lastMarkMove) {
+                updateMark.mutate({ id: lastMarkMove.markId, data: { lat: lastMarkMove.prevLat, lng: lastMarkMove.prevLng } });
+                setLastMarkMove(null);
+              }
+            }}
           />
         </main>
 
-        <aside className="w-96 xl:w-[440px] border-l shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden">
+        <aside className={`${showSidebar ? 'w-96 xl:w-[440px]' : 'w-0'} border-l shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
           {selectedBuoy ? (
             <BuoyDetailPanel 
               buoy={selectedBuoy} 
@@ -1781,6 +1800,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         open={settingsOpen} 
         onOpenChange={setSettingsOpen}
         buoys={buoys}
+        showWindArrows={showWindArrows}
+        onToggleWindArrows={() => setShowWindArrows(!showWindArrows)}
       />
 
       {/* Confirmation dialog for moving marks with assigned buoys */}
