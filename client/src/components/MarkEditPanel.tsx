@@ -94,6 +94,20 @@ export function MarkEditPanel({
     setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
     setHasChanges(false);
   }, [mark.id]);
+  
+  // Sync lat/lng when mark position changes externally (e.g., from map drag)
+  // This prevents autosave from reverting drag changes
+  const prevMarkLatRef = useRef(mark.lat);
+  const prevMarkLngRef = useRef(mark.lng);
+  useEffect(() => {
+    // Check if mark position changed externally (not from local state)
+    if (mark.lat !== prevMarkLatRef.current || mark.lng !== prevMarkLngRef.current) {
+      setLat(mark.lat.toString());
+      setLng(mark.lng.toString());
+      prevMarkLatRef.current = mark.lat;
+      prevMarkLngRef.current = mark.lng;
+    }
+  }, [mark.lat, mark.lng]);
 
   // Sync role with isGate to satisfy validation constraints
   const prevIsGateRef = useRef(isGate);
