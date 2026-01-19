@@ -103,7 +103,7 @@ export function useUpdateBuoy() {
   });
 }
 
-export function useBuoyCommand() {
+export function useBuoyCommand(demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void) {
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -113,6 +113,10 @@ export function useBuoyCommand() {
       targetLat?: number;
       targetLng?: number;
     }) => {
+      if (id.startsWith("demo-") && demoSendCommand) {
+        demoSendCommand(id, command, targetLat, targetLng);
+        return { success: true, demo: true };
+      }
       const res = await apiRequest("POST", `/api/buoys/${id}/command`, { command, targetLat, targetLng });
       return res.json();
     },

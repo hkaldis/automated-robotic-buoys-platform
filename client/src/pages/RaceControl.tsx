@@ -1154,7 +1154,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           {selectedBuoy ? (
             <BuoyDetailPanel 
               buoy={selectedBuoy} 
-              onClose={() => setSelectedBuoyId(null)} 
+              onClose={() => setSelectedBuoyId(null)}
+              demoSendCommand={sendDemoCommand}
             />
           ) : selectedMark ? (
             <MarkEditPanel
@@ -1166,6 +1167,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onReposition={() => handleRepositionMark(selectedMark.id)}
               onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
               isRepositioning={!!repositioningMarkId}
+              demoSendCommand={sendDemoCommand}
             />
           ) : (
             <SetupPanel 

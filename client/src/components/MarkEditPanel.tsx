@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Move, Columns2 } from "lucide-react";
+import { MapPin, X, Trash2, Save, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Move, Columns2, Target, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useBuoyCommand } from "@/hooks/use-api";
+import { useToast } from "@/hooks/use-toast";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
 
 interface MarkEditPanelProps {
@@ -20,6 +22,7 @@ interface MarkEditPanelProps {
   onReposition?: () => void;
   onNudge?: (direction: "north" | "south" | "east" | "west") => void;
   isRepositioning?: boolean;
+  demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
 }
 
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
@@ -44,11 +47,16 @@ export function MarkEditPanel({
   onReposition,
   onNudge,
   isRepositioning,
+  demoSendCommand,
 }: MarkEditPanelProps) {
+  const { toast } = useToast();
+  const buoyCommand = useBuoyCommand(demoSendCommand);
   const [name, setName] = useState(mark.name);
   const [role, setRole] = useState<MarkRole>(mark.role as MarkRole);
   const [lat, setLat] = useState(mark.lat.toString());
   const [lng, setLng] = useState(mark.lng.toString());
+  const [gotoLat, setGotoLat] = useState("");
+  const [gotoLng, setGotoLng] = useState("");
   const [assignedBuoyId, setAssignedBuoyId] = useState<string>(mark.assignedBuoyId || "");
   const [isStartLine, setIsStartLine] = useState(mark.isStartLine ?? false);
   const [isFinishLine, setIsFinishLine] = useState(mark.isFinishLine ?? false);
@@ -122,6 +130,71 @@ export function MarkEditPanel({
 
   const assignedBuoy = buoys.find(b => b.id === mark.assignedBuoyId);
 
+  const handleSendBuoyToMark = () => {
+    const buoyId = mark.assignedBuoyId;
+    if (!buoyId) {
+      toast({ title: "No buoy assigned to this mark", variant: "destructive" });
+      return;
+    }
+    buoyCommand.mutate(
+      { id: buoyId, command: "move_to_target", targetLat: mark.lat, targetLng: mark.lng },
+      {
+        onSuccess: () => {
+          toast({ title: "Buoy dispatched to mark position" });
+        },
+        onError: () => {
+          toast({ title: "Failed to send command to buoy", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleGoToCoordinates = () => {
+    const targetLat = parseFloat(gotoLat);
+    const targetLng = parseFloat(gotoLng);
+    if (isNaN(targetLat) || isNaN(targetLng)) {
+      toast({ title: "Please enter valid coordinates", variant: "destructive" });
+      return;
+    }
+    const buoyId = mark.assignedBuoyId;
+    if (!buoyId) {
+      toast({ title: "No buoy assigned to this mark", variant: "destructive" });
+      return;
+    }
+    buoyCommand.mutate(
+      { id: buoyId, command: "move_to_target", targetLat, targetLng },
+      {
+        onSuccess: () => {
+          toast({ title: `Buoy dispatched to ${targetLat.toFixed(4)}, ${targetLng.toFixed(4)}` });
+          setGotoLat("");
+          setGotoLng("");
+        },
+        onError: () => {
+          toast({ title: "Failed to send command to buoy", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleCancelBuoyCommand = () => {
+    const buoyId = mark.assignedBuoyId;
+    if (!buoyId) {
+      toast({ title: "No buoy assigned to this mark", variant: "destructive" });
+      return;
+    }
+    buoyCommand.mutate(
+      { id: buoyId, command: "cancel" },
+      {
+        onSuccess: () => {
+          toast({ title: "Buoy command cancelled" });
+        },
+        onError: () => {
+          toast({ title: "Failed to cancel buoy command", variant: "destructive" });
+        },
+      }
+    );
+  };
+
   return (
     <div className="h-full flex flex-col bg-card" data-testid="mark-edit-panel">
       <div className="p-4 border-b flex items-center justify-between">
@@ -179,6 +252,84 @@ export function MarkEditPanel({
           </div>
         )}
       </div>
+
+      {/* GoTo Buoy Commands - only visible when buoy is assigned */}
+      {!isGate && mark.assignedBuoyId && (
+        <div className="p-3 border-b bg-chart-1/5">
+          <div className="flex items-center gap-2 mb-2">
+            <Target className="w-4 h-4 text-chart-1" />
+            <Label className="text-sm font-medium">Buoy Commands</Label>
+            {assignedBuoy && (
+              <Badge variant="secondary" className="text-xs ml-auto">
+                {assignedBuoy.name}
+              </Badge>
+            )}
+          </div>
+          
+          <div className="space-y-2">
+            <Button 
+              className="w-full gap-2 h-10" 
+              onClick={handleSendBuoyToMark}
+              disabled={buoyCommand.isPending}
+              data-testid="button-send-buoy-to-mark"
+            >
+              {buoyCommand.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Navigation className="w-4 h-4" />
+              )}
+              Send Buoy to Mark Position
+            </Button>
+            
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  step="0.0001"
+                  placeholder="Lat"
+                  value={gotoLat}
+                  onChange={(e) => setGotoLat(e.target.value)}
+                  className="text-xs h-9"
+                  data-testid="input-goto-lat"
+                />
+              </div>
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  step="0.0001"
+                  placeholder="Lng"
+                  value={gotoLng}
+                  onChange={(e) => setGotoLng(e.target.value)}
+                  className="text-xs h-9"
+                  data-testid="input-goto-lng"
+                />
+              </div>
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={handleGoToCoordinates}
+                disabled={buoyCommand.isPending || !gotoLat || !gotoLng}
+                className="h-9"
+                data-testid="button-goto-coordinates"
+              >
+                GoTo
+              </Button>
+            </div>
+
+            {assignedBuoy && (assignedBuoy.state === "moving_to_target" || assignedBuoy.state === "holding_position") && (
+              <Button 
+                variant="outline"
+                className="w-full gap-2 h-9 text-destructive border-destructive/50 hover:bg-destructive/10"
+                onClick={handleCancelBuoyCommand}
+                disabled={buoyCommand.isPending}
+                data-testid="button-cancel-buoy"
+              >
+                Cancel & Return to Idle
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="grid grid-cols-2 gap-3">

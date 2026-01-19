@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play } from "lucide-react";
+import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil } from "lucide-react";
 import type { SailClub, UserRole, Event } from "@shared/schema";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -32,6 +32,8 @@ export default function AdminDashboard() {
   const [clubDialogOpen, setClubDialogOpen] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [editClubDialogOpen, setEditClubDialogOpen] = useState(false);
+  const [editEventDialogOpen, setEditEventDialogOpen] = useState(false);
   const [newClubName, setNewClubName] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,6 +43,12 @@ export default function AdminDashboard() {
   const [newEventType, setNewEventType] = useState<"race" | "training">("race");
   const [newEventBoatClass, setNewEventBoatClass] = useState("Laser");
   const [newEventClubId, setNewEventClubId] = useState("");
+  const [editingClub, setEditingClub] = useState<SailClub | null>(null);
+  const [editClubName, setEditClubName] = useState("");
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editEventName, setEditEventName] = useState("");
+  const [editEventType, setEditEventType] = useState<"race" | "training">("race");
+  const [editEventBoatClass, setEditEventBoatClass] = useState("");
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -67,6 +75,22 @@ export default function AdminDashboard() {
     },
     onError: () => {
       toast({ title: "Failed to create club", variant: "destructive" });
+    },
+  });
+
+  const updateClubMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const res = await apiRequest("PATCH", `/api/sail-clubs/${id}`, { name });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/sail-clubs"] });
+      setEditClubDialogOpen(false);
+      setEditingClub(null);
+      toast({ title: "Club updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update club", variant: "destructive" });
     },
   });
 
@@ -133,6 +157,22 @@ export default function AdminDashboard() {
     },
   });
 
+  const updateEventMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string }) => {
+      const res = await apiRequest("PATCH", `/api/events/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setEditEventDialogOpen(false);
+      setEditingEvent(null);
+      toast({ title: "Event updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update event", variant: "destructive" });
+    },
+  });
+
   const deleteEventMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/events/${id}`);
@@ -149,6 +189,18 @@ export default function AdminDashboard() {
   const handleCreateClub = () => {
     if (newClubName.trim()) {
       createClubMutation.mutate(newClubName.trim());
+    }
+  };
+
+  const handleEditClub = (club: SailClub) => {
+    setEditingClub(club);
+    setEditClubName(club.name);
+    setEditClubDialogOpen(true);
+  };
+
+  const handleUpdateClub = () => {
+    if (editingClub && editClubName.trim()) {
+      updateClubMutation.mutate({ id: editingClub.id, name: editClubName.trim() });
     }
   };
 
@@ -170,6 +222,25 @@ export default function AdminDashboard() {
         type: newEventType,
         boatClass: newEventBoatClass,
         sailClubId: newEventClubId,
+      });
+    }
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setEditEventName(event.name);
+    setEditEventType(event.type as "race" | "training");
+    setEditEventBoatClass(event.boatClass);
+    setEditEventDialogOpen(true);
+  };
+
+  const handleUpdateEvent = () => {
+    if (editingEvent && editEventName.trim()) {
+      updateEventMutation.mutate({
+        id: editingEvent.id,
+        name: editEventName.trim(),
+        type: editEventType,
+        boatClass: editEventBoatClass,
       });
     }
   };
@@ -200,7 +271,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
+      <header className="border-b bg-card px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <img src={alconmarksLogo} alt="Alconmarks" className="h-8 rounded" />
           <div>
@@ -293,14 +364,22 @@ export default function AdminDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
-                        <TableHead className="w-24">Actions</TableHead>
+                        <TableHead className="w-32">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {clubs.map((club) => (
                         <TableRow key={club.id} data-testid={`row-club-${club.id}`}>
                           <TableCell className="font-medium">{club.name}</TableCell>
-                          <TableCell>
+                          <TableCell className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditClub(club)}
+                              data-testid={`button-edit-club-${club.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -414,7 +493,7 @@ export default function AdminDashboard() {
                         <TableHead>Club</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Boat Class</TableHead>
-                        <TableHead className="w-32">Actions</TableHead>
+                        <TableHead className="w-36">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -436,6 +515,14 @@ export default function AdminDashboard() {
                               data-testid={`button-open-event-${event.id}`}
                             >
                               <Play className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditEvent(event)}
+                              data-testid={`button-edit-event-${event.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -582,6 +669,86 @@ export default function AdminDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={editClubDialogOpen} onOpenChange={setEditClubDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Club</DialogTitle>
+            <DialogDescription>Update the sailing club details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-club-name">Club Name</Label>
+              <Input
+                id="edit-club-name"
+                value={editClubName}
+                onChange={(e) => setEditClubName(e.target.value)}
+                placeholder="Enter club name"
+                data-testid="input-edit-club-name"
+              />
+            </div>
+            <Button
+              onClick={handleUpdateClub}
+              disabled={updateClubMutation.isPending || !editClubName.trim()}
+              className="w-full"
+              data-testid="button-update-club"
+            >
+              {updateClubMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Club"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editEventDialogOpen} onOpenChange={setEditEventDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Event</DialogTitle>
+            <DialogDescription>Update the event details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-event-name">Event Name</Label>
+              <Input
+                id="edit-event-name"
+                value={editEventName}
+                onChange={(e) => setEditEventName(e.target.value)}
+                placeholder="Enter event name"
+                data-testid="input-edit-event-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-event-type">Type</Label>
+              <Select value={editEventType} onValueChange={(v) => setEditEventType(v as "race" | "training")}>
+                <SelectTrigger data-testid="select-edit-event-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="race">Race</SelectItem>
+                  <SelectItem value="training">Training</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-boat-class">Boat Class</Label>
+              <Input
+                id="edit-boat-class"
+                value={editEventBoatClass}
+                onChange={(e) => setEditEventBoatClass(e.target.value)}
+                placeholder="e.g., Laser, 420, etc."
+                data-testid="input-edit-boat-class"
+              />
+            </div>
+            <Button
+              onClick={handleUpdateEvent}
+              disabled={updateEventMutation.isPending || !editEventName.trim()}
+              className="w-full"
+              data-testid="button-update-event"
+            >
+              {updateEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Event"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

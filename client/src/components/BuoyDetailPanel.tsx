@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 interface BuoyDetailPanelProps {
   buoy: Buoy;
   onClose: () => void;
+  demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
 }
 
 function getBuoyStateColor(state: BuoyState): string {
@@ -53,9 +54,9 @@ function getBuoyStateLabel(state: BuoyState): string {
   }
 }
 
-export function BuoyDetailPanel({ buoy, onClose }: BuoyDetailPanelProps) {
+export function BuoyDetailPanel({ buoy, onClose, demoSendCommand }: BuoyDetailPanelProps) {
   const { formatSpeed, formatBearing } = useSettings();
-  const buoyCommand = useBuoyCommand();
+  const buoyCommand = useBuoyCommand(demoSendCommand);
 
   const stateColor = getBuoyStateColor(buoy.state as BuoyState);
   const stateBgColor = getBuoyStateBgColor(buoy.state as BuoyState);

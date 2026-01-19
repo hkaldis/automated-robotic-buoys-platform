@@ -237,15 +237,16 @@ export function useDemoMode() {
 
       switch (command) {
         case "move_to_target":
-          if (targetLat === undefined || targetLng === undefined) return buoy;
-          const distanceNm = calculateDistance(buoy.lat, buoy.lng, targetLat, targetLng);
+          const finalTargetLat = targetLat ?? buoy.targetLat ?? buoy.lat + 0.002;
+          const finalTargetLng = targetLng ?? buoy.targetLng ?? buoy.lng + 0.002;
+          const distanceNm = calculateDistance(buoy.lat, buoy.lng, finalTargetLat, finalTargetLng);
           const speed = 3.25;
           const eta = Math.round((distanceNm / speed) * 3600);
           return {
             ...buoy,
             state: "moving_to_target" as const,
-            targetLat,
-            targetLng,
+            targetLat: finalTargetLat,
+            targetLng: finalTargetLng,
             speed,
             eta,
           };

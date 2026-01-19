@@ -356,6 +356,18 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/events/:id", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const deleted = await storage.deleteEvent(req.params.id as string);
+      if (!deleted) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete event" });
+    }
+  });
+
   app.get("/api/courses", async (req, res) => {
     try {
       const courses = await storage.getCourses();

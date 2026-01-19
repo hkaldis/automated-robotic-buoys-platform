@@ -33,6 +33,7 @@ export interface IStorage {
   getEvents(sailClubId?: string): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
+  deleteEvent(id: string): Promise<boolean>;
 
   getCourse(id: string): Promise<Course | undefined>;
   getCourses(): Promise<Course[]>;
@@ -283,6 +284,16 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async deleteEvent(id: string): Promise<boolean> {
+    const entries = Array.from(this.userEventAccess.entries());
+    for (const [accessId, access] of entries) {
+      if (access.eventId === id) {
+        this.userEventAccess.delete(accessId);
+      }
+    }
+    return this.events.delete(id);
+  }
+
   async getCourse(id: string): Promise<Course | undefined> {
     return this.courses.get(id);
   }
@@ -436,4 +447,6 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { databaseStorage } from "./database-storage";
+
+export const storage: IStorage = databaseStorage;

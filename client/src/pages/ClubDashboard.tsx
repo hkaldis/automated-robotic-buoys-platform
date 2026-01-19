@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus } from "lucide-react";
+import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus, Pencil } from "lucide-react";
 import type { Event, SailClub, UserEventAccess } from "@shared/schema";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -29,6 +29,7 @@ export default function ClubDashboard() {
   const { user, logout, isLoggingOut } = useAuth();
   const { toast } = useToast();
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [editEventDialogOpen, setEditEventDialogOpen] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [accessDialogOpen, setAccessDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -37,6 +38,10 @@ export default function ClubDashboard() {
   const [newEventBoatClass, setNewEventBoatClass] = useState("Laser");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editEventName, setEditEventName] = useState("");
+  const [editEventType, setEditEventType] = useState<"race" | "training">("race");
+  const [editEventBoatClass, setEditEventBoatClass] = useState("");
 
   const { data: club } = useQuery<SailClub>({
     queryKey: ["/api/sail-clubs", user?.sailClubId],
@@ -67,6 +72,35 @@ export default function ClubDashboard() {
     },
     onError: () => {
       toast({ title: "Failed to create event", variant: "destructive" });
+    },
+  });
+
+  const updateEventMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string }) => {
+      const res = await apiRequest("PATCH", `/api/events/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setEditEventDialogOpen(false);
+      setEditingEvent(null);
+      toast({ title: "Event updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update event", variant: "destructive" });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/events/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete event", variant: "destructive" });
     },
   });
 
@@ -126,6 +160,25 @@ export default function ClubDashboard() {
     }
   };
 
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setEditEventName(event.name);
+    setEditEventType(event.type as "race" | "training");
+    setEditEventBoatClass(event.boatClass);
+    setEditEventDialogOpen(true);
+  };
+
+  const handleUpdateEvent = () => {
+    if (editingEvent && editEventName.trim()) {
+      updateEventMutation.mutate({
+        id: editingEvent.id,
+        name: editEventName.trim(),
+        type: editEventType,
+        boatClass: editEventBoatClass,
+      });
+    }
+  };
+
   const handleCreateUser = () => {
     if (newUsername.trim() && newPassword.trim()) {
       createUserMutation.mutate({
@@ -142,7 +195,7 @@ export default function ClubDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card px-4 py-3 flex items-center justify-between">
+      <header className="border-b bg-card px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <img src={alconmarksLogo} alt="Alconmarks" className="h-8 rounded" />
           <div>
@@ -255,7 +308,7 @@ export default function ClubDashboard() {
                         <TableHead>Name</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Boat Class</TableHead>
-                        <TableHead className="w-32">Actions</TableHead>
+                        <TableHead className="w-36">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -268,7 +321,7 @@ export default function ClubDashboard() {
                             </Badge>
                           </TableCell>
                           <TableCell>{event.boatClass}</TableCell>
-                          <TableCell>
+                          <TableCell className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -276,6 +329,23 @@ export default function ClubDashboard() {
                               data-testid={`button-open-event-${event.id}`}
                             >
                               <Play className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditEvent(event)}
+                              data-testid={`button-edit-event-${event.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteEventMutation.mutate(event.id)}
+                              disabled={deleteEventMutation.isPending}
+                              data-testid={`button-delete-event-${event.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -298,13 +368,13 @@ export default function ClubDashboard() {
                   <DialogTrigger asChild>
                     <Button data-testid="button-add-manager">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add Event Manager
+                      Add Manager
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create Event Manager</DialogTitle>
-                      <DialogDescription>Add a new event manager for your club</DialogDescription>
+                      <DialogDescription>Add a new event manager for this club</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -314,7 +384,7 @@ export default function ClubDashboard() {
                           value={newUsername}
                           onChange={(e) => setNewUsername(e.target.value)}
                           placeholder="Enter username"
-                          data-testid="input-manager-username"
+                          data-testid="input-username"
                         />
                       </div>
                       <div className="space-y-2">
@@ -325,7 +395,7 @@ export default function ClubDashboard() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Enter password"
-                          data-testid="input-manager-password"
+                          data-testid="input-password"
                         />
                       </div>
                       <Button
@@ -356,27 +426,27 @@ export default function ClubDashboard() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {eventManagers.map((u) => (
-                        <TableRow key={u.id} data-testid={`row-manager-${u.id}`}>
-                          <TableCell className="font-medium">{u.username}</TableCell>
+                      {eventManagers.map((manager) => (
+                        <TableRow key={manager.id} data-testid={`row-manager-${manager.id}`}>
+                          <TableCell className="font-medium">{manager.username}</TableCell>
                           <TableCell className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => {
-                                setSelectedUserId(u.id);
+                                setSelectedUserId(manager.id);
                                 setAccessDialogOpen(true);
                               }}
-                              data-testid={`button-grant-access-${u.id}`}
+                              data-testid={`button-grant-access-${manager.id}`}
                             >
                               <UserPlus className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => deleteUserMutation.mutate(u.id)}
+                              onClick={() => deleteUserMutation.mutate(manager.id)}
                               disabled={deleteUserMutation.isPending}
-                              data-testid={`button-delete-manager-${u.id}`}
+                              data-testid={`button-delete-manager-${manager.id}`}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
@@ -388,36 +458,87 @@ export default function ClubDashboard() {
                 )}
               </CardContent>
             </Card>
-
-            <Dialog open={accessDialogOpen} onOpenChange={setAccessDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Grant Event Access</DialogTitle>
-                  <DialogDescription>Select an event to grant access</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-2">
-                  {clubEvents.map((event) => (
-                    <Button
-                      key={event.id}
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        if (selectedUserId) {
-                          grantAccessMutation.mutate({ userId: selectedUserId, eventId: event.id });
-                        }
-                      }}
-                      disabled={grantAccessMutation.isPending}
-                      data-testid={`button-select-event-${event.id}`}
-                    >
-                      {event.name} ({event.type})
-                    </Button>
-                  ))}
-                </div>
-              </DialogContent>
-            </Dialog>
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={accessDialogOpen} onOpenChange={setAccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Grant Event Access</DialogTitle>
+            <DialogDescription>Select an event to grant access to this manager</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {clubEvents.map((event) => (
+              <Button
+                key={event.id}
+                variant="outline"
+                className="w-full justify-start"
+                onClick={() => {
+                  if (selectedUserId) {
+                    grantAccessMutation.mutate({ userId: selectedUserId, eventId: event.id });
+                  }
+                }}
+                disabled={grantAccessMutation.isPending}
+                data-testid={`button-select-event-${event.id}`}
+              >
+                {event.name}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editEventDialogOpen} onOpenChange={setEditEventDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Event</DialogTitle>
+            <DialogDescription>Update the event details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-event-name">Event Name</Label>
+              <Input
+                id="edit-event-name"
+                value={editEventName}
+                onChange={(e) => setEditEventName(e.target.value)}
+                placeholder="Enter event name"
+                data-testid="input-edit-event-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-event-type">Type</Label>
+              <Select value={editEventType} onValueChange={(v) => setEditEventType(v as "race" | "training")}>
+                <SelectTrigger data-testid="select-edit-event-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="race">Race</SelectItem>
+                  <SelectItem value="training">Training</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-boat-class">Boat Class</Label>
+              <Input
+                id="edit-boat-class"
+                value={editEventBoatClass}
+                onChange={(e) => setEditEventBoatClass(e.target.value)}
+                placeholder="e.g., Laser, 420, etc."
+                data-testid="input-edit-boat-class"
+              />
+            </div>
+            <Button
+              onClick={handleUpdateEvent}
+              disabled={updateEventMutation.isPending || !editEventName.trim()}
+              className="w-full"
+              data-testid="button-update-event"
+            >
+              {updateEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Event"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
