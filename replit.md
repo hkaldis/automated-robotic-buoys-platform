@@ -101,3 +101,30 @@ Backend validation in `server/validation.ts` and `server/routes.ts`:
 1. **Gate Side Required**: When `isGate=true`, the `gateSide` field must be either "port" or "starboard"
 2. **No Duplicate Buoy on Same Mark**: Same buoy ID cannot be assigned to both port and starboard roles on the same gate
 3. **Order Uniqueness**: Mark order values must be unique within a course (excluding null values)
+
+### Race Time Estimation Feature (January 2026)
+VMG-based race time estimation using sailing physics and boat class performance data:
+
+1. **Boat Classes Database**: 20 common sailing classes with performance data:
+   - VMG (Velocity Made Good) at light/medium/heavy wind conditions
+   - Reach speeds at different wind bands
+   - Optimal upwind and downwind true wind angles (TWA)
+   - Tack, jibe, and mark rounding times
+   - Hull type and no-go zone angle
+
+2. **Physics Calculation** (`client/src/lib/race-time-estimation.ts`):
+   - Calculates true wind angle (TWA) for each leg based on bearing vs wind direction
+   - Determines point of sail (upwind, close reach, beam reach, broad reach, downwind)
+   - For upwind/downwind: sailingDistance = straightLineDistance / cos(optimalTWA) to account for tacking/jibing
+   - Time = sailingDistance / boatSpeed (not VMG, since distance already inflated)
+   - Adds maneuver penalties (tack/jibe times based on leg length)
+   - Adds mark rounding time for each leg
+
+3. **UI Display** (SetupPanel review phase):
+   - Per-leg estimates with point-of-sail color coding (red=upwind, green=reach, blue=downwind)
+   - Total estimated race time shown with "(VMG)" indicator when using physics-based calculation
+   - Falls back to simple estimate (distance/4.5kts) if no boat class selected
+
+4. **API Endpoints**:
+   - GET /api/boat-classes - List all boat classes
+   - GET /api/boat-classes/:id - Get single boat class by ID
