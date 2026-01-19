@@ -2,18 +2,14 @@ import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Compass, Wind, RefreshCw, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Compass, Wind, Check, AlertCircle } from "lucide-react";
 import type { Mark } from "@shared/schema";
 import {
-  CourseType,
   BoatClass,
-  getSequencedBearing,
-  calculateNewPosition,
-  getCourseCenter,
-  getCourseRadius,
+  calculateSequentialAdjustments,
+  getStartLineCenter,
 } from "@/lib/course-bearings";
 
 export interface OriginalPosition {
@@ -30,17 +26,6 @@ interface AutoAdjustDialogProps {
   onApply: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>, originalPositions: OriginalPosition[]) => void;
 }
 
-interface BearingOverride {
-  role: string;
-  bearing: number;
-}
-
-const COURSE_TYPE_LABELS: Record<CourseType, string> = {
-  windward_leeward: "Windward-Leeward",
-  triangle: "Triangle",
-  trapezoid: "Trapezoid",
-};
-
 const BOAT_CLASS_LABELS: Record<BoatClass, string> = {
   spinnaker: "Spinnaker",
   non_spinnaker: "Non-Spinnaker",
@@ -54,12 +39,8 @@ export function AutoAdjustDialog({
   windDirection,
   onApply,
 }: AutoAdjustDialogProps) {
-  const [courseType, setCourseType] = useState<CourseType>("windward_leeward");
   const [boatClass, setBoatClass] = useState<BoatClass>("spinnaker");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [bearingOverrides, setBearingOverrides] = useState<BearingOverride[]>([]);
 
-  // Filter to adjustable course marks only
   const courseMarks = useMemo(() => {
     return marks.filter(
       (m) =>
@@ -70,106 +51,61 @@ export function AutoAdjustDialog({
     );
   }, [marks]);
 
-  // Sort marks by order field to ensure consistent sequence ordering
-  // The order field reflects the order marks were added to the course
-  const sortedCourseMarks = useMemo(() => {
-    return [...courseMarks].sort((a, b) => {
-      // Use order field (sequence number) for stable ordering
-      return (a.order || 0) - (b.order || 0);
-    });
-  }, [courseMarks]);
+  const startLineCenter = useMemo(() => {
+    return getStartLineCenter(marks);
+  }, [marks]);
 
-  // Build occurrence index for each mark based on sorted order
-  // First occurrence of each role gets index 0, second gets index 1, etc.
-  const marksWithIndex = useMemo(() => {
-    const roleCounts: Record<string, number> = {};
-    return sortedCourseMarks.map((mark) => {
-      const index = roleCounts[mark.role] || 0;
-      roleCounts[mark.role] = index + 1;
-      return { mark, index };
-    });
-  }, [sortedCourseMarks]);
+  const hasStartLine = useMemo(() => {
+    return marks.some((m) => m.role === "start_boat" || m.role === "pin");
+  }, [marks]);
 
-  // Get effective bearing using sequence-aware lookup
-  const getEffectiveBearing = (role: string, index: number): { bearing: number; distanceRatio: number } => {
-    // Check for user override first (by role only, affects all occurrences)
-    const override = bearingOverrides.find((o) => o.role === role);
-    if (override !== undefined) {
-      return { bearing: override.bearing, distanceRatio: 1 };
+  const adjustmentResult = useMemo(() => {
+    if (courseMarks.length === 0) {
+      return { results: [], warnings: [], canApply: false };
     }
-    // Use sequence-aware defaults
-    const sequenced = getSequencedBearing(courseType, boatClass, role, index);
-    return sequenced || { bearing: 0, distanceRatio: 1 };
-  };
 
-  const handleBearingChange = (role: string, value: string) => {
-    const numValue = parseInt(value, 10);
-    if (isNaN(numValue)) return;
-    const normalized = ((numValue % 360) + 360) % 360;
-    setBearingOverrides((prev) => {
-      const existing = prev.filter((o) => o.role !== role);
-      return [...existing, { role, bearing: normalized }];
-    });
-  };
+    const marksForCalc = courseMarks.map((m) => ({
+      id: m.id,
+      lat: m.lat,
+      lng: m.lng,
+      role: m.role,
+      order: m.order,
+      isGate: m.isGate ?? false,
+      gateSide: m.gateSide,
+    }));
 
-  const previewPositions = useMemo(() => {
-    if (marksWithIndex.length === 0) return [];
-
-    const allMarks = marksWithIndex.map((m) => m.mark);
-    const center = getCourseCenter(allMarks);
-    const radius = getCourseRadius(allMarks, center);
-
-    return marksWithIndex.map(({ mark, index }) => {
-      const { bearing, distanceRatio } = getEffectiveBearing(mark.role, index);
-      const distance = radius * distanceRatio;
-
-      const newPos = calculateNewPosition(
-        center.lat,
-        center.lng,
-        windDirection,
-        bearing,
-        distance
-      );
-
-      return {
-        id: mark.id,
-        name: mark.name,
-        originalLat: mark.lat,
-        originalLng: mark.lng,
-        newLat: newPos.lat,
-        newLng: newPos.lng,
-        role: mark.role,
-        index,
-        bearing,
-      };
-    });
-  }, [marksWithIndex, windDirection, courseType, boatClass, bearingOverrides]);
+    return calculateSequentialAdjustments(
+      marksForCalc,
+      startLineCenter,
+      windDirection,
+      boatClass,
+      hasStartLine
+    );
+  }, [courseMarks, startLineCenter, windDirection, boatClass, hasStartLine]);
 
   const handleApply = () => {
-    // Capture original positions for undo
-    const originalPositions: OriginalPosition[] = previewPositions.map((p) => ({
-      id: p.id,
-      lat: p.originalLat,
-      lng: p.originalLng,
+    if (!adjustmentResult.canApply) return;
+
+    const originalPositions: OriginalPosition[] = adjustmentResult.results.map((r) => ({
+      id: r.id,
+      lat: r.originalLat,
+      lng: r.originalLng,
     }));
-    
-    const adjustedMarks = previewPositions.map((p) => ({
-      id: p.id,
-      lat: p.newLat,
-      lng: p.newLng,
+
+    const adjustedMarks = adjustmentResult.results.map((r) => ({
+      id: r.id,
+      lat: r.lat,
+      lng: r.lng,
     }));
+
     onApply(adjustedMarks, originalPositions);
     onOpenChange(false);
   };
 
-  const resetOverrides = () => {
-    setBearingOverrides([]);
+  const formatDelta = (delta: number): string => {
+    const sign = delta >= 0 ? "+" : "";
+    return `${sign}${delta.toFixed(1)}°`;
   };
-
-  const uniqueRoles = useMemo(() => {
-    const roles = new Set(sortedCourseMarks.map((m) => m.role));
-    return Array.from(roles);
-  }, [sortedCourseMarks]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,25 +123,6 @@ export function AutoAdjustDialog({
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Wind className="w-4 h-4" />
                 <span>Wind Direction: {windDirection}°</span>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Course Type</Label>
-                <Select
-                  value={courseType}
-                  onValueChange={(v) => setCourseType(v as CourseType)}
-                >
-                  <SelectTrigger className="h-12 text-base" data-testid="select-course-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(COURSE_TYPE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value} className="py-3">
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="space-y-2">
@@ -229,78 +146,59 @@ export function AutoAdjustDialog({
             </CardContent>
           </Card>
 
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full justify-between h-12"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            data-testid="button-toggle-advanced"
-          >
-            <span>Override Bearings</span>
-            {showAdvanced ? (
-              <ChevronUp className="w-5 h-5" />
-            ) : (
-              <ChevronDown className="w-5 h-5" />
-            )}
-          </Button>
-
-          {showAdvanced && (
-            <Card>
-              <CardContent className="pt-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <Label className="text-xs text-muted-foreground">
-                    Custom bearings (relative to wind)
-                  </Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetOverrides}
-                    className="h-7 text-xs"
-                  >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Reset
-                  </Button>
-                </div>
-
-                {uniqueRoles.map((role) => (
-                  <div key={role} className="flex items-center gap-3">
-                    <Label className="w-24 text-base capitalize">{role}</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={359}
-                        value={getEffectiveBearing(role, 0).bearing}
-                        onChange={(e) => handleBearingChange(role, e.target.value)}
-                        className="w-24 h-11 text-base"
-                        data-testid={`input-bearing-${role}`}
-                      />
-                      <span className="text-base text-muted-foreground">°</span>
-                    </div>
-                  </div>
-                ))}
+          {adjustmentResult.warnings.length > 0 && (
+            <Card className="border-destructive bg-destructive/10">
+              <CardContent className="pt-4">
+                <Label className="text-xs text-destructive mb-2 block font-medium">
+                  Cannot Apply Adjustments
+                </Label>
+                <ul className="text-sm text-destructive space-y-1">
+                  {adjustmentResult.warnings.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}
 
-          <Card className="bg-muted/50">
-            <CardContent className="pt-4">
-              <Label className="text-xs text-muted-foreground mb-2 block">
-                Preview: {sortedCourseMarks.length} marks will be adjusted
-              </Label>
-              <div className="space-y-1 text-sm">
-                {previewPositions.map((p) => (
-                  <div key={p.id} className="flex justify-between">
-                    <span>
-                      <span className="font-medium">{p.name}</span>
-                      <span className="text-muted-foreground ml-1 capitalize">({p.role})</span>
-                    </span>
-                    <span className="text-muted-foreground">{p.bearing}°</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {adjustmentResult.canApply && (
+            <Card className="bg-muted/50">
+              <CardContent className="pt-4">
+                <Label className="text-xs text-muted-foreground mb-2 block">
+                  Sequential Adjustments ({adjustmentResult.results.length} marks)
+                </Label>
+                <div className="text-xs text-muted-foreground mb-3">
+                  Each mark adjusted relative to previous mark in sequence
+                </div>
+                <div className="space-y-2 text-sm">
+                  {adjustmentResult.results.map((r, idx) => {
+                    const mark = courseMarks.find((m) => m.id === r.id);
+                    const isMicro = Math.abs(r.delta) <= 7;
+                    return (
+                      <div key={r.id} className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <span className="font-medium">{idx + 1}. {mark?.name || "Mark"}</span>
+                          <span className="text-muted-foreground ml-1 capitalize">({r.role})</span>
+                        </div>
+                        <div className="text-right">
+                          <div className={isMicro ? "text-muted-foreground" : "font-medium"}>
+                            {formatDelta(r.adjustedDelta)}
+                            {isMicro && <span className="ml-1 text-xs">(micro)</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {Math.round(r.legBearing)}° → {Math.round(r.targetBearing)}°
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -317,7 +215,7 @@ export function AutoAdjustDialog({
             size="lg"
             className="flex-1 h-12"
             onClick={handleApply}
-            disabled={sortedCourseMarks.length === 0}
+            disabled={!adjustmentResult.canApply}
             data-testid="button-apply-auto-adjust"
           >
             <Check className="w-5 h-5 mr-2" />

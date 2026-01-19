@@ -9,7 +9,7 @@ export interface MarkBearing {
 
 export interface SequencedMarkPosition {
   role: string;
-  index: number; // 0 = first occurrence, 1 = second, etc.
+  index: number;
   bearing: number;
   distanceRatio: number;
 }
@@ -20,218 +20,82 @@ export interface CourseConfig {
   bearings: MarkBearing[];
 }
 
-// Base bearings for single-occurrence marks
-export const DEFAULT_BEARINGS: Record<CourseType, Record<BoatClass, MarkBearing[]>> = {
-  windward_leeward: {
-    spinnaker: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "offset", bearing: 10, distanceRatio: 0.1 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-    non_spinnaker: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "offset", bearing: 10, distanceRatio: 0.1 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-    foiling: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-  },
-  triangle: {
-    spinnaker: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "wing", bearing: 120, distanceRatio: 1 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-    non_spinnaker: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "wing", bearing: 110, distanceRatio: 1 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-    foiling: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "wing", bearing: 100, distanceRatio: 1 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-  },
-  trapezoid: {
-    spinnaker: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "wing", bearing: 60, distanceRatio: 0.67 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-    non_spinnaker: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "wing", bearing: 70, distanceRatio: 0.67 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-    foiling: [
-      { role: "windward", bearing: 0, distanceRatio: 1 },
-      { role: "wing", bearing: 60, distanceRatio: 0.67 },
-      { role: "leeward", bearing: 180, distanceRatio: 1 },
-    ],
-  },
+export interface SequencePosition {
+  lat: number;
+  lng: number;
+  id?: string;
+  role?: string;
+}
+
+export interface AdjustmentResult {
+  id: string;
+  lat: number;
+  lng: number;
+  originalLat: number;
+  originalLng: number;
+  role: string;
+  legBearing: number;
+  targetBearing: number;
+  delta: number;
+  adjustedDelta: number;
+}
+
+const MICRO_THRESHOLD = 7;
+const MICRO_FACTOR = 0.3;
+
+export const ROLE_TARGET_BEARINGS: Record<string, number> = {
+  windward: 0,
+  leeward: 180,
+  wing: 120,
+  offset: 10,
 };
 
-// Sequence-aware positions for multiple same-role marks
-// Trapezoid with 2 leewards: first at 180°, second offset for gate width
-// Trapezoid with 2 wings: port wing at 300° (left), starboard wing at 60° (right)
-export const SEQUENCED_BEARINGS: Record<CourseType, Record<BoatClass, SequencedMarkPosition[]>> = {
-  windward_leeward: {
-    spinnaker: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 }, // second windward offset
-      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 }, // leeward gate port
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 }, // leeward gate starboard
-    ],
-    non_spinnaker: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
-      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-    ],
-    foiling: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-    ],
-  },
-  triangle: {
-    spinnaker: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "wing", index: 0, bearing: 120, distanceRatio: 1 },
-      { role: "wing", index: 1, bearing: 240, distanceRatio: 1 }, // opposite wing
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-    ],
-    non_spinnaker: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "wing", index: 0, bearing: 110, distanceRatio: 1 },
-      { role: "wing", index: 1, bearing: 250, distanceRatio: 1 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-    ],
-    foiling: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "wing", index: 0, bearing: 100, distanceRatio: 1 },
-      { role: "wing", index: 1, bearing: 260, distanceRatio: 1 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-    ],
-  },
-  trapezoid: {
-    spinnaker: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
-      { role: "wing", index: 0, bearing: 60, distanceRatio: 0.67 }, // starboard wing
-      { role: "wing", index: 1, bearing: 300, distanceRatio: 0.67 }, // port wing
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 }, // leeward gate port
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 }, // leeward gate starboard
-      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
-    ],
-    non_spinnaker: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
-      { role: "wing", index: 0, bearing: 70, distanceRatio: 0.67 },
-      { role: "wing", index: 1, bearing: 290, distanceRatio: 0.67 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
-    ],
-    foiling: [
-      { role: "windward", index: 0, bearing: 0, distanceRatio: 1 },
-      { role: "windward", index: 1, bearing: 355, distanceRatio: 1 },
-      { role: "wing", index: 0, bearing: 60, distanceRatio: 0.67 },
-      { role: "wing", index: 1, bearing: 300, distanceRatio: 0.67 },
-      { role: "leeward", index: 0, bearing: 175, distanceRatio: 1 },
-      { role: "leeward", index: 1, bearing: 185, distanceRatio: 1 },
-      { role: "offset", index: 0, bearing: 10, distanceRatio: 0.1 },
-    ],
-  },
+export const WING_BEARINGS: Record<BoatClass, number> = {
+  spinnaker: 120,
+  non_spinnaker: 110,
+  foiling: 100,
 };
 
-// Get bearing for a mark based on its role and occurrence index
-export function getSequencedBearing(
-  courseType: CourseType,
-  boatClass: BoatClass,
-  role: string,
-  index: number
-): { bearing: number; distanceRatio: number } | undefined {
-  const positions = SEQUENCED_BEARINGS[courseType]?.[boatClass];
-  if (!positions) return undefined;
-  
-  // Find exact match for role + index
-  const match = positions.find((p) => p.role === role && p.index === index);
-  if (match) return { bearing: match.bearing, distanceRatio: match.distanceRatio };
-  
-  // Fall back to first occurrence if index not found
-  const fallback = positions.find((p) => p.role === role && p.index === 0);
-  return fallback ? { bearing: fallback.bearing, distanceRatio: fallback.distanceRatio } : undefined;
+export const GATE_SPREAD = 5;
+
+export interface MarkForAdjustment {
+  id: string;
+  lat: number;
+  lng: number;
+  role: string;
+  order?: number;
+  isGate?: boolean;
+  gateSide?: string | null;
 }
 
-export function getDefaultBearing(
-  courseType: CourseType,
-  boatClass: BoatClass,
-  role: string
-): number | undefined {
-  const bearings = DEFAULT_BEARINGS[courseType]?.[boatClass];
-  if (!bearings) return undefined;
-  const mark = bearings.find((b) => b.role === role);
-  return mark?.bearing;
+export function normalizeBearing(bearing: number): number {
+  return ((bearing % 360) + 360) % 360;
 }
 
-export function getRoleBearingLabel(role: string): string {
-  switch (role) {
-    case "windward":
-      return "Windward (0° - upwind)";
-    case "leeward":
-      return "Leeward (180° - downwind)";
-    case "wing":
-      return "Wing (60-120° - reaching)";
-    case "offset":
-      return "Offset (0° - near windward)";
-    case "start_boat":
-    case "pin":
-      return "Start Line (90° - perpendicular)";
-    case "finish":
-      return "Finish (90° - perpendicular)";
-    default:
-      return "Custom";
-  }
+export function bearingDelta(from: number, to: number): number {
+  let delta = normalizeBearing(to) - normalizeBearing(from);
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  return delta;
 }
 
-export function calculateNewPosition(
-  centerLat: number,
-  centerLng: number,
-  windDirection: number,
-  bearing: number,
-  distanceMeters: number
-): { lat: number; lng: number } {
-  const absoluteBearing = (windDirection + bearing) % 360;
-  const bearingRad = (absoluteBearing * Math.PI) / 180;
-  
-  const earthRadius = 6371000;
-  const lat1 = (centerLat * Math.PI) / 180;
-  const lng1 = (centerLng * Math.PI) / 180;
-  
-  const lat2 = Math.asin(
-    Math.sin(lat1) * Math.cos(distanceMeters / earthRadius) +
-    Math.cos(lat1) * Math.sin(distanceMeters / earthRadius) * Math.cos(bearingRad)
-  );
-  
-  const lng2 = lng1 + Math.atan2(
-    Math.sin(bearingRad) * Math.sin(distanceMeters / earthRadius) * Math.cos(lat1),
-    Math.cos(distanceMeters / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
-  );
-  
-  return {
-    lat: (lat2 * 180) / Math.PI,
-    lng: (lng2 * 180) / Math.PI,
-  };
+export function calculateBearing(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const lat1Rad = (lat1 * Math.PI) / 180;
+  const lat2Rad = (lat2 * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+
+  const x = Math.sin(dLng) * Math.cos(lat2Rad);
+  const y =
+    Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+    Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+
+  const bearing = (Math.atan2(x, y) * 180) / Math.PI;
+  return normalizeBearing(bearing);
 }
 
 export function calculateDistance(
@@ -251,6 +115,240 @@ export function calculateDistance(
       Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+export function movePoint(
+  fromLat: number,
+  fromLng: number,
+  bearing: number,
+  distanceMeters: number
+): { lat: number; lng: number } {
+  const bearingRad = (bearing * Math.PI) / 180;
+  const earthRadius = 6371000;
+  const lat1 = (fromLat * Math.PI) / 180;
+  const lng1 = (fromLng * Math.PI) / 180;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(distanceMeters / earthRadius) +
+      Math.cos(lat1) * Math.sin(distanceMeters / earthRadius) * Math.cos(bearingRad)
+  );
+
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(distanceMeters / earthRadius) * Math.cos(lat1),
+      Math.cos(distanceMeters / earthRadius) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+  return {
+    lat: (lat2 * 180) / Math.PI,
+    lng: (lng2 * 180) / Math.PI,
+  };
+}
+
+export function getTargetLegBearing(
+  role: string,
+  windDirection: number,
+  boatClass: BoatClass,
+  roleIndex: number,
+  isGate?: boolean,
+  gateSide?: string | null
+): number {
+  let relativeBearing: number;
+
+  switch (role) {
+    case "windward":
+      relativeBearing = 0;
+      break;
+    case "leeward":
+      relativeBearing = 180;
+      if (isGate && gateSide) {
+        relativeBearing += gateSide === "port" ? -GATE_SPREAD : GATE_SPREAD;
+      }
+      break;
+    case "wing":
+      const wingBase = WING_BEARINGS[boatClass];
+      relativeBearing = roleIndex === 0 ? wingBase : 360 - wingBase;
+      break;
+    case "offset":
+      relativeBearing = 10;
+      break;
+    default:
+      relativeBearing = 0;
+  }
+
+  return normalizeBearing(windDirection + relativeBearing);
+}
+
+export interface SequentialAdjustmentResult {
+  results: AdjustmentResult[];
+  warnings: string[];
+  canApply: boolean;
+}
+
+export function validateMarksForAdjustment(
+  marks: MarkForAdjustment[],
+  hasStartLine: boolean
+): { valid: boolean; warnings: string[] } {
+  const warnings: string[] = [];
+  let valid = true;
+
+  if (!hasStartLine) {
+    warnings.push("No start line - cannot calculate leg bearings");
+    valid = false;
+  }
+
+  const orders = marks.map((m) => m.order ?? -1);
+  const hasValidOrders = orders.every((o) => o >= 0);
+  if (!hasValidOrders) {
+    warnings.push("Some marks have missing order values");
+    valid = false;
+  }
+
+  const validOrders = orders.filter((o) => o >= 0);
+  const uniqueOrders = new Set(validOrders);
+  if (uniqueOrders.size !== validOrders.length) {
+    warnings.push("Some marks have duplicate order values");
+    valid = false;
+  }
+
+  const gateMarks = marks.filter((m) => m.isGate);
+  for (const gm of gateMarks) {
+    if (!gm.gateSide) {
+      warnings.push(`Gate mark "${gm.role}" missing side (port/starboard)`);
+      valid = false;
+    }
+  }
+
+  return { valid, warnings };
+}
+
+export function calculateSequentialAdjustments(
+  marks: MarkForAdjustment[],
+  startLineCenter: { lat: number; lng: number } | null,
+  windDirection: number,
+  boatClass: BoatClass,
+  hasStartLine: boolean
+): SequentialAdjustmentResult {
+  if (marks.length === 0) {
+    return { results: [], warnings: ["No course marks to adjust"], canApply: false };
+  }
+
+  const validation = validateMarksForAdjustment(marks, hasStartLine);
+
+  if (!startLineCenter) {
+    const extraWarning = hasStartLine
+      ? "Start line marks have invalid coordinates"
+      : "No start line - cannot calculate leg bearings";
+    const allWarnings = validation.warnings.includes(extraWarning)
+      ? validation.warnings
+      : [...validation.warnings, extraWarning];
+    return {
+      results: [],
+      warnings: allWarnings,
+      canApply: false,
+    };
+  }
+
+  if (!validation.valid) {
+    return {
+      results: [],
+      warnings: validation.warnings,
+      canApply: false,
+    };
+  }
+
+  const sortedMarks = [...marks].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const roleCounts: Record<string, number> = {};
+  const results: AdjustmentResult[] = [];
+
+  let previousPosition: SequencePosition = startLineCenter;
+
+  for (const mark of sortedMarks) {
+    const roleIndex = roleCounts[mark.role] || 0;
+    roleCounts[mark.role] = roleIndex + 1;
+
+    const currentLegBearing = calculateBearing(
+      previousPosition.lat,
+      previousPosition.lng,
+      mark.lat,
+      mark.lng
+    );
+
+    const targetLegBearing = getTargetLegBearing(
+      mark.role,
+      windDirection,
+      boatClass,
+      roleIndex,
+      mark.isGate,
+      mark.gateSide
+    );
+
+    const delta = bearingDelta(currentLegBearing, targetLegBearing);
+
+    let adjustedDelta: number;
+    if (Math.abs(delta) <= MICRO_THRESHOLD) {
+      adjustedDelta = delta * MICRO_FACTOR;
+    } else {
+      adjustedDelta = delta;
+    }
+
+    const legDistance = calculateDistance(
+      previousPosition.lat,
+      previousPosition.lng,
+      mark.lat,
+      mark.lng
+    );
+
+    const newBearing = normalizeBearing(currentLegBearing + adjustedDelta);
+    const newPosition = movePoint(
+      previousPosition.lat,
+      previousPosition.lng,
+      newBearing,
+      legDistance
+    );
+
+    results.push({
+      id: mark.id,
+      lat: newPosition.lat,
+      lng: newPosition.lng,
+      originalLat: mark.lat,
+      originalLng: mark.lng,
+      role: mark.role,
+      legBearing: currentLegBearing,
+      targetBearing: targetLegBearing,
+      delta,
+      adjustedDelta,
+    });
+
+    previousPosition = newPosition;
+  }
+
+  return {
+    results,
+    warnings: validation.warnings,
+    canApply: true,
+  };
+}
+
+export function getStartLineCenter(
+  marks: Array<{ role: string; lat: number; lng: number }>
+): { lat: number; lng: number } | null {
+  const startBoat = marks.find((m) => m.role === "start_boat");
+  const pin = marks.find((m) => m.role === "pin");
+
+  if (startBoat && pin) {
+    return {
+      lat: (startBoat.lat + pin.lat) / 2,
+      lng: (startBoat.lng + pin.lng) / 2,
+    };
+  }
+
+  if (startBoat) return { lat: startBoat.lat, lng: startBoat.lng };
+  if (pin) return { lat: pin.lat, lng: pin.lng };
+
+  return null;
 }
 
 export function getCourseCenter(
@@ -276,4 +374,35 @@ export function getCourseRadius(
     calculateDistance(center.lat, center.lng, m.lat, m.lng)
   );
   return Math.max(...distances, 100);
+}
+
+export function getRoleBearingLabel(role: string): string {
+  switch (role) {
+    case "windward":
+      return "Windward (0° from wind)";
+    case "leeward":
+      return "Leeward (180° from wind)";
+    case "wing":
+      return "Wing (reach angle)";
+    case "offset":
+      return "Offset (near windward)";
+    case "start_boat":
+    case "pin":
+      return "Start Line";
+    case "finish":
+      return "Finish";
+    default:
+      return "Custom";
+  }
+}
+
+export function calculateNewPosition(
+  centerLat: number,
+  centerLng: number,
+  windDirection: number,
+  bearing: number,
+  distanceMeters: number
+): { lat: number; lng: number } {
+  const absoluteBearing = normalizeBearing(windDirection + bearing);
+  return movePoint(centerLat, centerLng, absoluteBearing, distanceMeters);
 }
