@@ -1404,23 +1404,23 @@ export function SetupPanel({
                       key={mark.id}
                       onClick={() => onMarkSelect?.(mark.id)}
                       className={cn(
-                        "w-full flex items-center gap-3 p-2.5 rounded-lg text-left hover-elevate",
+                        "w-full flex items-center gap-3 p-3 rounded-lg text-left hover-elevate min-h-[48px]",
                         assignedBuoy ? "bg-green-50 dark:bg-green-900/20" : "bg-muted/50"
                       )}
                       data-testid={`button-assign-mark-${mark.id}`}
                     >
                       <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center",
+                        "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
                         assignedBuoy ? "bg-green-500 text-white" : "bg-muted-foreground/20"
                       )}>
                         {assignedBuoy ? (
-                          <Check className="w-4 h-4" />
+                          <Check className="w-5 h-5" />
                         ) : (
-                          <Anchor className="w-4 h-4 text-muted-foreground" />
+                          <Anchor className="w-5 h-5 text-muted-foreground" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{mark.name}</p>
+                        <p className="text-sm font-semibold truncate">{mark.name}</p>
                         <p className={cn(
                           "text-xs",
                           assignedBuoy ? "text-green-600" : "text-amber-600"
@@ -1430,10 +1430,10 @@ export function SetupPanel({
                       </div>
                       <div className="flex gap-1">
                         {mark.isStartLine && (
-                          <Badge variant="secondary" className="text-[10px] bg-green-500/20 text-green-600">S</Badge>
+                          <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-600">S</Badge>
                         )}
                         {mark.isFinishLine && (
-                          <Badge variant="secondary" className="text-[10px] bg-blue-500/20 text-blue-600">F</Badge>
+                          <Badge variant="secondary" className="text-xs bg-blue-500/20 text-blue-600">F</Badge>
                         )}
                       </div>
                     </button>
@@ -1475,26 +1475,26 @@ export function SetupPanel({
       case "ready":
         return (
           <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="text-center space-y-3 flex-1 flex flex-col items-center justify-center">
-              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
-                <Check className="w-8 h-8 text-green-600" />
+            <div className="text-center space-y-4 flex-1 flex flex-col items-center justify-center">
+              <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
+                <Check className="w-10 h-10 text-green-600" />
               </div>
-              <h2 className="text-xl font-bold">Ready to Deploy!</h2>
-              <div className="space-y-1 text-sm">
+              <h2 className="text-2xl font-bold">Ready to Deploy!</h2>
+              <div className="space-y-2 text-sm">
                 <p className="flex items-center justify-center gap-2">
-                  <Badge variant="secondary" className="bg-green-500/20 text-green-600">
+                  <Badge className="bg-green-500 text-white px-2.5 py-0.5">
                     {startLineMarks.length}
                   </Badge>
                   start line marks
                 </p>
                 <p className="flex items-center justify-center gap-2">
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="px-2.5 py-0.5">
                     {courseMarks.length}
                   </Badge>
                   course marks
                 </p>
                 <p className="flex items-center justify-center gap-2">
-                  <Badge variant="secondary" className="bg-blue-500/20 text-blue-600">
+                  <Badge className="bg-blue-500 text-white px-2.5 py-0.5">
                     {finishLineMarks.length}
                   </Badge>
                   finish line marks
@@ -1504,7 +1504,8 @@ export function SetupPanel({
 
             <div className="pt-3 border-t space-y-2 mt-auto">
               <Button
-                className="w-full gap-2"
+                size="lg"
+                className="w-full gap-2 h-12"
                 onClick={onDeployCourse}
                 data-testid="button-deploy-course"
               >
