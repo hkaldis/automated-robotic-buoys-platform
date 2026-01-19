@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil } from "lucide-react";
 import type { SailClub, UserRole, Event } from "@shared/schema";
+import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
 interface SafeUser {
@@ -41,14 +42,14 @@ export default function AdminDashboard() {
   const [newUserClubId, setNewUserClubId] = useState("");
   const [newEventName, setNewEventName] = useState("");
   const [newEventType, setNewEventType] = useState<"race" | "training">("race");
-  const [newEventBoatClass, setNewEventBoatClass] = useState("Laser");
+  const [newEventBoatClassId, setNewEventBoatClassId] = useState<string>("");
   const [newEventClubId, setNewEventClubId] = useState("");
   const [editingClub, setEditingClub] = useState<SailClub | null>(null);
   const [editClubName, setEditClubName] = useState("");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editEventName, setEditEventName] = useState("");
   const [editEventType, setEditEventType] = useState<"race" | "training">("race");
-  const [editEventBoatClass, setEditEventBoatClass] = useState("");
+  const [editEventBoatClassId, setEditEventBoatClassId] = useState<string>("");
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -61,6 +62,9 @@ export default function AdminDashboard() {
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
     queryKey: ["/api/events"],
   });
+
+  const { data: boatClassesData, isLoading: boatClassesLoading } = useBoatClasses();
+  const boatClasses = boatClassesData || [];
 
   const createClubMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -141,7 +145,7 @@ export default function AdminDashboard() {
   });
 
   const createEventMutation = useMutation({
-    mutationFn: async (data: { name: string; type: string; boatClass: string; sailClubId: string }) => {
+    mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string }) => {
       const res = await apiRequest("POST", "/api/events", data);
       return res.json();
     },
@@ -150,6 +154,7 @@ export default function AdminDashboard() {
       setEventDialogOpen(false);
       setNewEventName("");
       setNewEventClubId("");
+      setNewEventBoatClassId("");
       toast({ title: "Event created successfully" });
     },
     onError: () => {
@@ -158,7 +163,7 @@ export default function AdminDashboard() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string; boatClassId?: string | null }) => {
       const res = await apiRequest("PATCH", `/api/events/${id}`, data);
       return res.json();
     },
@@ -216,11 +221,13 @@ export default function AdminDashboard() {
   };
 
   const handleCreateEvent = () => {
-    if (newEventName.trim() && newEventClubId) {
+    if (newEventName.trim() && newEventClubId && newEventBoatClassId) {
+      const selectedBoatClass = boatClasses.find(bc => bc.id === newEventBoatClassId);
       createEventMutation.mutate({
         name: newEventName.trim(),
         type: newEventType,
-        boatClass: newEventBoatClass,
+        boatClass: selectedBoatClass?.name || "Unknown",
+        boatClassId: newEventBoatClassId,
         sailClubId: newEventClubId,
       });
     }
@@ -230,17 +237,19 @@ export default function AdminDashboard() {
     setEditingEvent(event);
     setEditEventName(event.name);
     setEditEventType(event.type as "race" | "training");
-    setEditEventBoatClass(event.boatClass);
+    setEditEventBoatClassId(event.boatClassId || "");
     setEditEventDialogOpen(true);
   };
 
   const handleUpdateEvent = () => {
     if (editingEvent && editEventName.trim()) {
+      const selectedBoatClass = boatClasses.find(bc => bc.id === editEventBoatClassId);
       updateEventMutation.mutate({
         id: editingEvent.id,
         name: editEventName.trim(),
         type: editEventType,
-        boatClass: editEventBoatClass,
+        boatClass: selectedBoatClass?.name || editingEvent.boatClass,
+        boatClassId: editEventBoatClassId || null,
       });
     }
   };
@@ -458,17 +467,26 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="boat-class">Boat Class</Label>
-                        <Input
-                          id="boat-class"
-                          value={newEventBoatClass}
-                          onChange={(e) => setNewEventBoatClass(e.target.value)}
-                          placeholder="e.g., Laser, 420, etc."
-                          data-testid="input-boat-class"
-                        />
+                        <Select value={newEventBoatClassId} onValueChange={setNewEventBoatClassId}>
+                          <SelectTrigger id="boat-class" data-testid="select-boat-class">
+                            <SelectValue placeholder={boatClassesLoading ? "Loading..." : "Select boat class"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {boatClassesLoading ? (
+                              <div className="flex items-center justify-center p-2">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              </div>
+                            ) : (
+                              boatClasses.map((bc) => (
+                                <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <Button
                         onClick={handleCreateEvent}
-                        disabled={createEventMutation.isPending || !newEventName.trim() || !newEventClubId}
+                        disabled={createEventMutation.isPending || !newEventName.trim() || !newEventClubId || !newEventBoatClassId}
                         className="w-full"
                         data-testid="button-create-event"
                       >
@@ -730,13 +748,22 @@ export default function AdminDashboard() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-boat-class">Boat Class</Label>
-              <Input
-                id="edit-boat-class"
-                value={editEventBoatClass}
-                onChange={(e) => setEditEventBoatClass(e.target.value)}
-                placeholder="e.g., Laser, 420, etc."
-                data-testid="input-edit-boat-class"
-              />
+              <Select value={editEventBoatClassId} onValueChange={setEditEventBoatClassId}>
+                <SelectTrigger id="edit-boat-class" data-testid="select-edit-boat-class">
+                  <SelectValue placeholder={boatClassesLoading ? "Loading..." : "Select boat class"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {boatClassesLoading ? (
+                    <div className="flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  ) : (
+                    boatClasses.map((bc) => (
+                      <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <Button
               onClick={handleUpdateEvent}

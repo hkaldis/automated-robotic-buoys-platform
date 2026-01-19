@@ -79,6 +79,26 @@ export function bearingDelta(from: number, to: number): number {
   return delta;
 }
 
+export interface WindAngleResult {
+  signedRelative: number;
+  absoluteTwa: number;
+}
+
+export function calculateWindAngle(legBearing: number, windDirection: number): WindAngleResult {
+  let signedRelative = legBearing - windDirection;
+  while (signedRelative > 180) signedRelative -= 360;
+  while (signedRelative < -180) signedRelative += 360;
+  
+  const absoluteTwa = Math.abs(signedRelative);
+  
+  return { signedRelative, absoluteTwa };
+}
+
+export function formatWindRelative(signedRelative: number): string {
+  const sign = signedRelative >= 0 ? "+" : "";
+  return `${sign}${signedRelative.toFixed(0)}° to wind`;
+}
+
 export function calculateBearing(
   lat1: number,
   lng1: number,

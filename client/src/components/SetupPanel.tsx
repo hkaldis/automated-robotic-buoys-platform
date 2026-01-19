@@ -13,8 +13,10 @@ import { ChevronDown } from "lucide-react";
 import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { AutoAdjustDialog } from "./AutoAdjustDialog";
-import { useBoatClass } from "@/hooks/use-api";
+import { useBoatClass, useBoatClasses } from "@/hooks/use-api";
 import { estimateRaceTime, buildLegsFromRoundingSequence } from "@/lib/race-time-estimation";
+import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
@@ -72,8 +74,15 @@ export function SetupPanel({
   lastAutoAdjust,
   onUndoAutoAdjust,
 }: SetupPanelProps) {
-  // Fetch boat class for race time estimation
-  const { data: boatClass } = useBoatClass(event.boatClassId);
+  // Fetch boat classes for race time estimation
+  const { data: eventBoatClass } = useBoatClass(event.boatClassId);
+  const { data: boatClassesData } = useBoatClasses();
+  const boatClasses = boatClassesData || [];
+  
+  // Allow override of boat class in Review phase for quick at-sea comparisons
+  const [boatClassOverrideId, setBoatClassOverrideId] = useState<string>("");
+  const overrideBoatClass = boatClasses.find(bc => bc.id === boatClassOverrideId);
+  const boatClass = overrideBoatClass || eventBoatClass;
   
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -1069,13 +1078,25 @@ export function SetupPanel({
                     : `${Math.round(courseStats.estimatedTime)} min`
                   }
                 </p>
-                {raceTimeEstimate && boatClass && (
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <Sailboat className="w-3 h-3" />
-                    {boatClass.name}
-                  </p>
-                )}
               </div>
+            </div>
+
+            {/* Boat Class Selector - quick change at sea */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Sailboat className="w-4 h-4 text-muted-foreground" />
+              <Select 
+                value={boatClassOverrideId || event.boatClassId || ""} 
+                onValueChange={setBoatClassOverrideId}
+              >
+                <SelectTrigger className="flex-1 min-h-10" data-testid="select-boat-class-override">
+                  <SelectValue placeholder="Select boat class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boatClasses.map((bc) => (
+                    <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <ScrollArea className="flex-1 min-h-0">
@@ -1102,13 +1123,9 @@ export function SetupPanel({
                       <CollapsibleContent>
                         <CardContent className="space-y-2 pt-0">
                           {courseStats.legs.map((leg, index) => {
-                            let windRelative: number | null = null;
-                            if (windDirection !== undefined) {
-                              let rel = leg.bearing - windDirection;
-                              while (rel > 180) rel -= 360;
-                              while (rel < -180) rel += 360;
-                              windRelative = rel;
-                            }
+                            const windAngle = windDirection !== undefined 
+                              ? calculateWindAngle(leg.bearing, windDirection)
+                              : null;
                             const legEstimate = raceTimeEstimate?.legs[index];
                             
                             return (
@@ -1139,9 +1156,9 @@ export function SetupPanel({
                                         {legEstimate.pointOfSail.replace("_", " ")}
                                       </Badge>
                                     )}
-                                    {windRelative !== null && !legEstimate && (
+                                    {windAngle !== null && !legEstimate && (
                                       <span className="text-amber-600 dark:text-amber-400">
-                                        ({windRelative >= 0 ? "+" : ""}{windRelative.toFixed(0)}° to wind)
+                                        ({formatWindRelative(windAngle.signedRelative)})
                                       </span>
                                     )}
                                   </div>

@@ -10,6 +10,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/componen
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
+import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 
 interface WeatherData {
   windSpeed: number;
@@ -447,16 +448,8 @@ function MapResizeHandler({ showSidebar }: { showSidebar?: boolean }) {
 }
 
 function formatWindRelativeBearing(bearing: number, windDirection: number): string {
-  // Calculate angle relative to wind (how far off the wind is the leg)
-  // Wind direction is where wind comes FROM
-  // Positive = starboard tack (wind from right), Negative = port tack (wind from left)
-  let relative = bearing - windDirection;
-  // Normalize to -180 to +180
-  while (relative > 180) relative -= 360;
-  while (relative < -180) relative += 360;
-  
-  const sign = relative >= 0 ? "+" : "";
-  return `${sign}${relative.toFixed(0)}° to wind`;
+  const { signedRelative } = calculateWindAngle(bearing, windDirection);
+  return formatWindRelative(signedRelative);
 }
 
 function LegLabels({ 

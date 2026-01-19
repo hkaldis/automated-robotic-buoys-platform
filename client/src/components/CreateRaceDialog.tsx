@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Flag, ChevronRight, ChevronLeft } from "lucide-react";
+import { Plus, Flag, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,30 +8,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import type { CourseShape, EventType } from "@shared/schema";
+import { useBoatClasses } from "@/hooks/use-api";
 
 interface CreateRaceDialogProps {
   onCreateRace: (data: {
     name: string;
     type: EventType;
     boatClass: string;
+    boatClassId: string | null;
     targetDuration: number;
     courseShape: CourseShape;
     courseName: string;
   }) => void;
   trigger?: React.ReactNode;
 }
-
-const BOAT_CLASSES = [
-  "Laser",
-  "Optimist", 
-  "420",
-  "470",
-  "49er",
-  "Finn",
-  "RS Feva",
-  "Nacra 17",
-  "Other"
-];
 
 const COURSE_SHAPES: { value: CourseShape; label: string; description: string }[] = [
   { value: "triangle", label: "Triangle", description: "Classic 3-mark triangular course" },
@@ -44,20 +34,25 @@ export function CreateRaceDialog({ onCreateRace, trigger }: CreateRaceDialogProp
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   
+  const { data: boatClassesData, isLoading: boatClassesLoading } = useBoatClasses();
+  const boatClasses = boatClassesData || [];
+  
   const [name, setName] = useState("");
   const [type, setType] = useState<EventType>("race");
-  const [boatClass, setBoatClass] = useState("Laser");
+  const [selectedBoatClassId, setSelectedBoatClassId] = useState<string>("");
   const [customBoatClass, setCustomBoatClass] = useState("");
   const [targetDuration, setTargetDuration] = useState(40);
   
   const [courseShape, setCourseShape] = useState<CourseShape>("triangle");
   const [courseName, setCourseName] = useState("");
+  
+  const selectedBoatClass = boatClasses.find(bc => bc.id === selectedBoatClassId);
 
   const resetForm = () => {
     setStep(1);
     setName("");
     setType("race");
-    setBoatClass("Laser");
+    setSelectedBoatClassId("");
     setCustomBoatClass("");
     setTargetDuration(40);
     setCourseShape("triangle");
@@ -78,12 +73,15 @@ export function CreateRaceDialog({ onCreateRace, trigger }: CreateRaceDialogProp
   };
 
   const handleCreate = () => {
-    const finalBoatClass = boatClass === "Other" ? customBoatClass : boatClass;
+    const finalBoatClass = selectedBoatClassId === "other" 
+      ? customBoatClass 
+      : (selectedBoatClass?.name || "Unknown");
     
     onCreateRace({
       name,
       type,
       boatClass: finalBoatClass,
+      boatClassId: selectedBoatClassId === "other" ? null : selectedBoatClassId || null,
       targetDuration,
       courseShape,
       courseName,
@@ -93,7 +91,7 @@ export function CreateRaceDialog({ onCreateRace, trigger }: CreateRaceDialogProp
     resetForm();
   };
 
-  const isStep1Valid = name.trim() && (boatClass !== "Other" || customBoatClass.trim());
+  const isStep1Valid = name.trim() && (selectedBoatClassId === "other" ? customBoatClass.trim() : selectedBoatClassId);
   const isStep2Valid = courseName.trim();
 
   return (
@@ -149,17 +147,26 @@ export function CreateRaceDialog({ onCreateRace, trigger }: CreateRaceDialogProp
 
             <div className="space-y-2">
               <Label htmlFor="boat-class">Boat Class</Label>
-              <Select value={boatClass} onValueChange={setBoatClass}>
+              <Select value={selectedBoatClassId} onValueChange={setSelectedBoatClassId}>
                 <SelectTrigger id="boat-class" data-testid="select-boat-class">
-                  <SelectValue placeholder="Select boat class" />
+                  <SelectValue placeholder={boatClassesLoading ? "Loading..." : "Select boat class"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {BOAT_CLASSES.map((bc) => (
-                    <SelectItem key={bc} value={bc}>{bc}</SelectItem>
-                  ))}
+                  {boatClassesLoading ? (
+                    <div className="flex items-center justify-center p-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  ) : (
+                    <>
+                      {boatClasses.map((bc) => (
+                        <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
+                      ))}
+                      <SelectItem value="other">Other (custom)</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
-              {boatClass === "Other" && (
+              {selectedBoatClassId === "other" && (
                 <Input
                   value={customBoatClass}
                   onChange={(e) => setCustomBoatClass(e.target.value)}

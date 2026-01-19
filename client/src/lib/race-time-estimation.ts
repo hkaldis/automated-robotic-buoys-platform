@@ -1,4 +1,5 @@
 import type { BoatClass, LegTimeEstimate, RaceTimeEstimate, Mark } from "@shared/schema";
+import { calculateWindAngle } from "./course-bearings";
 
 interface LegData {
   fromMark: { name: string; lat: number; lng: number };
@@ -8,17 +9,6 @@ interface LegData {
 }
 
 type PointOfSail = "upwind" | "close_reach" | "beam_reach" | "broad_reach" | "downwind";
-
-function normalizeAngle(angle: number): number {
-  let normalized = angle % 360;
-  if (normalized < 0) normalized += 360;
-  return normalized;
-}
-
-function calculateTrueWindAngle(legBearing: number, windDirection: number): number {
-  const diff = Math.abs(normalizeAngle(legBearing - windDirection));
-  return diff > 180 ? 360 - diff : diff;
-}
 
 function determinePointOfSail(twa: number, noGoZoneAngle: number): PointOfSail {
   if (twa < noGoZoneAngle) return "upwind";
@@ -112,7 +102,7 @@ export function estimateRaceTime(
   let totalTimeSeconds = 0;
   
   legs.forEach((leg, index) => {
-    const twa = calculateTrueWindAngle(leg.bearing, windDirectionDeg);
+    const { absoluteTwa: twa } = calculateWindAngle(leg.bearing, windDirectionDeg);
     const pointOfSail = determinePointOfSail(twa, boatClass.noGoZoneAngle);
     
     const optimalTwa = pointOfSail === "upwind" 
