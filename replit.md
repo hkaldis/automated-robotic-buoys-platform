@@ -49,3 +49,21 @@ The design prioritizes a tablet-first approach with large, touch-friendly contro
 ### Development Tools
 - **Vite**: Frontend build tool and development server.
 - **tsx**: TypeScript execution for development.
+
+## Recent Changes (January 2026)
+
+### Bug Fixes
+1. **Fixed "Random Marks Appearing" Issue**: When creating new events or clearing courses, marks from other courses no longer appear unexpectedly. The fix ensures:
+   - `activeCourseId` must be explicitly set (no fallback to first course in list)
+   - `useMarks` hook is disabled when no course is selected (returns empty array)
+   - Course ID is set immediately when creating a new race (before creating marks)
+   - Query cache is properly cleared when switching courses
+
+2. **Fixed Finish Line Mark Creation**: Finish line marks now correctly use role="finish" instead of "pin" which was causing validation errors.
+
+3. **Fixed Course Mark to Finish Line Conversion**: Turning point marks can now be properly converted to finish line marks, and deselecting a finish line mark correctly reverts its role to "turning_mark".
+
+### Key Implementation Details
+- `RaceControl.tsx` uses `activeCourseId` state variable to track explicitly selected course
+- When `activeCourseId` is null/undefined, no marks are fetched (prevents showing wrong course's marks)
+- `useEffect` initializes `activeCourseId` from event's courseId when event is loaded
