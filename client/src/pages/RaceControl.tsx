@@ -464,6 +464,57 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [currentCourse, updateCourse]);
 
   const handleDeployCourse = useCallback(() => {
+    // Pre-deploy validation: Check that all marks have buoys assigned
+    const unassignedMarks: string[] = [];
+    const unavailableBuoys: string[] = [];
+    
+    marks.forEach((mark) => {
+      if (mark.isGate) {
+        if (!mark.gatePortBuoyId) unassignedMarks.push(`${mark.name} (Port)`);
+        if (!mark.gateStarboardBuoyId) unassignedMarks.push(`${mark.name} (Starboard)`);
+        
+        // Check buoy availability
+        if (mark.gatePortBuoyId) {
+          const buoy = buoys.find(b => b.id === mark.gatePortBuoyId);
+          if (buoy && (buoy.state === "fault" || buoy.state === "maintenance" || buoy.state === "unavailable")) {
+            unavailableBuoys.push(`${buoy.name} (${buoy.state})`);
+          }
+        }
+        if (mark.gateStarboardBuoyId) {
+          const buoy = buoys.find(b => b.id === mark.gateStarboardBuoyId);
+          if (buoy && (buoy.state === "fault" || buoy.state === "maintenance" || buoy.state === "unavailable")) {
+            unavailableBuoys.push(`${buoy.name} (${buoy.state})`);
+          }
+        }
+      } else {
+        if (!mark.assignedBuoyId) unassignedMarks.push(mark.name);
+        
+        if (mark.assignedBuoyId) {
+          const buoy = buoys.find(b => b.id === mark.assignedBuoyId);
+          if (buoy && (buoy.state === "fault" || buoy.state === "maintenance" || buoy.state === "unavailable")) {
+            unavailableBuoys.push(`${buoy.name} (${buoy.state})`);
+          }
+        }
+      }
+    });
+    
+    if (unassignedMarks.length > 0) {
+      toast({
+        title: "Cannot Deploy",
+        description: `Missing buoy assignments: ${unassignedMarks.slice(0, 3).join(", ")}${unassignedMarks.length > 3 ? ` and ${unassignedMarks.length - 3} more` : ""}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (unavailableBuoys.length > 0) {
+      toast({
+        title: "Warning: Some Buoys Unavailable",
+        description: `${unavailableBuoys.join(", ")} - Proceeding with deployment anyway.`,
+        variant: "destructive",
+      });
+    }
+    
     toast({
       title: "Course Deployed",
       description: "All buoys are moving to their assigned positions.",
@@ -523,7 +574,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         }
       }
     });
-  }, [marks, demoMode, sendDemoCommand, buoyCommand, toast, activeWeatherData]);
+  }, [marks, buoys, demoMode, sendDemoCommand, buoyCommand, toast, activeWeatherData]);
 
   const handleRotateCourse = useCallback(() => {
     toast({

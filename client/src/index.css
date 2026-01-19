@@ -10,6 +10,11 @@
   touch-action: none;
 }
 
+/* Ensure Radix dialogs appear above Leaflet map and all its internal panes */
+[data-radix-portal] {
+  z-index: 9999 !important;
+}
+
 .leaflet-dragging .leaflet-grab {
   cursor: grabbing !important;
 }

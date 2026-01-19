@@ -207,6 +207,13 @@ class CourseService {
       isStartLine: false,
       isFinishLine: false,
       isCourseMark: true,
+      isGate: false,
+      gateWidthBoatLengths: 8,
+      boatLengthMeters: 6,
+      gatePartnerId: null,
+      gateSide: null,
+      gatePortBuoyId: null,
+      gateStarboardBuoyId: null,
     };
   }
 
