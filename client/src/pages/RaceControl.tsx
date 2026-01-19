@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useLocation } from "wouter";
 import { TopBar } from "@/components/TopBar";
 import { LeafletMap } from "@/components/LeafletMap";
 import { SetupPanel } from "@/components/SetupPanel";
@@ -9,6 +10,7 @@ import { AlertBanner } from "@/components/AlertBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AlertTriangle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import type { Event, Buoy, Mark, Course, MarkRole, CourseShape, EventType } from "@shared/schema";
 import { 
   useBuoys, 
@@ -275,6 +277,8 @@ interface RaceControlProps {
 }
 
 export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
+  const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
@@ -305,6 +309,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number };
     hasAssignedBuoys: boolean;
   } | null>(null);
+  
+  // Confirmation dialog state for clearing course from top bar
+  const [showClearCourseConfirm, setShowClearCourseConfirm] = useState(false);
   
   const { toast } = useToast();
 
@@ -1636,11 +1643,19 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       <TopBar
         eventName={displayEvent.name}
         clubName="Oakland Yacht Club"
-        weatherData={activeWeatherData}
         demoMode={demoMode}
         savedCourses={courses}
+        userRole={user?.role}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleDemoMode={toggleDemoMode}
+        onBackClick={() => {
+          if (user?.role === "super_admin") {
+            setLocation("/admin");
+          } else if (user?.role === "club_manager") {
+            setLocation("/clubs/" + user?.sailClubId);
+          }
+        }}
+        onClearCourse={() => setShowClearCourseConfirm(true)}
         onCreateRace={handleCreateRace}
         onSaveCourse={handleSaveCourse}
         onLoadCourse={handleLoadCourse}
@@ -1893,6 +1908,34 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               data-testid="button-confirm-transform"
             >
               Transform Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog for clearing course from top bar */}
+      <AlertDialog open={showClearCourseConfirm} onOpenChange={setShowClearCourseConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Clear Course?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all marks and reset the course. Any assigned buoys will be set to idle.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-clear-course">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground"
+              onClick={() => {
+                handleClearAllMarks();
+                setShowClearCourseConfirm(false);
+              }}
+              data-testid="button-confirm-clear-course"
+            >
+              Clear Course
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

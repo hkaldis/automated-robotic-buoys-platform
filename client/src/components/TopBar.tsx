@@ -1,4 +1,4 @@
-import { Wind, Wifi, Settings, Menu, Play, ToggleLeft, ToggleRight, ArrowUp, Maximize, Minimize, Save, FolderOpen } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, Save, FolderOpen, ArrowLeft, Trash2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,27 +6,20 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSettings } from "@/hooks/use-settings";
 import { CreateRaceDialog } from "./CreateRaceDialog";
 import type { CourseShape, EventType, Course } from "@shared/schema";
-
-interface WeatherData {
-  windSpeed: number;
-  windDirection: number;
-  currentSpeed: number;
-  currentDirection: number;
-  source: string;
-}
 
 interface TopBarProps {
   eventName: string;
   clubName: string;
-  weatherData?: WeatherData | null;
   demoMode?: boolean;
   savedCourses?: Course[];
+  userRole?: string;
   onMenuClick?: () => void;
   onSettingsClick?: () => void;
   onToggleDemoMode?: () => void;
+  onBackClick?: () => void;
+  onClearCourse?: () => void;
   onCreateRace?: (data: {
     name: string;
     type: EventType;
@@ -42,17 +35,18 @@ interface TopBarProps {
 export function TopBar({ 
   eventName, 
   clubName, 
-  weatherData, 
   demoMode,
   savedCourses = [],
+  userRole,
   onMenuClick, 
   onSettingsClick,
   onToggleDemoMode,
+  onBackClick,
+  onClearCourse,
   onCreateRace,
   onSaveCourse,
   onLoadCourse,
 }: TopBarProps) {
-  const { formatSpeed, formatBearing } = useSettings();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
@@ -114,7 +108,7 @@ export function TopBar({
   }, [getFullscreenElement, updateFullscreenState]);
 
   return (
-    <header className="h-16 border-b bg-card flex items-center px-4 gap-4 shrink-0 sticky top-0 z-50" data-testid="topbar">
+    <header className="h-16 border-b bg-card flex items-center px-4 gap-4 shrink-0 sticky top-0 z-[9999]" data-testid="topbar">
       <Button 
         variant="ghost" 
         size="icon" 
@@ -125,6 +119,24 @@ export function TopBar({
         <Menu className="w-5 h-5" />
       </Button>
 
+      {onBackClick && (userRole === "super_admin" || userRole === "club_manager") && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onBackClick}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {userRole === "super_admin" ? "Back to clubs" : "Back to events"}
+          </TooltipContent>
+        </Tooltip>
+      )}
+
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
           <span className="text-lg font-bold text-primary">RB</span>
@@ -133,33 +145,6 @@ export function TopBar({
           <h1 className="text-lg font-semibold truncate" data-testid="text-event-name">{eventName}</h1>
           <p className="text-xs text-muted-foreground truncate">{clubName}</p>
         </div>
-      </div>
-
-      <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-background border" data-testid="weather-widget">
-        <Wind className="w-5 h-5 text-chart-1 shrink-0" />
-        <div className="flex items-center gap-2">
-          <div 
-            className="transition-transform"
-            style={{ transform: `rotate(${(weatherData?.windDirection ?? 0) + 180}deg)` }}
-            title={weatherData ? `Wind blows toward ${((weatherData.windDirection + 180) % 360).toFixed(0)}°` : "No wind data"}
-          >
-            <ArrowUp className="w-4 h-4 text-chart-1" />
-          </div>
-          <div className="text-sm">
-            <span className="font-mono font-medium" data-testid="text-wind-speed">
-              {weatherData ? formatSpeed(weatherData.windSpeed) : "--"}
-            </span>
-            <span className="text-muted-foreground ml-1 text-xs">from</span>
-            <span className="text-muted-foreground ml-1 font-mono" data-testid="text-wind-direction">
-              {weatherData ? formatBearing(weatherData.windDirection) : "--"}
-            </span>
-          </div>
-        </div>
-        {weatherData && (
-          <span className="text-xs text-muted-foreground capitalize hidden sm:inline">
-            ({weatherData.source})
-          </span>
-        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -230,6 +215,22 @@ export function TopBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Load saved course</TooltipContent>
+          </Tooltip>
+        )}
+
+        {onClearCourse && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onClearCourse}
+                data-testid="button-clear-course"
+              >
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Clear course</TooltipContent>
           </Tooltip>
         )}
 
