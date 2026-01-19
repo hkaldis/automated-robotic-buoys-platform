@@ -7,6 +7,11 @@ import { setupSession, seedSuperAdmin } from "./auth";
 const app = express();
 const httpServer = createServer(app);
 
+// Trust the first proxy (Replit's reverse proxy) for secure cookies in production
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
