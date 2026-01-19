@@ -63,7 +63,12 @@ The design prioritizes a tablet-first approach with large, touch-friendly contro
 
 3. **Fixed Course Mark to Finish Line Conversion**: Turning point marks can now be properly converted to finish line marks, and deselecting a finish line mark correctly reverts its role to "turning_mark".
 
+4. **Fixed Mark Placement Not Working**: When clicking "Pin End (Port)" or other mark buttons, marks can now be placed on the map. The fix ensures:
+   - `activeCourseId` is auto-initialized from the first available course when no event course exists
+   - Helpful error message shown if somehow no course is available when placing marks
+   - Maintains the "random marks" fix by still requiring explicit course ID for fetching marks
+
 ### Key Implementation Details
 - `RaceControl.tsx` uses `activeCourseId` state variable to track explicitly selected course
 - When `activeCourseId` is null/undefined, no marks are fetched (prevents showing wrong course's marks)
-- `useEffect` initializes `activeCourseId` from event's courseId when event is loaded
+- `useEffect` initializes `activeCourseId` from: 1) event's courseId, 2) first available course if no event course

@@ -419,12 +419,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [courses.length, coursesLoading, courseCreationAttempted, createCourse, toast]);
 
-  // Initialize activeCourseId from event's courseId when event is loaded
+  // Initialize activeCourseId from event's courseId or first available course when loaded
   useEffect(() => {
-    if (currentEvent?.courseId && !activeCourseId) {
+    if (activeCourseId) return; // Already have an active course
+    
+    // Try to use the event's course first
+    if (currentEvent?.courseId) {
       setActiveCourseId(currentEvent.courseId);
+      return;
     }
-  }, [currentEvent?.courseId, activeCourseId]);
+    
+    // If no event course, use first available course (for operations, not for showing stale marks)
+    if (!coursesLoading && courses.length > 0) {
+      setActiveCourseId(courses[0].id);
+    }
+  }, [currentEvent?.courseId, activeCourseId, courses, coursesLoading]);
 
   // Handler to update sequence (persists to course)
   const handleUpdateSequence = useCallback((newSequence: string[]) => {
@@ -755,6 +764,18 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [marks, isPlacingMark, autoPlacementEnabled]);
 
   const handleMapClick = useCallback((lat: number, lng: number) => {
+    if (isPlacingMark && pendingMarkData) {
+      // Require a course to place marks
+      if (!currentCourse) {
+        toast({
+          title: "No Course Available",
+          description: "Please wait for the course to load before placing marks.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     if (isPlacingMark && pendingMarkData && currentCourse) {
       // Use current course marks count for naming in continuous mode
       const courseMarksCount = marks.filter(m => m.isCourseMark === true).length;
