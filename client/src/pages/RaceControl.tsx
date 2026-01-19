@@ -267,7 +267,11 @@ function estimateRaceTime(distanceNm: number, boatClass: string): number {
   return (distanceNm / speed) * 60;
 }
 
-export default function RaceControl() {
+interface RaceControlProps {
+  eventId?: string;
+}
+
+export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertDismissed, setAlertDismissed] = useState(false);
   const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
@@ -276,7 +280,7 @@ export default function RaceControl() {
   const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean } | null>(null);
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
-  const [activeEventId, setActiveEventId] = useState<string | null>(null);
+  const [activeEventId, setActiveEventId] = useState<string | null>(propEventId || null);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);

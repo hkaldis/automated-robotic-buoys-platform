@@ -7,13 +7,238 @@ import {
   insertMarkSchema, 
   insertBuoySchema,
   insertUserSettingsSchema,
+  insertSailClubSchema,
+  type UserRole,
 } from "@shared/schema";
 import { z } from "zod";
+import { 
+  requireAuth, 
+  requireRole, 
+  hashPassword, 
+  comparePassword, 
+  safeUserResponse,
+  requireEventAccess,
+} from "./auth";
+
+const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+const createUserSchema = z.object({
+  username: z.string().min(3),
+  password: z.string().min(4),
+  role: z.enum(["super_admin", "club_manager", "event_manager"]),
+  sailClubId: z.string().optional(),
+});
+
+const grantEventAccessSchema = z.object({
+  eventId: z.string(),
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = loginSchema.parse(req.body);
+      const user = await storage.getUserByUsername(username);
+      
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      const isValid = await comparePassword(password, user.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+      
+      req.session.userId = user.id;
+      req.session.role = user.role as UserRole;
+      req.session.sailClubId = user.sailClubId;
+      
+      res.json({ user: safeUserResponse(user) });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid login data" });
+      }
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      let eventAccess: string[] = [];
+      if (user.role === "event_manager") {
+        const access = await storage.getUserEventAccess(user.id);
+        eventAccess = access.map(a => a.eventId);
+      }
+      
+      res.json({ user: safeUserResponse(user), eventAccess });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  app.get("/api/users", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const sailClubId = req.session.role === "club_manager" 
+        ? req.session.sailClubId 
+        : req.query.sailClubId as string | undefined;
+      
+      const users = await storage.getUsers(sailClubId || undefined);
+      res.json(users.map(safeUserResponse));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const data = createUserSchema.parse(req.body);
+      
+      if (req.session.role === "club_manager") {
+        if (data.role !== "event_manager") {
+          return res.status(403).json({ error: "Club managers can only create event managers" });
+        }
+        if (!req.session.sailClubId) {
+          return res.status(403).json({ error: "Club manager has no club assigned" });
+        }
+        data.sailClubId = req.session.sailClubId;
+      }
+      
+      const existingUser = await storage.getUserByUsername(data.username);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+      
+      const passwordHash = await hashPassword(data.password);
+      const user = await storage.createUser({
+        username: data.username,
+        passwordHash,
+        role: data.role,
+        sailClubId: data.sailClubId,
+        createdBy: req.session.userId,
+      });
+      
+      res.status(201).json(safeUserResponse(user));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid user data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const userId = req.params.id as string;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (req.session.role === "club_manager") {
+        if (user.sailClubId !== req.session.sailClubId || user.role !== "event_manager") {
+          return res.status(403).json({ error: "Cannot delete this user" });
+        }
+      }
+      
+      if (user.role === "super_admin") {
+        return res.status(403).json({ error: "Cannot delete super admin" });
+      }
+      
+      await storage.deleteUser(userId);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  app.post("/api/users/:id/events", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const userId = req.params.id as string;
+      const { eventId } = grantEventAccessSchema.parse(req.body);
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.role !== "event_manager") {
+        return res.status(404).json({ error: "Event manager not found" });
+      }
+      
+      if (req.session.role === "club_manager" && user.sailClubId !== req.session.sailClubId) {
+        return res.status(403).json({ error: "Cannot manage users from other clubs" });
+      }
+      
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      
+      if (req.session.role === "club_manager" && event.sailClubId !== req.session.sailClubId) {
+        return res.status(403).json({ error: "Cannot grant access to events from other clubs" });
+      }
+      
+      const access = await storage.grantEventAccess({
+        userId,
+        eventId,
+        grantedBy: req.session.userId,
+      });
+      
+      res.status(201).json(access);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid data" });
+      }
+      res.status(500).json({ error: "Failed to grant access" });
+    }
+  });
+
+  app.delete("/api/users/:id/events/:eventId", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const userId = req.params.id as string;
+      const eventId = req.params.eventId as string;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      if (req.session.role === "club_manager" && user.sailClubId !== req.session.sailClubId) {
+        return res.status(403).json({ error: "Cannot manage users from other clubs" });
+      }
+      
+      await storage.revokeEventAccess(userId, eventId);
+      res.json({ message: "Access revoked successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to revoke access" });
+    }
+  });
+
+  app.get("/api/users/:id/events", requireAuth, async (req, res) => {
+    try {
+      const userId = req.params.id as string;
+      const access = await storage.getUserEventAccess(userId);
+      res.json(access);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch event access" });
+    }
+  });
 
   app.get("/api/sail-clubs", async (req, res) => {
     try {
@@ -26,13 +251,57 @@ export async function registerRoutes(
 
   app.get("/api/sail-clubs/:id", async (req, res) => {
     try {
-      const club = await storage.getSailClub(req.params.id);
+      const clubId = req.params.id as string;
+      const club = await storage.getSailClub(clubId);
       if (!club) {
         return res.status(404).json({ error: "Sail club not found" });
       }
       res.json(club);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sail club" });
+    }
+  });
+
+  app.post("/api/sail-clubs", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const validatedData = insertSailClubSchema.parse(req.body);
+      const club = await storage.createSailClub(validatedData);
+      res.status(201).json(club);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid club data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create club" });
+    }
+  });
+
+  app.patch("/api/sail-clubs/:id", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const clubId = req.params.id as string;
+      const validatedData = insertSailClubSchema.partial().parse(req.body);
+      const club = await storage.updateSailClub(clubId, validatedData);
+      if (!club) {
+        return res.status(404).json({ error: "Club not found" });
+      }
+      res.json(club);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid club data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to update club" });
+    }
+  });
+
+  app.delete("/api/sail-clubs/:id", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const clubId = req.params.id as string;
+      const deleted = await storage.deleteSailClub(clubId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Club not found" });
+      }
+      res.json({ message: "Club deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete club" });
     }
   });
 

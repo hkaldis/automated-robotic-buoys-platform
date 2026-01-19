@@ -4,7 +4,7 @@ import { z } from "zod";
 import { sql } from "drizzle-orm";
 
 // Enums as Zod schemas
-export const userRoleSchema = z.enum(["admin", "race_officer"]);
+export const userRoleSchema = z.enum(["super_admin", "club_manager", "event_manager"]);
 export type UserRole = z.infer<typeof userRoleSchema>;
 
 export const eventTypeSchema = z.enum(["race", "training"]);
@@ -51,9 +51,19 @@ export type SpeedUnit = z.infer<typeof speedUnitSchema>;
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull().default("race_officer"),
+  passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("event_manager"),
   sailClubId: varchar("sail_club_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by"),
+});
+
+export const userEventAccess = pgTable("user_event_access", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  eventId: varchar("event_id").notNull(),
+  grantedBy: varchar("granted_by"),
+  grantedAt: timestamp("granted_at").defaultNow(),
 });
 
 export const sailClubs = pgTable("sail_clubs", {
@@ -137,9 +147,16 @@ export const userSettings = pgTable("user_settings", {
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
-  password: true,
+  passwordHash: true,
   role: true,
   sailClubId: true,
+  createdBy: true,
+});
+
+export const insertUserEventAccessSchema = createInsertSchema(userEventAccess).pick({
+  userId: true,
+  eventId: true,
+  grantedBy: true,
 });
 
 export const insertSailClubSchema = createInsertSchema(sailClubs).pick({
@@ -216,6 +233,9 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).pick({
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+export type InsertUserEventAccess = z.infer<typeof insertUserEventAccessSchema>;
+export type UserEventAccess = typeof userEventAccess.$inferSelect;
 
 export type InsertSailClub = z.infer<typeof insertSailClubSchema>;
 export type SailClub = typeof sailClubs.$inferSelect;

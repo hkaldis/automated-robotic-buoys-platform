@@ -6,17 +6,28 @@ import {
   type Mark, type InsertMark,
   type Buoy, type InsertBuoy,
   type UserSettings, type InsertUserSettings,
+  type UserEventAccess, type InsertUserEventAccess,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUsers(sailClubId?: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
+  deleteUser(id: string): Promise<boolean>;
+
+  getUserEventAccess(userId: string): Promise<UserEventAccess[]>;
+  grantEventAccess(access: InsertUserEventAccess): Promise<UserEventAccess>;
+  revokeEventAccess(userId: string, eventId: string): Promise<boolean>;
+  getEventAccessUsers(eventId: string): Promise<User[]>;
 
   getSailClub(id: string): Promise<SailClub | undefined>;
   getSailClubs(): Promise<SailClub[]>;
   createSailClub(club: InsertSailClub): Promise<SailClub>;
+  updateSailClub(id: string, club: Partial<InsertSailClub>): Promise<SailClub | undefined>;
+  deleteSailClub(id: string): Promise<boolean>;
 
   getEvent(id: string): Promise<Event | undefined>;
   getEvents(sailClubId?: string): Promise<Event[]>;
@@ -47,6 +58,7 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<string, User> = new Map();
+  private userEventAccess: Map<string, UserEventAccess> = new Map();
   private sailClubs: Map<string, SailClub> = new Map();
   private events: Map<string, Event> = new Map();
   private courses: Map<string, Course> = new Map();
@@ -133,11 +145,81 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(u => u.username === username);
   }
 
+  async getUsers(sailClubId?: string): Promise<User[]> {
+    const users = Array.from(this.users.values());
+    if (sailClubId) {
+      return users.filter(u => u.sailClubId === sailClubId);
+    }
+    return users;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { id, ...insertUser, role: insertUser.role ?? "race_officer", sailClubId: insertUser.sailClubId ?? null };
+    const user: User = { 
+      id, 
+      ...insertUser, 
+      role: insertUser.role ?? "event_manager", 
+      sailClubId: insertUser.sailClubId ?? null,
+      createdAt: new Date(),
+      createdBy: insertUser.createdBy ?? null,
+    };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined> {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...user };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const entries = Array.from(this.userEventAccess.entries());
+    for (const [accessId, access] of entries) {
+      if (access.userId === id) {
+        this.userEventAccess.delete(accessId);
+      }
+    }
+    return this.users.delete(id);
+  }
+
+  async getUserEventAccess(userId: string): Promise<UserEventAccess[]> {
+    return Array.from(this.userEventAccess.values()).filter(a => a.userId === userId);
+  }
+
+  async grantEventAccess(access: InsertUserEventAccess): Promise<UserEventAccess> {
+    const id = randomUUID();
+    const newAccess: UserEventAccess = {
+      id,
+      userId: access.userId,
+      eventId: access.eventId,
+      grantedBy: access.grantedBy ?? null,
+      grantedAt: new Date(),
+    };
+    this.userEventAccess.set(id, newAccess);
+    return newAccess;
+  }
+
+  async revokeEventAccess(userId: string, eventId: string): Promise<boolean> {
+    const entries = Array.from(this.userEventAccess.entries());
+    for (const [id, access] of entries) {
+      if (access.userId === userId && access.eventId === eventId) {
+        return this.userEventAccess.delete(id);
+      }
+    }
+    return false;
+  }
+
+  async getEventAccessUsers(eventId: string): Promise<User[]> {
+    const accessList = Array.from(this.userEventAccess.values()).filter(a => a.eventId === eventId);
+    const users: User[] = [];
+    for (const access of accessList) {
+      const user = this.users.get(access.userId);
+      if (user) users.push(user);
+    }
+    return users;
   }
 
   async getSailClub(id: string): Promise<SailClub | undefined> {
@@ -153,6 +235,18 @@ export class MemStorage implements IStorage {
     const sailClub: SailClub = { id, ...club, logoUrl: club.logoUrl ?? null, location: club.location ?? null };
     this.sailClubs.set(id, sailClub);
     return sailClub;
+  }
+
+  async updateSailClub(id: string, club: Partial<InsertSailClub>): Promise<SailClub | undefined> {
+    const existing = this.sailClubs.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...club };
+    this.sailClubs.set(id, updated);
+    return updated;
+  }
+
+  async deleteSailClub(id: string): Promise<boolean> {
+    return this.sailClubs.delete(id);
   }
 
   async getEvent(id: string): Promise<Event | undefined> {
