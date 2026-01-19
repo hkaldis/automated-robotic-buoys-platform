@@ -120,22 +120,22 @@ export default function Landing() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center mb-12">
-          <div>
-            <div className="text-3xl font-bold text-slate-100 dark:text-slate-100">50+</div>
-            <div className="text-sm text-slate-400 dark:text-slate-400">Racing Events</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center mb-12">
+          <div className="bg-slate-800/30 dark:bg-slate-800/30 border border-slate-700/50 dark:border-slate-700/50 rounded-md p-4">
+            <div className="text-lg font-semibold text-primary mb-1">GPS Precision</div>
+            <div className="text-xs text-slate-400 dark:text-slate-400">Centimeter-accurate buoy positioning</div>
           </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-100 dark:text-slate-100">15</div>
-            <div className="text-sm text-slate-400 dark:text-slate-400">Sailing Clubs</div>
+          <div className="bg-slate-800/30 dark:bg-slate-800/30 border border-slate-700/50 dark:border-slate-700/50 rounded-md p-4">
+            <div className="text-lg font-semibold text-primary mb-1">Live Telemetry</div>
+            <div className="text-xs text-slate-400 dark:text-slate-400">Battery, signal & weather data</div>
           </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-100 dark:text-slate-100">100+</div>
-            <div className="text-sm text-slate-400 dark:text-slate-400">Active Buoys</div>
+          <div className="bg-slate-800/30 dark:bg-slate-800/30 border border-slate-700/50 dark:border-slate-700/50 rounded-md p-4">
+            <div className="text-lg font-semibold text-primary mb-1">Gate Support</div>
+            <div className="text-xs text-slate-400 dark:text-slate-400">Leeward gates with dual buoys</div>
           </div>
-          <div>
-            <div className="text-3xl font-bold text-slate-100 dark:text-slate-100">24/7</div>
-            <div className="text-sm text-slate-400 dark:text-slate-400">Real-time Tracking</div>
+          <div className="bg-slate-800/30 dark:bg-slate-800/30 border border-slate-700/50 dark:border-slate-700/50 rounded-md p-4">
+            <div className="text-lg font-semibold text-primary mb-1">Tablet Ready</div>
+            <div className="text-xs text-slate-400 dark:text-slate-400">PWA optimized for race committees</div>
           </div>
         </div>
       </main>
