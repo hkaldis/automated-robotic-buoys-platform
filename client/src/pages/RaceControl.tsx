@@ -329,13 +329,20 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [toast]);
   const buoyCommand = useBuoyCommand(sendDemoCommand, buoyCommandErrorHandler);
-  const updateMark = useUpdateMark(courseId);
-  const createMark = useCreateMark(courseId);
-  const deleteMark = useDeleteMark(courseId);
-  const updateCourse = useUpdateCourse();
+  const mutationErrorHandler = useCallback((error: Error) => {
+    toast({
+      title: "Operation Failed",
+      description: error.message || "An error occurred",
+      variant: "destructive",
+    });
+  }, [toast]);
+  const updateMark = useUpdateMark(courseId, mutationErrorHandler);
+  const createMark = useCreateMark(courseId, mutationErrorHandler);
+  const deleteMark = useDeleteMark(courseId, mutationErrorHandler);
+  const updateCourse = useUpdateCourse(mutationErrorHandler);
   const createEvent = useCreateEvent();
   const createCourse = useCreateCourse();
-  const deleteAllMarks = useDeleteAllMarks();
+  const deleteAllMarks = useDeleteAllMarks(mutationErrorHandler);
 
   const buoys = demoMode ? demoBuoys : apiBuoys;
 

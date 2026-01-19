@@ -89,16 +89,24 @@ export function useWeatherByLocation() {
   });
 }
 
-export function useUpdateBuoy() {
+export function useUpdateBuoy(onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Buoy> }) => {
       const res = await apiRequest("PATCH", `/api/buoys/${id}`, data);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update buoy");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+    },
+    onError: (error: Error) => {
+      console.error("Buoy update failed:", error);
+      onError?.(error);
     },
   });
 }
@@ -137,24 +145,33 @@ export function useBuoyCommand(
   });
 }
 
-export function useUpdateMark(courseId?: string) {
+export function useUpdateMark(courseId?: string, onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
+  const capturedCourseId = courseId;
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Mark> }) => {
       const res = await apiRequest("PATCH", `/api/marks/${id}`, data);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update mark");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      if (courseId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      if (capturedCourseId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", capturedCourseId, "marks"] });
       }
+    },
+    onError: (error: Error) => {
+      console.error("Mark update failed:", error);
+      onError?.(error);
     },
   });
 }
 
-export function useCreateMark(courseId?: string) {
+export function useCreateMark(courseId?: string, onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -171,43 +188,68 @@ export function useCreateMark(courseId?: string) {
       isCourseMark?: boolean;
     }) => {
       const res = await apiRequest("POST", "/api/marks", data);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to create mark");
+      }
       return res.json();
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/courses", variables.courseId, "marks"] });
     },
+    onError: (error: Error) => {
+      console.error("Mark creation failed:", error);
+      onError?.(error);
+    },
   });
 }
 
-export function useDeleteMark(courseId?: string) {
+export function useDeleteMark(courseId?: string, onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
+  const capturedCourseId = courseId;
   
   return useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/marks/${id}`);
+      const res = await apiRequest("DELETE", `/api/marks/${id}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete mark");
+      }
       return id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      if (courseId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      if (capturedCourseId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/courses", capturedCourseId, "marks"] });
       }
+    },
+    onError: (error: Error) => {
+      console.error("Mark deletion failed:", error);
+      onError?.(error);
     },
   });
 }
 
-export function useDeleteAllMarks() {
+export function useDeleteAllMarks(onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (courseId: string) => {
       const res = await apiRequest("DELETE", `/api/courses/${courseId}/marks`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete marks");
+      }
       return res.json();
     },
     onSuccess: (_, courseId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+    },
+    onError: (error: Error) => {
+      console.error("Delete all marks failed:", error);
+      onError?.(error);
     },
   });
 }
@@ -254,16 +296,24 @@ export function useCreateCourse() {
   });
 }
 
-export function useUpdateCourse() {
+export function useUpdateCourse(onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Course> }) => {
       const res = await apiRequest("PATCH", `/api/courses/${id}`, data);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update course");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+    },
+    onError: (error: Error) => {
+      console.error("Course update failed:", error);
+      onError?.(error);
     },
   });
 }

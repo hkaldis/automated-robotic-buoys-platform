@@ -19,6 +19,14 @@ import {
   safeUserResponse,
   requireEventAccess,
 } from "./auth";
+import {
+  validateCoordinates,
+  validateGateWidth,
+  validateMarkRoleConsistency,
+  validateBuoyNotAssignedToOtherMarks,
+  validateRoundingSequence,
+  validateCourseTransformBounds,
+} from "./validation";
 
 const loginSchema = z.object({
   username: z.string().min(1),
@@ -463,10 +471,36 @@ export async function registerRoutes(
     try {
       const courseId = req.params.id as string;
       const validatedData = insertCourseSchema.partial().parse(req.body);
-      const course = await storage.updateCourse(courseId, validatedData);
-      if (!course) {
+      
+      const existingCourse = await storage.getCourse(courseId);
+      if (!existingCourse) {
         return res.status(404).json({ error: "Course not found" });
       }
+      
+      if (validatedData.centerLat !== undefined || validatedData.centerLng !== undefined) {
+        const newCenterLat = validatedData.centerLat ?? existingCourse.centerLat;
+        const newCenterLng = validatedData.centerLng ?? existingCourse.centerLng;
+        const coordResult = validateCoordinates(newCenterLat, newCenterLng);
+        if (!coordResult.valid) {
+          return res.status(400).json({ error: coordResult.error });
+        }
+      }
+      
+      if (validatedData.rotation !== undefined || validatedData.scale !== undefined) {
+        const transformResult = validateCourseTransformBounds(validatedData);
+        if (!transformResult.valid) {
+          return res.status(400).json({ error: transformResult.error });
+        }
+      }
+      
+      if (validatedData.roundingSequence !== undefined) {
+        const sequenceResult = await validateRoundingSequence(storage, courseId, validatedData.roundingSequence || []);
+        if (!sequenceResult.valid) {
+          return res.status(400).json({ error: sequenceResult.error });
+        }
+      }
+      
+      const course = await storage.updateCourse(courseId, validatedData);
       res.json(course);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -488,6 +522,28 @@ export async function registerRoutes(
   app.post("/api/marks", requireAuth, async (req, res) => {
     try {
       const validatedData = insertMarkSchema.parse(req.body);
+      
+      const coordResult = validateCoordinates(validatedData.lat, validatedData.lng);
+      if (!coordResult.valid) {
+        return res.status(400).json({ error: coordResult.error });
+      }
+      
+      const roleResult = validateMarkRoleConsistency(validatedData);
+      if (!roleResult.valid) {
+        return res.status(400).json({ error: roleResult.error });
+      }
+      
+      const gateResult = validateGateWidth(validatedData.gateWidthBoatLengths, validatedData.boatLengthMeters);
+      if (!gateResult.valid) {
+        return res.status(400).json({ error: gateResult.error });
+      }
+      
+      const buoyIds = [validatedData.assignedBuoyId, validatedData.gatePortBuoyId, validatedData.gateStarboardBuoyId];
+      const buoyResult = await validateBuoyNotAssignedToOtherMarks(storage, validatedData.courseId, null, buoyIds);
+      if (!buoyResult.valid) {
+        return res.status(400).json({ error: buoyResult.error });
+      }
+      
       const mark = await storage.createMark(validatedData);
       res.status(201).json(mark);
     } catch (error) {
@@ -503,19 +559,49 @@ export async function registerRoutes(
       const markId = req.params.id as string;
       const validatedData = insertMarkSchema.partial().parse(req.body);
       
-      // Validate buoy assignments - prevent same buoy assigned to multiple roles
+      const existingMark = await storage.getMark(markId);
+      if (!existingMark) {
+        return res.status(404).json({ error: "Mark not found" });
+      }
+      
+      if (validatedData.courseId !== undefined && validatedData.courseId !== existingMark.courseId) {
+        return res.status(400).json({ error: "Cannot change the course a mark belongs to. Delete and recreate the mark instead." });
+      }
+      
+      if (validatedData.lat !== undefined || validatedData.lng !== undefined) {
+        const coordResult = validateCoordinates(validatedData.lat, validatedData.lng);
+        if (!coordResult.valid) {
+          return res.status(400).json({ error: coordResult.error });
+        }
+      }
+      
+      const mergedData = { ...existingMark, ...validatedData };
+      const roleResult = validateMarkRoleConsistency(mergedData);
+      if (!roleResult.valid) {
+        return res.status(400).json({ error: roleResult.error });
+      }
+      
+      if (validatedData.gateWidthBoatLengths !== undefined || validatedData.boatLengthMeters !== undefined) {
+        const gateResult = validateGateWidth(validatedData.gateWidthBoatLengths, validatedData.boatLengthMeters);
+        if (!gateResult.valid) {
+          return res.status(400).json({ error: gateResult.error });
+        }
+      }
+      
       if (validatedData.assignedBuoyId || validatedData.gatePortBuoyId || validatedData.gateStarboardBuoyId) {
         const buoyIds = [validatedData.assignedBuoyId, validatedData.gatePortBuoyId, validatedData.gateStarboardBuoyId].filter(Boolean);
         const uniqueBuoyIds = new Set(buoyIds);
         if (buoyIds.length !== uniqueBuoyIds.size) {
           return res.status(400).json({ error: "Cannot assign the same buoy to multiple roles on a mark" });
         }
+        
+        const buoyResult = await validateBuoyNotAssignedToOtherMarks(storage, existingMark.courseId, markId, buoyIds);
+        if (!buoyResult.valid) {
+          return res.status(400).json({ error: buoyResult.error });
+        }
       }
       
       const mark = await storage.updateMark(markId, validatedData);
-      if (!mark) {
-        return res.status(404).json({ error: "Mark not found" });
-      }
       res.json(mark);
     } catch (error) {
       if (error instanceof z.ZodError) {
