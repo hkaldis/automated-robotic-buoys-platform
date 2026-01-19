@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
-import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_WHITE_BACKGROUND_1768786798926.jpeg";
+import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
 export default function Login() {
   const [, setLocation] = useLocation();

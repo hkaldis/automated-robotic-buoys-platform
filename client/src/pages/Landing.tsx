@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Loader2, Navigation, Users, Compass, Waves, Sailboat } from "lucide-react";
-import alconmarksLogoWhite from "@assets/ALCON_MARKS_LOGO_WHITE_BACKGROUND_1768786798926.jpeg";
+import alconmarksLogoWhite from "@assets/IMG_0083_1_1768808004796.png";
 
 export default function Landing() {
   const [, setLocation] = useLocation();

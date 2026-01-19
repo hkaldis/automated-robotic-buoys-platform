@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play } from "lucide-react";
 import type { SailClub, UserRole, Event } from "@shared/schema";
-import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_BLACK_BACKGROUND_1768786798926.jpeg";
+import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
 interface SafeUser {
   id: string;

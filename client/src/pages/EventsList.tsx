@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Loader2, Play, Calendar } from "lucide-react";
 import type { Event } from "@shared/schema";
-import alconmarksLogo from "@assets/ALCON_MARKS_LOGO_BLACK_BACKGROUND_1768786798926.jpeg";
+import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
 export default function EventsList() {
   const [, setLocation] = useLocation();
