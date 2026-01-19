@@ -240,18 +240,47 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/sail-clubs", async (req, res) => {
+  app.get("/api/sail-clubs", requireAuth, async (req, res) => {
     try {
-      const clubs = await storage.getSailClubs();
-      res.json(clubs);
+      const user = await storage.getUser(req.session.userId!);
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Super admins see all clubs
+      if (user.role === "super_admin") {
+        const clubs = await storage.getSailClubs();
+        return res.json(clubs);
+      }
+      
+      // Other users see only their associated club
+      if (user.sailClubId) {
+        const club = await storage.getSailClub(user.sailClubId);
+        return res.json(club ? [club] : []);
+      }
+      
+      res.json([]);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch sail clubs" });
     }
   });
 
-  app.get("/api/sail-clubs/:id", async (req, res) => {
+  app.get("/api/sail-clubs/:id", requireAuth, async (req, res) => {
     try {
       const clubId = req.params.id as string;
+      const user = await storage.getUser(req.session.userId!);
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Super admins can see any club
+      // Other users can only see their associated club
+      if (user.role !== "super_admin" && user.sailClubId !== clubId) {
+        return res.status(403).json({ error: "Access denied to this sail club" });
+      }
+      
       const club = await storage.getSailClub(clubId);
       if (!club) {
         return res.status(404).json({ error: "Sail club not found" });
@@ -305,19 +334,46 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/events", async (req, res) => {
+  app.get("/api/events", requireAuth, async (req, res) => {
     try {
       const sailClubId = req.query.sailClubId as string | undefined;
-      const events = await storage.getEvents(sailClubId);
-      res.json(events);
+      const user = await storage.getUser(req.session.userId!);
+      
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+      
+      // Super admins see all events
+      if (user.role === "super_admin") {
+        const events = await storage.getEvents(sailClubId);
+        return res.json(events);
+      }
+      
+      // Club managers see events from their club
+      if (user.role === "club_manager") {
+        const clubEvents = await storage.getEvents(user.sailClubId || undefined);
+        return res.json(clubEvents);
+      }
+      
+      // Event managers see only their assigned events from the access table
+      if (user.role === "event_manager") {
+        const accessList = await storage.getUserEventAccess(user.id);
+        const accessibleEventIds = accessList.map(a => a.eventId);
+        const allEvents = await storage.getEvents(sailClubId);
+        const filteredEvents = allEvents.filter(e => accessibleEventIds.includes(e.id));
+        return res.json(filteredEvents);
+      }
+      
+      res.json([]);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch events" });
     }
   });
 
-  app.get("/api/events/:id", async (req, res) => {
+  app.get("/api/events/:id", requireAuth, requireEventAccess, async (req, res) => {
     try {
-      const event = await storage.getEvent(req.params.id);
+      const eventId = req.params.id as string;
+      const event = await storage.getEvent(eventId);
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
       }
@@ -327,7 +383,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/events", async (req, res) => {
+  app.post("/api/events", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
     try {
       const validatedData = insertEventSchema.parse(req.body);
       const event = await storage.createEvent(validatedData);
@@ -340,10 +396,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/events/:id", async (req, res) => {
+  app.patch("/api/events/:id", requireAuth, requireEventAccess, async (req, res) => {
     try {
+      const eventId = req.params.id as string;
       const validatedData = insertEventSchema.partial().parse(req.body);
-      const event = await storage.updateEvent(req.params.id, validatedData);
+      const event = await storage.updateEvent(eventId, validatedData);
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
       }
@@ -389,7 +446,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/courses", async (req, res) => {
+  app.post("/api/courses", requireAuth, async (req, res) => {
     try {
       const validatedData = insertCourseSchema.parse(req.body);
       const course = await storage.createCourse(validatedData);
@@ -402,10 +459,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/courses/:id", async (req, res) => {
+  app.patch("/api/courses/:id", requireAuth, async (req, res) => {
     try {
+      const courseId = req.params.id as string;
       const validatedData = insertCourseSchema.partial().parse(req.body);
-      const course = await storage.updateCourse(req.params.id, validatedData);
+      const course = await storage.updateCourse(courseId, validatedData);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
@@ -427,7 +485,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/marks", async (req, res) => {
+  app.post("/api/marks", requireAuth, async (req, res) => {
     try {
       const validatedData = insertMarkSchema.parse(req.body);
       const mark = await storage.createMark(validatedData);
@@ -440,10 +498,21 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/marks/:id", async (req, res) => {
+  app.patch("/api/marks/:id", requireAuth, async (req, res) => {
     try {
+      const markId = req.params.id as string;
       const validatedData = insertMarkSchema.partial().parse(req.body);
-      const mark = await storage.updateMark(req.params.id, validatedData);
+      
+      // Validate buoy assignments - prevent same buoy assigned to multiple roles
+      if (validatedData.assignedBuoyId || validatedData.gatePortBuoyId || validatedData.gateStarboardBuoyId) {
+        const buoyIds = [validatedData.assignedBuoyId, validatedData.gatePortBuoyId, validatedData.gateStarboardBuoyId].filter(Boolean);
+        const uniqueBuoyIds = new Set(buoyIds);
+        if (buoyIds.length !== uniqueBuoyIds.size) {
+          return res.status(400).json({ error: "Cannot assign the same buoy to multiple roles on a mark" });
+        }
+      }
+      
+      const mark = await storage.updateMark(markId, validatedData);
       if (!mark) {
         return res.status(404).json({ error: "Mark not found" });
       }
@@ -456,21 +525,45 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/marks/:id", async (req, res) => {
+  app.delete("/api/marks/:id", requireAuth, async (req, res) => {
     try {
-      const deleted = await storage.deleteMark(req.params.id);
+      const markId = req.params.id as string;
+      
+      // Get the mark first to find its course
+      const mark = await storage.getMark(markId);
+      if (!mark) {
+        return res.status(404).json({ error: "Mark not found" });
+      }
+      
+      // Delete the mark
+      const deleted = await storage.deleteMark(markId);
       if (!deleted) {
         return res.status(404).json({ error: "Mark not found" });
       }
+      
+      // Clean up rounding sequence atomically
+      const course = await storage.getCourse(mark.courseId);
+      if (course && course.roundingSequence) {
+        const cleanedSequence = course.roundingSequence.filter(entry => entry !== markId);
+        if (cleanedSequence.length !== course.roundingSequence.length) {
+          await storage.updateCourse(course.id, { roundingSequence: cleanedSequence });
+        }
+      }
+      
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete mark" });
     }
   });
 
-  app.delete("/api/courses/:id/marks", async (req, res) => {
+  app.delete("/api/courses/:id/marks", requireAuth, async (req, res) => {
     try {
-      const count = await storage.deleteMarksByCourse(req.params.id);
+      const courseId = req.params.id as string;
+      
+      // Clear the rounding sequence first
+      await storage.updateCourse(courseId, { roundingSequence: [] });
+      
+      const count = await storage.deleteMarksByCourse(courseId);
       res.json({ deleted: count });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete marks" });
@@ -499,7 +592,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/buoys", async (req, res) => {
+  app.post("/api/buoys", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
     try {
       const validatedData = insertBuoySchema.parse(req.body);
       const buoy = await storage.createBuoy(validatedData);
@@ -512,10 +605,11 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/buoys/:id", async (req, res) => {
+  app.patch("/api/buoys/:id", requireAuth, async (req, res) => {
     try {
+      const buoyId = req.params.id as string;
       const validatedData = insertBuoySchema.partial().parse(req.body);
-      const buoy = await storage.updateBuoy(req.params.id, validatedData);
+      const buoy = await storage.updateBuoy(buoyId, validatedData);
       if (!buoy) {
         return res.status(404).json({ error: "Buoy not found" });
       }
@@ -528,10 +622,11 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/buoys/:id/command", async (req, res) => {
+  app.post("/api/buoys/:id/command", requireAuth, async (req, res) => {
     try {
+      const buoyId = req.params.id as string;
       const { command, targetLat, targetLng } = req.body;
-      const buoy = await storage.getBuoy(req.params.id);
+      const buoy = await storage.getBuoy(buoyId);
       
       if (!buoy) {
         return res.status(404).json({ error: "Buoy not found" });
@@ -569,7 +664,7 @@ export async function registerRoutes(
           return res.status(400).json({ error: "Invalid command" });
       }
 
-      const updated = await storage.updateBuoy(req.params.id, updates);
+      const updated = await storage.updateBuoy(buoyId, updates);
       res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Failed to execute command" });

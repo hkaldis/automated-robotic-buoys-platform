@@ -321,7 +321,14 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const courseId = currentCourse?.id ?? "";
   const { data: marks = [], isLoading: marksLoading } = useMarks(courseId);
-  const buoyCommand = useBuoyCommand(sendDemoCommand);
+  const buoyCommandErrorHandler = useCallback((error: Error) => {
+    toast({
+      title: "Buoy Command Failed",
+      description: error.message || "Failed to execute buoy command",
+      variant: "destructive",
+    });
+  }, [toast]);
+  const buoyCommand = useBuoyCommand(sendDemoCommand, buoyCommandErrorHandler);
   const updateMark = useUpdateMark(courseId);
   const createMark = useCreateMark(courseId);
   const deleteMark = useDeleteMark(courseId);

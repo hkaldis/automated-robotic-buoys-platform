@@ -103,7 +103,10 @@ export function useUpdateBuoy() {
   });
 }
 
-export function useBuoyCommand(demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void) {
+export function useBuoyCommand(
+  demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void,
+  onError?: (error: Error) => void
+) {
   const queryClient = useQueryClient();
   
   return useMutation({
@@ -118,10 +121,18 @@ export function useBuoyCommand(demoSendCommand?: (buoyId: string, command: "move
         return { success: true, demo: true };
       }
       const res = await apiRequest("POST", `/api/buoys/${id}/command`, { command, targetLat, targetLng });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to execute buoy command");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+    },
+    onError: (error: Error) => {
+      console.error("Buoy command failed:", error);
+      onError?.(error);
     },
   });
 }

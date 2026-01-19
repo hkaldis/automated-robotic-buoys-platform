@@ -23,11 +23,18 @@ export async function comparePassword(password: string, hash: string): Promise<b
 }
 
 export function setupSession(app: Express): void {
-  const sessionSecret = process.env.SESSION_SECRET || "robuoys-dev-secret-change-in-production";
+  const sessionSecret = process.env.SESSION_SECRET;
+  
+  if (!sessionSecret) {
+    console.error("WARNING: SESSION_SECRET environment variable is not set. Using insecure default for development only.");
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SESSION_SECRET must be set in production environment");
+    }
+  }
   
   app.use(
     session({
-      secret: sessionSecret,
+      secret: sessionSecret || "dev-only-insecure-secret-" + Date.now(),
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -47,7 +54,21 @@ export async function seedSuperAdmin(): Promise<void> {
     return;
   }
 
-  const passwordHash = await hashPassword("marks");
+  // Use environment variable for admin password, with secure default behavior
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  
+  if (!adminPassword) {
+    console.warn("WARNING: ADMIN_PASSWORD environment variable not set. Super admin will NOT be created.");
+    console.warn("To create the super admin, set ADMIN_PASSWORD environment variable and restart.");
+    return;
+  }
+  
+  if (adminPassword.length < 8) {
+    console.error("ERROR: ADMIN_PASSWORD must be at least 8 characters long");
+    return;
+  }
+
+  const passwordHash = await hashPassword(adminPassword);
   await storage.createUser({
     username: "alconadmin",
     passwordHash,

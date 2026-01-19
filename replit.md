@@ -163,3 +163,31 @@ The application prioritizes a tablet-first approach with a clear, maritime-theme
 ### Development Tools
 - **Vite**: Frontend build tool and development server.
 - **tsx**: TypeScript execution for development workflows.
+
+## Security Architecture
+
+### Authentication
+- **Session-based**: Express sessions with bcrypt password hashing
+- **Role-based Access Control (RBAC)**: super_admin, club_manager, event_manager roles
+- **Middleware**: `requireAuth` and `requireRole` protect all sensitive endpoints
+
+### Environment Variables Required
+- **SESSION_SECRET**: Required in production (auto-generated insecure default in development only)
+- **ADMIN_PASSWORD**: Required to seed super admin user (minimum 8 characters)
+
+### Protected Endpoints
+All mutating operations require authentication:
+- Events: Create/Update require club_manager or super_admin role
+- Courses, Marks: Create/Update/Delete require authentication
+- Buoys: Create requires club_manager or super_admin, Update/Command requires authentication
+- User Settings: Scoped to authenticated user only
+
+### Data Validation
+- Server-side Zod validation on all inputs
+- Gate buoy assignments validated to prevent duplicate assignments
+- Cascade cleanup on mark/course deletion to maintain data integrity
+
+### Error Handling
+- Global ErrorBoundary component catches React errors
+- API errors returned with appropriate HTTP status codes
+- Client-side toast notifications for user feedback

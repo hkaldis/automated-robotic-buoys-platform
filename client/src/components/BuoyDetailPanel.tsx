@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { X, Play, Pause, RotateCcw, Navigation, Battery, Signal, Wind, Waves, Clock, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Target, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,7 +64,14 @@ function getBuoyStateLabel(state: BuoyState): string {
 export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto, isTapMapMode, onNudgeBuoy }: BuoyDetailPanelProps) {
   const { formatSpeed, formatBearing } = useSettings();
   const { toast } = useToast();
-  const buoyCommand = useBuoyCommand(demoSendCommand);
+  const handleBuoyCommandError = useCallback((error: Error) => {
+    toast({
+      title: "Command Failed",
+      description: error.message || "Failed to execute buoy command",
+      variant: "destructive",
+    });
+  }, [toast]);
+  const buoyCommand = useBuoyCommand(demoSendCommand, handleBuoyCommandError);
   const [gotoLat, setGotoLat] = useState("");
   const [gotoLng, setGotoLng] = useState("");
 
