@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import type { Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
 
@@ -448,23 +449,22 @@ export function SetupPanel({
     switch (phase) {
       case "start_line":
         return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/30">
-                <Flag className="w-5 h-5 text-green-600" />
+          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/30">
+                <Flag className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Start Line</h2>
+                <h2 className="text-sm font-semibold">Start Line</h2>
                 <p className="text-xs text-muted-foreground">Add Pin End & Committee Boat</p>
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button
-                size="lg"
                 variant={hasPinEnd ? "secondary" : "default"}
                 className={cn(
-                  "w-full text-lg gap-3 justify-start",
+                  "w-full gap-2 justify-start",
                   hasPinEnd && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
                 )}
                 onClick={() => handleAddStartLineMark("pin")}
@@ -472,21 +472,20 @@ export function SetupPanel({
                 data-testid="button-add-pin-end"
               >
                 {hasPinEnd ? (
-                  <Check className="w-6 h-6 text-green-600" />
+                  <Check className="w-4 h-4 text-green-600" />
                 ) : (
-                  <Plus className="w-6 h-6" />
+                  <Plus className="w-4 h-4" />
                 )}
                 Pin End (Port)
                 {hasPinEnd && (
-                  <Badge className="ml-auto bg-green-500">Added</Badge>
+                  <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
                 )}
               </Button>
 
               <Button
-                size="lg"
                 variant={hasCommitteeBoat ? "secondary" : "default"}
                 className={cn(
-                  "w-full text-lg gap-3 justify-start",
+                  "w-full gap-2 justify-start",
                   hasCommitteeBoat && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
                 )}
                 onClick={() => handleAddStartLineMark("committee_boat")}
@@ -494,58 +493,57 @@ export function SetupPanel({
                 data-testid="button-add-committee-boat"
               >
                 {hasCommitteeBoat ? (
-                  <Check className="w-6 h-6 text-green-600" />
+                  <Check className="w-4 h-4 text-green-600" />
                 ) : (
-                  <Ship className="w-6 h-6" />
+                  <Ship className="w-4 h-4" />
                 )}
                 Committee Boat (Starboard)
                 {hasCommitteeBoat && (
-                  <Badge className="ml-auto bg-green-500">Added</Badge>
+                  <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
                 )}
               </Button>
             </div>
 
             {startLineMarks.length > 0 && (
               <ScrollArea className="flex-1 min-h-0">
-                <div className="space-y-2 pt-2">
-                  <p className="text-sm font-medium text-muted-foreground">Start Line Marks:</p>
+                <div className="space-y-1.5 pt-2">
+                  <p className="text-xs font-medium text-muted-foreground">Start Line Marks:</p>
                   {startLineMarks.map((mark) => (
                     <button
                       key={mark.id}
                       onClick={() => onMarkSelect?.(mark.id)}
-                      className="w-full flex items-center gap-4 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 hover-elevate text-left"
+                      className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 hover-elevate text-left"
                       data-testid={`button-start-mark-${mark.id}`}
                     >
-                      <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white">
-                        <Flag className="w-5 h-5" />
+                      <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white">
+                        <Flag className="w-3.5 h-3.5" />
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold">{mark.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{mark.name}</p>
+                        <p className="text-xs text-muted-foreground">
                           {mark.lat.toFixed(4)}, {mark.lng.toFixed(4)}
                         </p>
                       </div>
-                      <Pencil className="w-5 h-5 text-muted-foreground" />
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
                     </button>
                   ))}
                 </div>
               </ScrollArea>
             )}
 
-            <div className="pt-4 border-t">
+            <div className="pt-3 border-t mt-auto">
               <Button
-                size="lg"
-                className="w-full text-lg gap-3"
+                className="w-full gap-2"
                 disabled={!hasStartLine}
                 onClick={() => setPhase("marks")}
                 data-testid="button-continue-marks"
               >
                 Continue to Course Marks
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-4 h-4" />
               </Button>
               {!hasStartLine && (
-                <p className="text-center text-sm text-muted-foreground mt-2">
-                  Add both Pin End and Committee Boat to continue
+                <p className="text-center text-xs text-muted-foreground mt-1.5">
+                  Add both marks to continue
                 </p>
               )}
             </div>
@@ -554,83 +552,80 @@ export function SetupPanel({
 
       case "marks":
         return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-primary/10">
-                <MapPin className="w-5 h-5 text-primary" />
+          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-primary/10">
+                <MapPin className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Course Marks</h2>
+                <h2 className="text-sm font-semibold">Course Marks</h2>
                 <p className="text-xs text-muted-foreground">Add marks (M1, M2, M3...)</p>
               </div>
             </div>
 
             <Button
-              size="lg"
-              className="w-full text-lg gap-3"
+              className="w-full gap-2"
               onClick={handleAddCourseMark}
               data-testid="button-add-course-mark"
             >
-              <Plus className="w-6 h-6" />
+              <Plus className="w-4 h-4" />
               Add Course Mark (M{courseMarks.length + 1})
             </Button>
 
             <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {courseMarks.map((mark, index) => (
                   <button
                     key={mark.id}
                     onClick={() => onMarkSelect?.(mark.id)}
-                    className="w-full flex items-center gap-4 p-4 rounded-xl bg-muted/50 hover-elevate text-left"
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-muted/50 hover-elevate text-left"
                     data-testid={`button-course-mark-${mark.id}`}
                   >
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
                       M{index + 1}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-lg">{mark.name}</p>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{mark.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {mark.lat.toFixed(4)}, {mark.lng.toFixed(4)}
                       </p>
                     </div>
-                    <Pencil className="w-5 h-5 text-muted-foreground" />
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
                   </button>
                 ))}
                 {courseMarks.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <MapPin className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg">No course marks yet</p>
-                    <p className="text-sm">Tap the button above to add marks</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No course marks yet</p>
+                    <p className="text-xs">Tap the button above to add marks</p>
                   </div>
                 )}
               </div>
             </ScrollArea>
 
-            <div className="pt-4 border-t space-y-3">
-              <div className="flex gap-3">
+            <div className="pt-3 border-t space-y-2 mt-auto">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   onClick={() => setPhase("start_line")}
                   data-testid="button-back-start"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                   Back
                 </Button>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   disabled={!hasCourseMarks}
                   onClick={() => { setFinishConfirmed(false); setPhase("finish_line"); }}
                   data-testid="button-continue-finish"
                 >
                   Continue
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
               {!hasCourseMarks && (
-                <p className="text-center text-sm text-muted-foreground">
+                <p className="text-center text-xs text-muted-foreground">
                   Add at least 1 course mark to continue
                 </p>
               )}
@@ -642,31 +637,30 @@ export function SetupPanel({
         const canConfirmFinish = selectedLineMarkIds.size >= 2;
         
         return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
-                <FlagTriangleRight className="w-5 h-5 text-blue-600" />
+          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
+                <FlagTriangleRight className="w-4 h-4 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Finish Line</h2>
+                <h2 className="text-sm font-semibold">Finish Line</h2>
                 <p className="text-xs text-muted-foreground">Select 2 marks (can reuse start marks)</p>
               </div>
             </div>
 
             <Button
               variant="outline"
-              size="lg"
-              className="w-full text-lg gap-2"
+              className="w-full gap-2"
               onClick={handleAddFinishMark}
               data-testid="button-add-finish-mark"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Add New Finish Mark
             </Button>
             
             <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground mb-2">
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">
                   Select any 2 marks for the finish line:
                 </p>
                 {marks.map((mark) => {
@@ -677,7 +671,7 @@ export function SetupPanel({
                       key={mark.id}
                       onClick={() => toggleMarkSelection(mark.id)}
                       className={cn(
-                        "w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all",
+                        "w-full flex items-center gap-3 p-2.5 rounded-lg text-left transition-all",
                         isSelected
                           ? "bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-500"
                           : "bg-muted/50 hover-elevate"
@@ -685,25 +679,25 @@ export function SetupPanel({
                       data-testid={`button-select-finish-mark-${mark.id}`}
                     >
                       <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center border-4",
+                        "w-7 h-7 rounded-full flex items-center justify-center border-2",
                         isSelected
                           ? "bg-blue-500 border-blue-500 text-white"
                           : "bg-background border-muted-foreground/30"
                       )}>
-                        {isSelected && <Check className="w-6 h-6" />}
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-lg">{mark.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{mark.name}</p>
+                        <p className="text-xs text-muted-foreground">
                           {mark.isCourseMark ? "Course Mark" : mark.role}
                         </p>
                       </div>
                       <div className="flex gap-1">
                         {isStartLineMark && (
-                          <Badge className="bg-green-500">S</Badge>
+                          <Badge variant="secondary" className="text-[10px] bg-green-500/20 text-green-600">S</Badge>
                         )}
                         {isSelected && (
-                          <Badge className="bg-blue-500">F</Badge>
+                          <Badge variant="secondary" className="text-[10px] bg-blue-500/20 text-blue-600">F</Badge>
                         )}
                       </div>
                     </button>
@@ -712,31 +706,29 @@ export function SetupPanel({
               </div>
             </ScrollArea>
 
-            <div className="pt-4 border-t space-y-3">
+            <div className="pt-3 border-t space-y-2 mt-auto">
               {!canConfirmFinish && (
-                <p className="text-center text-amber-600 font-medium">
+                <p className="text-center text-xs text-amber-600 font-medium">
                   Select at least 2 marks for the finish line
                 </p>
               )}
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   onClick={() => setPhase("marks")}
                   data-testid="button-back-marks"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                   Back
                 </Button>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   disabled={!canConfirmFinish}
                   onClick={confirmFinishLineSelection}
                   data-testid="button-confirm-finish"
                 >
-                  <Check className="w-5 h-5" />
+                  <Check className="w-4 h-4" />
                   Confirm
                 </Button>
               </div>
@@ -746,77 +738,77 @@ export function SetupPanel({
 
       case "sequence":
         return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/30">
-                <List className="w-5 h-5 text-indigo-600" />
+          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-indigo-100 dark:bg-indigo-900/30">
+                <List className="w-4 h-4 text-indigo-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Set Route</h2>
+                <h2 className="text-sm font-semibold">Set Route</h2>
                 <p className="text-xs text-muted-foreground">Tap marks in rounding order</p>
               </div>
             </div>
 
-            {/* Available marks to add */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-muted-foreground">Tap to add:</p>
-              <div className="flex flex-wrap gap-2">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Tap to add:</p>
+              <div className="flex flex-wrap gap-1.5">
                 <Button
-                  size="lg"
+                  size="sm"
                   variant={roundingSequence.includes("start") ? "secondary" : "outline"}
-                  className="gap-2"
+                  className="gap-1.5"
                   onClick={() => addToSequence("start")}
                   data-testid="button-add-start-to-sequence"
                 >
-                  <Flag className="w-4 h-4 text-green-600" />
+                  <Flag className="w-3 h-3 text-green-600" />
                   Start
                 </Button>
                 {courseMarks.map(mark => (
                   <Button
                     key={mark.id}
-                    size="lg"
+                    size="sm"
                     variant="outline"
-                    className="gap-2"
+                    className="gap-1.5"
                     onClick={() => addToSequence(mark.id)}
                     data-testid={`button-add-mark-${mark.id}-to-sequence`}
                   >
-                    <MapPin className="w-4 h-4" />
+                    <MapPin className="w-3 h-3" />
                     {mark.name}
                   </Button>
                 ))}
                 <Button
-                  size="lg"
+                  size="sm"
                   variant={roundingSequence.includes("finish") ? "secondary" : "outline"}
-                  className="gap-2"
+                  className="gap-1.5"
                   onClick={() => addToSequence("finish")}
                   data-testid="button-add-finish-to-sequence"
                 >
-                  <FlagTriangleRight className="w-4 h-4 text-blue-600" />
+                  <FlagTriangleRight className="w-3 h-3 text-blue-600" />
                   Finish
                 </Button>
               </div>
             </div>
 
-            {/* Current sequence */}
             <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-muted-foreground">
+                  <p className="text-xs font-medium text-muted-foreground">
                     Route ({roundingSequence.length} waypoints)
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
+                      className="h-6 w-6"
                       onClick={undoLastSequence}
                       disabled={roundingSequence.length === 0}
                       data-testid="button-undo-sequence"
                     >
-                      <Undo2 className="w-4 h-4" />
+                      <Undo2 className="w-3 h-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
+                      className="h-6 text-xs"
                       onClick={clearSequence}
                       disabled={roundingSequence.length === 0}
                       data-testid="button-clear-sequence"
@@ -827,9 +819,9 @@ export function SetupPanel({
                 </div>
 
                 {roundingSequence.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground bg-muted/30 rounded-lg">
-                    <p>No waypoints added yet.</p>
-                    <p className="text-sm mt-1">Tap "Start" to begin.</p>
+                  <div className="p-4 text-center text-muted-foreground bg-muted/30 rounded-lg">
+                    <p className="text-sm">No waypoints added yet.</p>
+                    <p className="text-xs mt-1">Tap "Start" to begin.</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -843,7 +835,7 @@ export function SetupPanel({
                         <div
                           key={`${entry}-${index}`}
                           className={cn(
-                            "flex items-center gap-3 p-3 rounded-lg",
+                            "flex items-center gap-2 p-2 rounded-md",
                             isStart ? "bg-green-50 dark:bg-green-900/20" :
                             isFinish ? "bg-blue-50 dark:bg-blue-900/20" :
                             "bg-muted/50"
@@ -851,29 +843,29 @@ export function SetupPanel({
                           data-testid={`sequence-item-${index}`}
                         >
                           <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                            "w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold",
                             isStart ? "bg-green-500 text-white" :
                             isFinish ? "bg-blue-500 text-white" :
                             "bg-muted-foreground/20"
                           )}>
                             {index + 1}
                           </div>
-                          <div className="flex-1">
-                            <p className="font-medium">{name}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{name}</p>
                             {legDistance !== null && legDistance !== undefined && (
-                              <p className="text-xs text-muted-foreground">
-                                {legDistance.toFixed(2)} nm from previous
+                              <p className="text-[10px] text-muted-foreground">
+                                {legDistance.toFixed(2)} nm
                               </p>
                             )}
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-6 w-6"
                             onClick={() => removeFromSequence(index)}
                             data-testid={`button-remove-sequence-${index}`}
                           >
-                            <X className="w-4 h-4" />
+                            <X className="w-3 h-3" />
                           </Button>
                         </div>
                       );
@@ -882,9 +874,9 @@ export function SetupPanel({
                 )}
 
                 {roundingSequence.length >= 2 && (
-                  <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                    <p className="text-sm font-medium">Total Distance</p>
-                    <p className="text-2xl font-bold" data-testid="text-sequence-total">
+                  <div className="mt-3 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-md">
+                    <p className="text-xs font-medium">Total Distance</p>
+                    <p className="text-lg font-bold" data-testid="text-sequence-total">
                       {courseStats.totalDistance.toFixed(2)} nm
                     </p>
                   </div>
@@ -892,54 +884,45 @@ export function SetupPanel({
               </div>
             </ScrollArea>
 
-            <div className="pt-4 border-t space-y-3">
+            <div className="pt-3 border-t space-y-2 mt-auto">
               {roundingSequence.length === 0 && (
                 <Button
                   variant="outline"
-                  size="lg"
+                  size="sm"
                   className="w-full gap-2"
                   onClick={autoGenerateSequence}
                   data-testid="button-auto-sequence"
                 >
-                  <Play className="w-4 h-4" />
+                  <Play className="w-3 h-3" />
                   Auto-Generate Simple Route
                 </Button>
               )}
-              {/* Validation messages */}
               {roundingSequence.length > 0 && (
                 <>
                   {!roundingSequence.includes("start") && (
-                    <p className="text-center text-amber-600 text-sm">
-                      Route must include Start
-                    </p>
+                    <p className="text-center text-amber-600 text-xs">Route must include Start</p>
                   )}
                   {!roundingSequence.includes("finish") && (
-                    <p className="text-center text-amber-600 text-sm">
-                      Route must include Finish
-                    </p>
+                    <p className="text-center text-amber-600 text-xs">Route must include Finish</p>
                   )}
                   {roundingSequence.includes("start") && roundingSequence.includes("finish") && 
                    roundingSequence.filter(e => e !== "start" && e !== "finish").length === 0 && (
-                    <p className="text-center text-amber-600 text-sm">
-                      Add at least one course mark
-                    </p>
+                    <p className="text-center text-amber-600 text-xs">Add at least one course mark</p>
                   )}
                 </>
               )}
-              <div className="flex gap-3">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   onClick={() => { setFinishConfirmed(false); setPhase("finish_line"); }}
                   data-testid="button-back-finish"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                   Back
                 </Button>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   disabled={
                     roundingSequence.length < 3 || 
                     !roundingSequence.includes("start") || 
@@ -950,7 +933,7 @@ export function SetupPanel({
                   data-testid="button-continue-summary"
                 >
                   Continue
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -959,13 +942,13 @@ export function SetupPanel({
 
       case "summary":
         return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
-                <Ruler className="w-5 h-5 text-purple-600" />
+          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-purple-100 dark:bg-purple-900/30">
+                <Ruler className="w-4 h-4 text-purple-600" />
               </div>
               <div>
-                <h2 className="text-lg font-bold">Course Review</h2>
+                <h2 className="text-sm font-semibold">Course Review</h2>
                 <p className="text-xs text-muted-foreground">Review distances & adjust course</p>
               </div>
             </div>
@@ -1279,26 +1262,24 @@ export function SetupPanel({
               </div>
             </ScrollArea>
 
-            <div className="pt-4 border-t space-y-3">
-              <div className="flex gap-3">
+            <div className="pt-3 border-t mt-auto">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   onClick={() => setPhase("sequence")}
                   data-testid="button-back-sequence"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                   Back
                 </Button>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   onClick={() => setPhase("assign_buoys")}
                   data-testid="button-continue-buoys"
                 >
                   Assign Buoys
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -1307,13 +1288,13 @@ export function SetupPanel({
 
       case "assign_buoys":
         return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
-                <Anchor className="w-5 h-5 text-amber-600" />
+          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-amber-100 dark:bg-amber-900/30">
+                <Anchor className="w-4 h-4 text-amber-600" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold">Assign Buoys</h2>
+                <h2 className="text-sm font-semibold">Assign Buoys</h2>
                 <p className="text-xs text-muted-foreground">Tap marks to assign robotic buoys</p>
               </div>
               {onAutoAssignBuoys && (
@@ -1321,10 +1302,10 @@ export function SetupPanel({
                   variant="outline"
                   size="sm"
                   onClick={onAutoAssignBuoys}
-                  className="gap-1"
+                  className="gap-1 h-7 text-xs"
                   data-testid="button-auto-assign-buoys"
                 >
-                  <Play className="w-4 h-4" />
+                  <Play className="w-3 h-3" />
                   Auto
                 </Button>
               )}
@@ -1423,25 +1404,25 @@ export function SetupPanel({
                       key={mark.id}
                       onClick={() => onMarkSelect?.(mark.id)}
                       className={cn(
-                        "w-full flex items-center gap-4 p-4 rounded-xl text-left hover-elevate",
+                        "w-full flex items-center gap-3 p-2.5 rounded-lg text-left hover-elevate",
                         assignedBuoy ? "bg-green-50 dark:bg-green-900/20" : "bg-muted/50"
                       )}
                       data-testid={`button-assign-mark-${mark.id}`}
                     >
                       <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center",
+                        "w-8 h-8 rounded-full flex items-center justify-center",
                         assignedBuoy ? "bg-green-500 text-white" : "bg-muted-foreground/20"
                       )}>
                         {assignedBuoy ? (
-                          <Check className="w-6 h-6" />
+                          <Check className="w-4 h-4" />
                         ) : (
-                          <Anchor className="w-6 h-6 text-muted-foreground" />
+                          <Anchor className="w-4 h-4 text-muted-foreground" />
                         )}
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-lg">{mark.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{mark.name}</p>
                         <p className={cn(
-                          "text-sm",
+                          "text-xs",
                           assignedBuoy ? "text-green-600" : "text-amber-600"
                         )}>
                           {assignedBuoy ? `Buoy: ${assignedBuoy.name}` : "Tap to assign buoy"}
@@ -1449,10 +1430,10 @@ export function SetupPanel({
                       </div>
                       <div className="flex gap-1">
                         {mark.isStartLine && (
-                          <Badge className="bg-green-500">S</Badge>
+                          <Badge variant="secondary" className="text-[10px] bg-green-500/20 text-green-600">S</Badge>
                         )}
                         {mark.isFinishLine && (
-                          <Badge className="bg-blue-500">F</Badge>
+                          <Badge variant="secondary" className="text-[10px] bg-blue-500/20 text-blue-600">F</Badge>
                         )}
                       </div>
                     </button>
@@ -1461,31 +1442,29 @@ export function SetupPanel({
               </div>
             </ScrollArea>
 
-            <div className="pt-4 border-t space-y-3">
-              <div className="flex gap-3">
+            <div className="pt-3 border-t space-y-2 mt-auto">
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   onClick={() => setPhase("summary")}
                   data-testid="button-back-summary"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                   Back
                 </Button>
                 <Button
-                  size="lg"
-                  className="flex-1 text-lg gap-2"
+                  className="flex-1 gap-2"
                   disabled={!allAssigned}
                   onClick={() => setPhase("ready")}
                   data-testid="button-continue-ready"
                 >
                   Continue
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
               {!allAssigned && (
-                <p className="text-center text-sm text-muted-foreground">
+                <p className="text-center text-xs text-muted-foreground">
                   {getUnassignedCount()} buoy assignments remaining
                 </p>
               )}
@@ -1495,27 +1474,27 @@ export function SetupPanel({
 
       case "ready":
         return (
-          <div className="flex-1 flex flex-col p-4 gap-4 min-h-0 overflow-hidden">
-            <div className="text-center space-y-4 flex-1 flex flex-col items-center justify-center">
-              <div className="w-24 h-24 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
-                <Check className="w-12 h-12 text-green-600" />
+          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+            <div className="text-center space-y-3 flex-1 flex flex-col items-center justify-center">
+              <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
+                <Check className="w-8 h-8 text-green-600" />
               </div>
-              <h2 className="text-3xl font-bold">Ready to Deploy!</h2>
-              <div className="space-y-2 text-lg">
+              <h2 className="text-xl font-bold">Ready to Deploy!</h2>
+              <div className="space-y-1 text-sm">
                 <p className="flex items-center justify-center gap-2">
-                  <Badge className="bg-green-500 text-base px-3 py-1">
+                  <Badge variant="secondary" className="bg-green-500/20 text-green-600">
                     {startLineMarks.length}
                   </Badge>
                   start line marks
                 </p>
                 <p className="flex items-center justify-center gap-2">
-                  <Badge variant="secondary" className="text-base px-3 py-1">
+                  <Badge variant="secondary">
                     {courseMarks.length}
                   </Badge>
                   course marks
                 </p>
                 <p className="flex items-center justify-center gap-2">
-                  <Badge className="bg-blue-500 text-base px-3 py-1">
+                  <Badge variant="secondary" className="bg-blue-500/20 text-blue-600">
                     {finishLineMarks.length}
                   </Badge>
                   finish line marks
@@ -1523,24 +1502,22 @@ export function SetupPanel({
               </div>
             </div>
 
-            <div className="pt-4 border-t space-y-3">
+            <div className="pt-3 border-t space-y-2 mt-auto">
               <Button
-                size="lg"
-                className="w-full text-xl gap-3"
+                className="w-full gap-2"
                 onClick={onDeployCourse}
                 data-testid="button-deploy-course"
               >
-                <Play className="w-8 h-8" />
+                <Play className="w-5 h-5" />
                 Deploy Course
               </Button>
               <Button
                 variant="outline"
-                size="lg"
-                className="w-full text-lg gap-2"
+                className="w-full gap-2"
                 onClick={() => setPhase("start_line")}
                 data-testid="button-edit-course"
               >
-                <Pencil className="w-5 h-5" />
+                <Pencil className="w-4 h-4" />
                 Edit Course
               </Button>
             </div>
@@ -1551,9 +1528,40 @@ export function SetupPanel({
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-card" data-testid="setup-panel">
-      {/* Clickable progress indicator for navigation */}
-      <div className="px-4 py-3 border-b bg-muted/30">
-        <div className="flex items-center justify-between gap-2">
+      {/* Header with title and actions */}
+      <div className="px-3 py-2 border-b flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Course Setup</h2>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" data-testid="button-course-actions">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setShowSaveDialog(true)} data-testid="menu-item-save-course">
+              <Save className="w-4 h-4 mr-2" />
+              Save Course
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowLoadDialog(true)} data-testid="menu-item-load-course">
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Load Course
+            </DropdownMenuItem>
+            {onClearAllMarks && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onClearAllMarks} className="text-destructive" data-testid="menu-item-clear-course">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Clear All Marks
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Compact progress stepper */}
+      <div className="px-3 py-2 border-b bg-muted/30">
+        <div className="flex items-center justify-between gap-1">
           {phases.map((p, idx) => {
             const minPhase = getMinPhase();
             const minPhaseIdx = phaseOrder.indexOf(minPhase);
@@ -1567,22 +1575,22 @@ export function SetupPanel({
                 onClick={() => canNavigate && setPhase(p.id as SetupPhase)}
                 disabled={!canNavigate && !isCurrent}
                 className={cn(
-                  "flex-1 flex flex-col items-center gap-1 transition-opacity",
+                  "flex-1 flex flex-col items-center gap-0.5 transition-opacity",
                   canNavigate ? "cursor-pointer hover:opacity-80" : "",
-                  !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-50" : ""
+                  !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-40" : ""
                 )}
                 data-testid={`button-phase-${p.id}`}
               >
                 <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors",
+                  "w-7 h-7 rounded-full flex items-center justify-center font-semibold text-xs transition-colors",
                   isComplete ? "bg-green-500 text-white" :
                   isCurrent ? "bg-primary text-primary-foreground" :
                   "bg-muted text-muted-foreground"
                 )}>
-                  {isComplete ? <Check className="w-5 h-5" /> : p.number}
+                  {isComplete ? <Check className="w-3.5 h-3.5" /> : p.number}
                 </div>
                 <span className={cn(
-                  "text-xs font-medium",
+                  "text-[10px] font-medium",
                   isCurrent ? "text-primary" : "text-muted-foreground"
                 )}>
                   {p.label}
