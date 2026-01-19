@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { DemoModeProvider } from "@/contexts/DemoModeContext";
 import NotFound from "@/pages/not-found";
 import RaceControl from "@/pages/RaceControl";
 import Login from "@/pages/Login";
@@ -81,10 +82,12 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <DemoModeProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </DemoModeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

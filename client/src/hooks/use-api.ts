@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
 import type { Buoy, Course, Mark, Event, SailClub } from "@shared/schema";
 
 export function useSailClubs() {
@@ -27,6 +27,7 @@ export function useEvent(id: string) {
 export function useCourses() {
   return useQuery<Course[]>({
     queryKey: ["/api/courses"],
+    refetchInterval: 30000,
   });
 }
 
@@ -41,6 +42,7 @@ export function useMarks(courseId: string) {
   return useQuery<Mark[]>({
     queryKey: ["/api/courses", courseId, "marks"],
     enabled: !!courseId,
+    refetchInterval: 30000,
   });
 }
 
@@ -89,9 +91,7 @@ export function useWeatherByLocation() {
   });
 }
 
-export function useUpdateBuoy(onError?: (error: Error) => void) {
-  const queryClient = useQueryClient();
-  
+export function useUpdateBuoy(courseId?: string, onError?: (error: Error) => void) {
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Buoy> }) => {
       const res = await apiRequest("PATCH", `/api/buoys/${id}`, data);
@@ -102,7 +102,7 @@ export function useUpdateBuoy(onError?: (error: Error) => void) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      invalidateRelatedQueries("buoys", courseId);
     },
     onError: (error: Error) => {
       console.error("Buoy update failed:", error);
@@ -113,10 +113,9 @@ export function useUpdateBuoy(onError?: (error: Error) => void) {
 
 export function useBuoyCommand(
   demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void,
+  courseId?: string,
   onError?: (error: Error) => void
 ) {
-  const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async ({ id, command, targetLat, targetLng }: { 
       id: string; 
@@ -136,7 +135,7 @@ export function useBuoyCommand(
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      invalidateRelatedQueries("buoys", courseId);
     },
     onError: (error: Error) => {
       console.error("Buoy command failed:", error);
@@ -158,22 +157,36 @@ export function useUpdateMark(courseId?: string, onError?: (error: Error) => voi
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      if (capturedCourseId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/courses", capturedCourseId, "marks"] });
+    onMutate: async ({ id, data }) => {
+      if (!capturedCourseId) return;
+      
+      await queryClient.cancelQueries({ queryKey: ["/api/courses", capturedCourseId, "marks"] });
+      
+      const previousMarks = queryClient.getQueryData<Mark[]>(["/api/courses", capturedCourseId, "marks"]);
+      
+      if (previousMarks) {
+        queryClient.setQueryData<Mark[]>(
+          ["/api/courses", capturedCourseId, "marks"],
+          previousMarks.map(mark => mark.id === id ? { ...mark, ...data } : mark)
+        );
       }
+      
+      return { previousMarks };
     },
-    onError: (error: Error) => {
+    onError: (error: Error, _variables, context) => {
       console.error("Mark update failed:", error);
+      if (context?.previousMarks && capturedCourseId) {
+        queryClient.setQueryData(["/api/courses", capturedCourseId, "marks"], context.previousMarks);
+      }
       onError?.(error);
+    },
+    onSettled: () => {
+      invalidateRelatedQueries("marks", capturedCourseId);
     },
   });
 }
 
 export function useCreateMark(courseId?: string, onError?: (error: Error) => void) {
-  const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async (data: {
       courseId: string;
@@ -195,8 +208,7 @@ export function useCreateMark(courseId?: string, onError?: (error: Error) => voi
       return res.json();
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", variables.courseId, "marks"] });
+      invalidateRelatedQueries("marks", variables.courseId);
     },
     onError: (error: Error) => {
       console.error("Mark creation failed:", error);
@@ -206,7 +218,6 @@ export function useCreateMark(courseId?: string, onError?: (error: Error) => voi
 }
 
 export function useDeleteMark(courseId?: string, onError?: (error: Error) => void) {
-  const queryClient = useQueryClient();
   const capturedCourseId = courseId;
   
   return useMutation({
@@ -219,10 +230,7 @@ export function useDeleteMark(courseId?: string, onError?: (error: Error) => voi
       return id;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      if (capturedCourseId) {
-        queryClient.invalidateQueries({ queryKey: ["/api/courses", capturedCourseId, "marks"] });
-      }
+      invalidateRelatedQueries("marks", capturedCourseId);
     },
     onError: (error: Error) => {
       console.error("Mark deletion failed:", error);
@@ -232,8 +240,6 @@ export function useDeleteMark(courseId?: string, onError?: (error: Error) => voi
 }
 
 export function useDeleteAllMarks(onError?: (error: Error) => void) {
-  const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async (courseId: string) => {
       const res = await apiRequest("DELETE", `/api/courses/${courseId}/marks`);
@@ -244,8 +250,7 @@ export function useDeleteAllMarks(onError?: (error: Error) => void) {
       return res.json();
     },
     onSuccess: (_, courseId) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      invalidateRelatedQueries("marks", courseId);
     },
     onError: (error: Error) => {
       console.error("Delete all marks failed:", error);
@@ -276,8 +281,6 @@ export function useCreateEvent() {
 }
 
 export function useCreateCourse() {
-  const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async (data: {
       name: string;
@@ -291,13 +294,13 @@ export function useCreateCourse() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      invalidateRelatedQueries("courses");
     },
   });
 }
 
-export function useUpdateCourse(onError?: (error: Error) => void) {
-  const queryClient = useQueryClient();
+export function useUpdateCourse(courseId?: string, onError?: (error: Error) => void) {
+  const capturedCourseId = courseId;
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Course> }) => {
@@ -309,7 +312,7 @@ export function useUpdateCourse(onError?: (error: Error) => void) {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      invalidateRelatedQueries("courses", capturedCourseId);
     },
     onError: (error: Error) => {
       console.error("Course update failed:", error);

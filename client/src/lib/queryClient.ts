@@ -46,12 +46,46 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      refetchOnWindowFocus: true,
+      staleTime: 30000,
+      retry: 2,
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     },
     mutations: {
-      retry: false,
+      retry: 1,
+      retryDelay: 1000,
     },
   },
 });
+
+export function invalidateRelatedQueries(type: "buoys" | "marks" | "courses", courseId?: string) {
+  if (type === "buoys") {
+    queryClient.invalidateQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && key[0].startsWith("/api/buoys");
+      }
+    });
+    if (courseId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+    }
+    queryClient.invalidateQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && key[0] === "/api/courses" && key[2] === "marks";
+      }
+    });
+  } else if (type === "marks") {
+    queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+    if (courseId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
+    }
+  } else if (type === "courses") {
+    queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+    if (courseId) {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+    }
+  }
+}

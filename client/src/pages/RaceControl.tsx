@@ -26,9 +26,10 @@ import {
   useCreateEvent,
   useCreateCourse,
 } from "@/hooks/use-api";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useDemoMode } from "@/hooks/use-demo-mode";
+import { queryClient, apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
+import { useDemoModeContext } from "@/contexts/DemoModeContext";
 import { useToast } from "@/hooks/use-toast";
+import { executeAutoAssignWithRecovery } from "@/lib/batchedMutations";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
@@ -307,7 +308,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const { toast } = useToast();
 
-  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
+  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoModeContext();
 
   const { data: apiBuoys = [], isLoading: buoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
@@ -328,7 +329,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       variant: "destructive",
     });
   }, [toast]);
-  const buoyCommand = useBuoyCommand(sendDemoCommand, buoyCommandErrorHandler);
+  const buoyCommand = useBuoyCommand(sendDemoCommand, courseId, buoyCommandErrorHandler);
   const mutationErrorHandler = useCallback((error: Error) => {
     toast({
       title: "Operation Failed",
@@ -339,7 +340,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const updateMark = useUpdateMark(courseId, mutationErrorHandler);
   const createMark = useCreateMark(courseId, mutationErrorHandler);
   const deleteMark = useDeleteMark(courseId, mutationErrorHandler);
-  const updateCourse = useUpdateCourse(mutationErrorHandler);
+  const updateCourse = useUpdateCourse(courseId, mutationErrorHandler);
   const createEvent = useCreateEvent();
   const createCourse = useCreateCourse();
   const deleteAllMarks = useDeleteAllMarks(mutationErrorHandler);
@@ -1500,8 +1501,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       }
     }
     
-    // Apply all assignments
-    assignments.forEach(({ slot, buoyId }) => {
+    // Build assignment operations with proper structure for batch execution
+    const assignmentOps = assignments.map(({ slot, buoyId, distance }) => {
       const updateData: Partial<Mark> = {};
       if (slot.type === 'port') {
         updateData.gatePortBuoyId = buoyId;
@@ -1511,29 +1512,83 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         updateData.assignedBuoyId = buoyId;
       }
       
-      updateMark.mutate({ id: slot.markId, data: updateData });
-      
-      // Send buoy to position
-      if (demoMode) {
-        sendDemoCommand(buoyId, "move_to_target", slot.lat, slot.lng);
-      } else {
-        buoyCommand.mutate({
-          id: buoyId,
-          command: "move_to_target",
-          targetLat: slot.lat,
-          targetLng: slot.lng,
-        });
-      }
+      return {
+        markId: slot.markId,
+        markName: slot.markName,
+        updateData,
+        buoyId,
+        targetLat: slot.lat,
+        targetLng: slot.lng,
+        distance,
+      };
     });
     
     const maxDist = Math.max(...assignments.map(a => a.distance));
-    const estimatedTime = maxDist / 0.5; // Assuming ~0.5 m/s buoy speed, gives time in seconds
+    const estimatedTime = maxDist / 0.5;
     
     toast({
-      title: "Auto-Assigned",
-      description: `Assigned ${assignments.length} buoys. Max deployment: ${Math.round(estimatedTime / 60)} min.`,
+      title: "Auto-Assigning Buoys",
+      description: `Assigning ${assignmentOps.length} buoys...`,
     });
-  }, [marks, buoys, activeWeatherData, updateMark, buoyCommand, demoMode, sendDemoCommand, toast]);
+
+    executeAutoAssignWithRecovery(assignmentOps, {
+      courseId: courseId,
+      updateMarkFn: async (markId, data) => {
+        const res = await apiRequest("PATCH", `/api/marks/${markId}`, data);
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to update mark");
+        }
+      },
+      clearMarkAssignmentFn: async (markId, data) => {
+        const res = await apiRequest("PATCH", `/api/marks/${markId}`, data);
+        if (!res.ok) {
+          console.error("Failed to rollback mark assignment");
+        }
+      },
+      sendBuoyCommandFn: async (buoyId, lat, lng) => {
+        if (demoMode) {
+          sendDemoCommand(buoyId, "move_to_target", lat, lng);
+          return;
+        }
+        const res = await apiRequest("POST", `/api/buoys/${buoyId}/command`, {
+          command: "move_to_target",
+          targetLat: lat,
+          targetLng: lng,
+        });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to send buoy command");
+        }
+      },
+    }).then((result) => {
+      invalidateRelatedQueries("marks", courseId);
+      invalidateRelatedQueries("buoys", courseId);
+      
+      if (result.success) {
+        toast({
+          title: "Auto-Assignment Complete",
+          description: `Assigned ${assignmentOps.length} buoys. Max deployment: ${Math.round(estimatedTime / 60)} min.`,
+        });
+      } else {
+        let description = `Completed ${result.completed} of ${assignmentOps.length * 2} operations. ${result.failed} failed.`;
+        if (result.marksAssignedWithoutBuoyCommand.length > 0) {
+          description += ` Marks assigned but buoys not dispatched: ${result.marksAssignedWithoutBuoyCommand.join(", ")}`;
+        }
+        toast({
+          title: "Auto-Assignment Partial",
+          description,
+          variant: "destructive",
+        });
+      }
+    }).catch((error) => {
+      toast({
+        title: "Auto-Assignment Failed",
+        description: error.message || "An error occurred during auto-assignment",
+        variant: "destructive",
+      });
+    });
+  }, [marks, buoys, activeWeatherData, courseId, demoMode, sendDemoCommand, toast]);
 
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
