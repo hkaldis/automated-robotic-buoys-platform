@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2 } from "lucide-react";
+import { Plus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Event, Buoy, Mark, Course, MarkRole } from "@shared/schema";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ interface SetupPanelProps {
   onUpdateSequence?: (sequence: string[]) => void;
   onAutoAssignBuoys?: () => void;
   onPhaseChange?: (phase: SetupPhase) => void;
+  onClearAllMarks?: () => void;
 }
 
 export function SetupPanel({
@@ -52,6 +54,7 @@ export function SetupPanel({
   onUpdateSequence,
   onAutoAssignBuoys,
   onPhaseChange,
+  onClearAllMarks,
 }: SetupPanelProps) {
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
@@ -62,6 +65,9 @@ export function SetupPanel({
   const hasStartLine = startLineMarks.length >= 2;
   const hasCourseMarks = courseMarks.length >= 1;
   const hasFinishLine = finishLineMarks.length >= 2;
+  
+  // Check if start and finish lines share the same marks (common in short courses)
+  const hasSharedStartFinishMarks = startLineMarks.some(m => m.isFinishLine);
   
   // Check if all buoys are assigned (gates need 2 buoys, regular marks need 1)
   const allAssigned = marks.length > 0 && marks.every(m => {
@@ -133,9 +139,10 @@ export function SetupPanel({
     // Allow staying in sequence/summary/assign_buoys/ready if:
     // 1. User confirmed finish line (async mark updates may still be pending)
     // 2. User has a valid sequence (means they've progressed through the workflow)
-    const canStayInLaterPhase = finishConfirmed || hasSequence;
+    // For shared start/finish marks, we need confirmation OR valid finish line
+    const canStayInLaterPhase = finishConfirmed || hasSequence || (hasSharedStartFinishMarks && hasFinishLine);
     if (canStayInLaterPhase && (phase === "sequence" || phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
-      // Only reset if we've lost essential prerequisites (start/marks/finish)
+      // Only reset if we've truly lost essential prerequisites
       if (!hasStartLine || !hasCourseMarks || !hasFinishLine) {
         const essentialMinIdx = !hasStartLine ? 0 : !hasCourseMarks ? 1 : 2;
         if (currentIdx > essentialMinIdx) {
@@ -148,7 +155,7 @@ export function SetupPanel({
     if (currentIdx > minIdx) {
       setPhase(minPhase);
     }
-  }, [hasStartLine, hasCourseMarks, hasFinishLine, hasSequence, allAssigned, phase, finishConfirmed]);
+  }, [hasStartLine, hasCourseMarks, hasFinishLine, hasSequence, allAssigned, phase, finishConfirmed, hasSharedStartFinishMarks]);
 
   // Initialize selection when entering finish line phase
   useEffect(() => {
@@ -1166,6 +1173,62 @@ export function SetupPanel({
                         Load Course
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Clear Course */}
+                <Card className="border-destructive/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2 text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                      Clear Course
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Remove all marks and reset the course. Any assigned buoys will return to idle.
+                    </p>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="destructive"
+                          size="lg"
+                          className="w-full gap-2"
+                          disabled={marks.length === 0}
+                          data-testid="button-clear-course"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Clear All Marks
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-destructive" />
+                            Clear Course?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will remove all {marks.length} marks from the course.
+                            {marks.some(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId) && (
+                              <span className="block mt-2 font-medium text-destructive">
+                                Assigned buoys will be set to idle and stop moving.
+                              </span>
+                            )}
+                            This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel data-testid="button-cancel-clear">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => onClearAllMarks?.()}
+                            className="bg-destructive text-destructive-foreground"
+                            data-testid="button-confirm-clear"
+                          >
+                            Clear Course
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </CardContent>
                 </Card>
               </div>

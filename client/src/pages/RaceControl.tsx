@@ -7,6 +7,8 @@ import { MarkEditPanel } from "@/components/MarkEditPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { AlertBanner } from "@/components/AlertBanner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertTriangle } from "lucide-react";
 import type { Event, Buoy, Mark, Course, MarkRole, CourseShape, EventType } from "@shared/schema";
 import { 
   useBuoys, 
@@ -288,6 +290,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);
   const [showLabels, setShowLabels] = useState(true);
   const [currentSetupPhase, setCurrentSetupPhase] = useState<string>("start_line");
+  
+  // Confirmation dialog state for mark movement with assigned buoys
+  const [pendingMarkMove, setPendingMarkMove] = useState<{ 
+    markId: string; 
+    lat: number; 
+    lng: number;
+    hasAssignedBuoy: boolean;
+  } | null>(null);
+  
+  // Confirmation dialog state for course transformation with assigned buoys
+  const [pendingCourseTransform, setPendingCourseTransform] = useState<{
+    transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number };
+    hasAssignedBuoys: boolean;
+  } | null>(null);
+  
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoMode();
@@ -1044,15 +1061,82 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [toast]);
 
-  // Transform course (scale, rotate, move)
-  const handleTransformCourse = useCallback((transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
+  // Clear all marks from the current course and set assigned buoys to idle
+  const handleClearAllMarks = useCallback(async () => {
+    if (!currentCourse) return;
+    
+    try {
+      // First, cancel any assigned buoys (set them to idle)
+      for (const mark of marks) {
+        // Cancel regular assigned buoy
+        if (mark.assignedBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.assignedBuoyId, "cancel");
+          } else {
+            await buoyCommand.mutateAsync({
+              id: mark.assignedBuoyId,
+              command: "cancel",
+            });
+          }
+        }
+        // Cancel gate port buoy
+        if (mark.gatePortBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.gatePortBuoyId, "cancel");
+          } else {
+            await buoyCommand.mutateAsync({
+              id: mark.gatePortBuoyId,
+              command: "cancel",
+            });
+          }
+        }
+        // Cancel gate starboard buoy
+        if (mark.gateStarboardBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.gateStarboardBuoyId, "cancel");
+          } else {
+            await buoyCommand.mutateAsync({
+              id: mark.gateStarboardBuoyId,
+              command: "cancel",
+            });
+          }
+        }
+      }
+      
+      // Delete all marks
+      await deleteAllMarks.mutateAsync(currentCourse.id);
+      
+      // Clear the rounding sequence
+      if (currentCourse) {
+        await updateCourse.mutateAsync({ id: currentCourse.id, data: { roundingSequence: [] } });
+      }
+      
+      // Reset selection
+      setSelectedMarkId(null);
+      
+      toast({
+        title: "Course Cleared",
+        description: "All marks have been removed and buoys set to idle.",
+      });
+    } catch (error) {
+      toast({
+        title: "Clear Failed",
+        description: "Could not clear the course. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [currentCourse, marks, demoMode, sendDemoCommand, buoyCommand, deleteAllMarks, updateCourse, toast]);
+
+  // Apply course transformation (called directly or after confirmation)
+  const applyCourseTransform = useCallback(async (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
     if (marks.length === 0) return;
 
     // Calculate course center
     const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
     const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
 
-    marks.forEach(mark => {
+    // Calculate new positions for all marks
+    const newPositions = marks.map(mark => {
       let newLat = mark.lat;
       let newLng = mark.lng;
 
@@ -1085,16 +1169,91 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         newLng += transform.translateLng;
       }
 
-      // Update mark position
-      updateMark.mutate({ id: mark.id, data: { lat: newLat, lng: newLng } });
+      return { mark, newLat, newLng };
     });
+
+    // Update all mark positions
+    for (const { mark, newLat, newLng } of newPositions) {
+      await updateMark.mutateAsync({ id: mark.id, data: { lat: newLat, lng: newLng } });
+      
+      // If mark has assigned buoy, dispatch it to new position
+      if (mark.assignedBuoyId) {
+        if (demoMode) {
+          sendDemoCommand(mark.assignedBuoyId, "move_to_target", newLat, newLng);
+        } else {
+          buoyCommand.mutate({
+            id: mark.assignedBuoyId,
+            command: "move_to_target",
+            targetLat: newLat,
+            targetLng: newLng,
+          });
+        }
+      }
+      
+      // Handle gate buoys
+      if (mark.isGate && (mark.gatePortBuoyId || mark.gateStarboardBuoyId)) {
+        const windDir = activeWeatherData?.windDirection ?? 225;
+        const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+        const halfWidthDeg = (gateWidth / 2) / 111000;
+        const perpAngle = (windDir + 90) % 360;
+        const perpRad = perpAngle * Math.PI / 180;
+        
+        const portLat = newLat + halfWidthDeg * Math.cos(perpRad);
+        const portLng = newLng + halfWidthDeg * Math.sin(perpRad) / Math.cos(newLat * Math.PI / 180);
+        const starboardLat = newLat - halfWidthDeg * Math.cos(perpRad);
+        const starboardLng = newLng - halfWidthDeg * Math.sin(perpRad) / Math.cos(newLat * Math.PI / 180);
+        
+        if (mark.gatePortBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.gatePortBuoyId, "move_to_target", portLat, portLng);
+          } else {
+            buoyCommand.mutate({
+              id: mark.gatePortBuoyId,
+              command: "move_to_target",
+              targetLat: portLat,
+              targetLng: portLng,
+            });
+          }
+        }
+        if (mark.gateStarboardBuoyId) {
+          if (demoMode) {
+            sendDemoCommand(mark.gateStarboardBuoyId, "move_to_target", starboardLat, starboardLng);
+          } else {
+            buoyCommand.mutate({
+              id: mark.gateStarboardBuoyId,
+              command: "move_to_target",
+              targetLat: starboardLat,
+              targetLng: starboardLng,
+            });
+          }
+        }
+      }
+    }
 
     toast({
       title: "Course Adjusted",
       description: transform.scale ? (transform.scale > 1 ? "Course enlarged." : "Course reduced.") :
                    transform.rotation ? "Course rotated." : "Course moved.",
     });
-  }, [marks, updateMark, toast]);
+  }, [marks, updateMark, demoMode, sendDemoCommand, buoyCommand, activeWeatherData, toast]);
+
+  // Transform course (scale, rotate, move) - shows confirmation if buoys are assigned
+  const handleTransformCourse = useCallback((transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
+    if (marks.length === 0) return;
+
+    // Check if any marks have assigned buoys
+    const hasAssignedBuoys = marks.some(m => 
+      m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId
+    );
+
+    if (hasAssignedBuoys) {
+      // Show confirmation dialog
+      setPendingCourseTransform({ transform, hasAssignedBuoys: true });
+    } else {
+      // Apply transformation directly
+      applyCourseTransform(transform);
+    }
+  }, [marks, applyCourseTransform]);
 
   const handleAlignCourseToWind = useCallback(() => {
     if (!activeWeatherData || marks.length === 0) return;
@@ -1421,7 +1580,15 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             onMarkClick={handleMarkClick}
             onMapClick={handleMapClick}
             onMarkDragEnd={(markId, lat, lng) => {
-              updateMark.mutate({ id: markId, data: { lat, lng } });
+              const mark = marks.find(m => m.id === markId);
+              const hasAssignedBuoy = !!(mark?.assignedBuoyId || mark?.gatePortBuoyId || mark?.gateStarboardBuoyId);
+              if (hasAssignedBuoy) {
+                // Show confirmation dialog for marks with assigned buoys
+                setPendingMarkMove({ markId, lat, lng, hasAssignedBuoy: true });
+              } else {
+                // Directly update marks without assigned buoys
+                updateMark.mutate({ id: markId, data: { lat, lng } });
+              }
             }}
             isPlacingMark={isPlacingMark || !!repositioningMarkId || !!gotoMapClickMarkId || !!gotoMapClickBuoyId}
             isContinuousPlacement={continuousPlacement}
@@ -1481,6 +1648,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onUpdateSequence={handleUpdateSequence}
               onAutoAssignBuoys={handleAutoAssignBuoys}
               onPhaseChange={handlePhaseChange}
+              onClearAllMarks={handleClearAllMarks}
             />
           )}
         </aside>
@@ -1491,6 +1659,159 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         onOpenChange={setSettingsOpen}
         buoys={buoys}
       />
+
+      {/* Confirmation dialog for moving marks with assigned buoys */}
+      <AlertDialog open={!!pendingMarkMove} onOpenChange={(open) => !open && setPendingMarkMove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Move Buoy to New Position?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const mark = pendingMarkMove ? marks.find(m => m.id === pendingMarkMove.markId) : null;
+                const buoyName = mark?.assignedBuoyId 
+                  ? buoys.find(b => b.id === mark.assignedBuoyId)?.name 
+                  : mark?.gatePortBuoyId 
+                    ? "Gate buoys" 
+                    : "Assigned buoy";
+                return (
+                  <>
+                    This mark has <span className="font-semibold">{buoyName}</span> assigned to it.
+                    <span className="block mt-2">
+                      The buoy will be dispatched to the new position when you confirm.
+                    </span>
+                  </>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-move-mark">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingMarkMove) {
+                  // Update the mark position
+                  updateMark.mutate({ 
+                    id: pendingMarkMove.markId, 
+                    data: { lat: pendingMarkMove.lat, lng: pendingMarkMove.lng } 
+                  }, {
+                    onSuccess: () => {
+                      // Dispatch the assigned buoys to the new position
+                      const mark = marks.find(m => m.id === pendingMarkMove.markId);
+                      if (mark?.assignedBuoyId) {
+                        if (demoMode) {
+                          sendDemoCommand(mark.assignedBuoyId, "move_to_target", pendingMarkMove.lat, pendingMarkMove.lng);
+                        } else {
+                          buoyCommand.mutate({
+                            id: mark.assignedBuoyId,
+                            command: "move_to_target",
+                            targetLat: pendingMarkMove.lat,
+                            targetLng: pendingMarkMove.lng,
+                          });
+                        }
+                      }
+                      // Handle gate buoys
+                      if (mark?.isGate && (mark.gatePortBuoyId || mark.gateStarboardBuoyId)) {
+                        const windDir = activeWeatherData?.windDirection ?? 225;
+                        const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+                        const halfWidthDeg = (gateWidth / 2) / 111000;
+                        const perpAngle = (windDir + 90) % 360;
+                        const perpRad = perpAngle * Math.PI / 180;
+                        
+                        const portLat = pendingMarkMove.lat + halfWidthDeg * Math.cos(perpRad);
+                        const portLng = pendingMarkMove.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(pendingMarkMove.lat * Math.PI / 180);
+                        const starboardLat = pendingMarkMove.lat - halfWidthDeg * Math.cos(perpRad);
+                        const starboardLng = pendingMarkMove.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(pendingMarkMove.lat * Math.PI / 180);
+                        
+                        if (mark.gatePortBuoyId) {
+                          if (demoMode) {
+                            sendDemoCommand(mark.gatePortBuoyId, "move_to_target", portLat, portLng);
+                          } else {
+                            buoyCommand.mutate({
+                              id: mark.gatePortBuoyId,
+                              command: "move_to_target",
+                              targetLat: portLat,
+                              targetLng: portLng,
+                            });
+                          }
+                        }
+                        if (mark.gateStarboardBuoyId) {
+                          if (demoMode) {
+                            sendDemoCommand(mark.gateStarboardBuoyId, "move_to_target", starboardLat, starboardLng);
+                          } else {
+                            buoyCommand.mutate({
+                              id: mark.gateStarboardBuoyId,
+                              command: "move_to_target",
+                              targetLat: starboardLat,
+                              targetLng: starboardLng,
+                            });
+                          }
+                        }
+                      }
+                      toast({
+                        title: "Mark Moved",
+                        description: "Buoy dispatched to new position.",
+                      });
+                    },
+                  });
+                  setPendingMarkMove(null);
+                }
+              }}
+              data-testid="button-confirm-move-mark"
+            >
+              Move Buoy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog for course transformation with assigned buoys */}
+      <AlertDialog open={!!pendingCourseTransform} onOpenChange={(open) => !open && setPendingCourseTransform(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Transform Course with Assigned Buoys?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const assignedCount = marks.filter(m => 
+                  m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId
+                ).length;
+                const transformType = pendingCourseTransform?.transform.scale 
+                  ? (pendingCourseTransform.transform.scale > 1 ? "enlarge" : "reduce")
+                  : pendingCourseTransform?.transform.rotation 
+                    ? "rotate" 
+                    : "move";
+                return (
+                  <>
+                    You are about to <span className="font-semibold">{transformType}</span> the course.
+                    <span className="block mt-2">
+                      <span className="font-semibold">{assignedCount}</span> mark{assignedCount !== 1 ? 's have' : ' has'} assigned buoys that will be dispatched to their new positions.
+                    </span>
+                  </>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-transform">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingCourseTransform) {
+                  applyCourseTransform(pendingCourseTransform.transform);
+                  setPendingCourseTransform(null);
+                }
+              }}
+              data-testid="button-confirm-transform"
+            >
+              Transform Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
