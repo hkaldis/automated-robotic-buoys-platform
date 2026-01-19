@@ -1,18 +1,25 @@
-import { X, Play, Pause, RotateCcw, Navigation, Battery, Signal, Wind, Waves, Clock, MapPin } from "lucide-react";
+import { useState } from "react";
+import { X, Play, Pause, RotateCcw, Navigation, Battery, Signal, Wind, Waves, Clock, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Target, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { Buoy, BuoyState } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { useBuoyCommand } from "@/hooks/use-api";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 interface BuoyDetailPanelProps {
   buoy: Buoy;
   onClose: () => void;
   demoSendCommand?: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
+  onTapMapToGoto?: () => void;
+  isTapMapMode?: boolean;
+  onNudgeBuoy?: (direction: "north" | "south" | "east" | "west") => void;
 }
 
 function getBuoyStateColor(state: BuoyState): string {
@@ -54,9 +61,12 @@ function getBuoyStateLabel(state: BuoyState): string {
   }
 }
 
-export function BuoyDetailPanel({ buoy, onClose, demoSendCommand }: BuoyDetailPanelProps) {
+export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto, isTapMapMode, onNudgeBuoy }: BuoyDetailPanelProps) {
   const { formatSpeed, formatBearing } = useSettings();
+  const { toast } = useToast();
   const buoyCommand = useBuoyCommand(demoSendCommand);
+  const [gotoLat, setGotoLat] = useState("");
+  const [gotoLng, setGotoLng] = useState("");
 
   const stateColor = getBuoyStateColor(buoy.state as BuoyState);
   const stateBgColor = getBuoyStateBgColor(buoy.state as BuoyState);
@@ -73,6 +83,28 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand }: BuoyDetailPa
 
   const handleCommand = (command: "move_to_target" | "hold_position" | "cancel") => {
     buoyCommand.mutate({ id: buoy.id, command });
+  };
+
+  const handleGoToCoordinates = () => {
+    const targetLat = parseFloat(gotoLat);
+    const targetLng = parseFloat(gotoLng);
+    if (isNaN(targetLat) || isNaN(targetLng)) {
+      toast({ title: "Please enter valid coordinates", variant: "destructive" });
+      return;
+    }
+    buoyCommand.mutate(
+      { id: buoy.id, command: "move_to_target", targetLat, targetLng },
+      {
+        onSuccess: () => {
+          toast({ title: `Buoy dispatched to ${targetLat.toFixed(4)}, ${targetLng.toFixed(4)}` });
+          setGotoLat("");
+          setGotoLng("");
+        },
+        onError: () => {
+          toast({ title: "Failed to send command to buoy", variant: "destructive" });
+        },
+      }
+    );
   };
 
   return (
@@ -212,6 +244,95 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand }: BuoyDetailPa
             </CardContent>
           </Card>
         )}
+
+        {/* GoTo Commands Section */}
+        <Card className="border-chart-1/30 bg-chart-1/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-chart-1">
+              <Target className="w-4 h-4" />
+              GoTo Commands
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Tap Map to Go */}
+            {onTapMapToGoto && (
+              <Button 
+                variant={isTapMapMode ? "default" : "outline"}
+                className="w-full gap-2"
+                onClick={onTapMapToGoto}
+                data-testid="button-tap-map-goto"
+              >
+                <MapPin className="w-4 h-4" />
+                {isTapMapMode ? "Tap Map Now..." : "Tap Map to Go"}
+              </Button>
+            )}
+
+            {/* Directional nudge arrows */}
+            {onNudgeBuoy && (
+              <div className="flex flex-col items-center gap-1">
+                <Label className="text-xs text-muted-foreground mb-1">Nudge Direction (~55m)</Label>
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("west")} data-testid="button-nudge-buoy-west">
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("north")} data-testid="button-nudge-buoy-north">
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("south")} data-testid="button-nudge-buoy-south">
+                      <ChevronDown className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <Button variant="outline" size="icon" onClick={() => onNudgeBuoy("east")} data-testid="button-nudge-buoy-east">
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            
+            {/* Custom coordinate input */}
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Go to Coordinates</Label>
+              <div className="flex gap-2 items-center">
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    placeholder="Latitude"
+                    value={gotoLat}
+                    onChange={(e) => setGotoLat(e.target.value)}
+                    className="text-xs"
+                    data-testid="input-goto-lat"
+                  />
+                </div>
+                <div className="flex-1">
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    placeholder="Longitude"
+                    value={gotoLng}
+                    onChange={(e) => setGotoLng(e.target.value)}
+                    className="text-xs"
+                    data-testid="input-goto-lng"
+                  />
+                </div>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGoToCoordinates}
+                  disabled={buoyCommand.isPending || !gotoLat || !gotoLng}
+                  data-testid="button-goto-coordinates"
+                >
+                  {buoyCommand.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    "GoTo"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Separator />

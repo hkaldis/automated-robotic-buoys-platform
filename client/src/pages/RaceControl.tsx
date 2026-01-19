@@ -280,6 +280,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean } | null>(null);
   const [repositioningMarkId, setRepositioningMarkId] = useState<string | null>(null);
   const [gotoMapClickMarkId, setGotoMapClickMarkId] = useState<string | null>(null);
+  const [gotoMapClickBuoyId, setGotoMapClickBuoyId] = useState<string | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string | null>(propEventId || null);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
@@ -729,8 +730,28 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         );
       }
       setGotoMapClickMarkId(null);
+    } else if (gotoMapClickBuoyId) {
+      buoyCommand.mutate(
+        { id: gotoMapClickBuoyId, command: "move_to_target", targetLat: lat, targetLng: lng },
+        {
+          onSuccess: () => {
+            toast({
+              title: "Buoy Dispatched",
+              description: `Buoy sent to ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+            });
+          },
+          onError: () => {
+            toast({
+              title: "Command Failed",
+              description: "Failed to send buoy to location",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+      setGotoMapClickBuoyId(null);
     }
-  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, marks, buoyCommand]);
+  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, gotoMapClickBuoyId, marks, buoyCommand]);
 
   const handleStopPlacement = useCallback(() => {
     setIsPlacingMark(false);
@@ -842,6 +863,58 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     
     updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } });
   }, [marks, updateMark]);
+
+  const handleBuoyGotoMapClick = useCallback((buoyId: string) => {
+    if (gotoMapClickBuoyId === buoyId) {
+      setGotoMapClickBuoyId(null);
+    } else {
+      if (isPlacingMark) {
+        setIsPlacingMark(false);
+        setPendingMarkData(null);
+        setContinuousPlacement(false);
+        setMarkCounter(1);
+      }
+      if (repositioningMarkId) {
+        setRepositioningMarkId(null);
+      }
+      if (gotoMapClickMarkId) {
+        setGotoMapClickMarkId(null);
+      }
+      setGotoMapClickBuoyId(buoyId);
+      toast({
+        title: "Tap Map to Go",
+        description: "Click on the map to send the buoy there.",
+      });
+    }
+  }, [gotoMapClickBuoyId, isPlacingMark, repositioningMarkId, gotoMapClickMarkId, toast]);
+
+  const handleNudgeBuoyDirect = useCallback((buoyId: string, direction: "north" | "south" | "east" | "west") => {
+    const buoy = buoys.find(b => b.id === buoyId);
+    if (!buoy) return;
+    
+    const NUDGE_AMOUNT = 0.0005; // Approx 55 meters
+    let targetLat = buoy.targetLat ?? buoy.lat;
+    let targetLng = buoy.targetLng ?? buoy.lng;
+    
+    switch (direction) {
+      case "north": targetLat += NUDGE_AMOUNT; break;
+      case "south": targetLat -= NUDGE_AMOUNT; break;
+      case "east": targetLng += NUDGE_AMOUNT; break;
+      case "west": targetLng -= NUDGE_AMOUNT; break;
+    }
+    
+    buoyCommand.mutate(
+      { id: buoyId, command: "move_to_target", targetLat, targetLng },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Buoy Nudged",
+            description: `Buoy moved ${direction}`,
+          });
+        },
+      }
+    );
+  }, [buoys, buoyCommand, toast]);
 
   const handleUpdateCourse = useCallback((data: Partial<Course>) => {
     if (!currentCourse) return;
@@ -1252,7 +1325,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             onMarkDragEnd={(markId, lat, lng) => {
               updateMark.mutate({ id: markId, data: { lat, lng } });
             }}
-            isPlacingMark={isPlacingMark || !!repositioningMarkId || !!gotoMapClickMarkId}
+            isPlacingMark={isPlacingMark || !!repositioningMarkId || !!gotoMapClickMarkId || !!gotoMapClickBuoyId}
             isContinuousPlacement={continuousPlacement}
             onStopPlacement={handleStopPlacement}
             finishLinePreviewIds={finishLinePreviewIds}
@@ -1271,8 +1344,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           {selectedBuoy ? (
             <BuoyDetailPanel 
               buoy={selectedBuoy} 
-              onClose={() => setSelectedBuoyId(null)}
+              onClose={() => { setSelectedBuoyId(null); setGotoMapClickBuoyId(null); }}
               demoSendCommand={sendDemoCommand}
+              onTapMapToGoto={() => handleBuoyGotoMapClick(selectedBuoy.id)}
+              isTapMapMode={gotoMapClickBuoyId === selectedBuoy.id}
+              onNudgeBuoy={(direction) => handleNudgeBuoyDirect(selectedBuoy.id, direction)}
             />
           ) : selectedMark ? (
             <MarkEditPanel
@@ -1284,10 +1360,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onReposition={() => handleRepositionMark(selectedMark.id)}
               onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
               isRepositioning={!!repositioningMarkId}
-              demoSendCommand={sendDemoCommand}
-              onTapMapToGoto={() => handleGotoMapClick(selectedMark.id)}
-              isTapMapMode={gotoMapClickMarkId === selectedMark.id}
-              onNudgeBuoy={(direction) => handleNudgeBuoy(selectedMark.id, direction)}
             />
           ) : (
             <SetupPanel 
