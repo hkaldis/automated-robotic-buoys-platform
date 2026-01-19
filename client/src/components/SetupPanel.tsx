@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { AutoAdjustDialog } from "./AutoAdjustDialog";
@@ -160,6 +162,7 @@ export function SetupPanel({
   const [pendingFinishUpdate, setPendingFinishUpdate] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showAutoAdjustDialog, setShowAutoAdjustDialog] = useState(false);
+  const [legsExpanded, setLegsExpanded] = useState(false);
   
   // Track all current mark IDs for reconciliation
   const currentMarkIds = useMemo(() => new Set(marks.map(m => m.id)), [marks]);
@@ -1044,136 +1047,138 @@ export function SetupPanel({
               </div>
             </div>
 
+            {/* Quick Estimate - Always visible at top (no scrolling needed) */}
+            <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Total Distance</p>
+                <p className="text-2xl font-bold" data-testid="text-summary-distance">
+                  {courseStats.totalDistance.toFixed(2)} nm
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Est. Race Time
+                  {raceTimeEstimate && (
+                    <span className="text-green-600 dark:text-green-400">(VMG)</span>
+                  )}
+                </p>
+                <p className="text-2xl font-bold" data-testid="text-summary-time">
+                  {raceTimeEstimate 
+                    ? raceTimeEstimate.totalTimeFormatted
+                    : `${Math.round(courseStats.estimatedTime)} min`
+                  }
+                </p>
+                {raceTimeEstimate && boatClass && (
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                    <Sailboat className="w-3 h-3" />
+                    {boatClass.name}
+                  </p>
+                )}
+              </div>
+            </div>
+
             <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-4">
-                {/* Leg Breakdown */}
+              <div className="space-y-3">
+                {/* Route Legs - Collapsible (default collapsed for quick glance) */}
                 {courseStats.legs.length > 0 && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <List className="w-4 h-4" />
-                        Route Legs
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {courseStats.legs.map((leg, index) => {
-                        // Calculate wind-relative bearing if wind data available
-                        let windRelative: number | null = null;
-                        if (windDirection !== undefined) {
-                          let rel = leg.bearing - windDirection;
-                          while (rel > 180) rel -= 360;
-                          while (rel < -180) rel += 360;
-                          windRelative = rel;
-                        }
-                        
-                        // Get VMG-based leg estimate if available
-                        const legEstimate = raceTimeEstimate?.legs[index];
-                        
-                        return (
-                          <div
-                            key={index}
-                            className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
-                            data-testid={`leg-${index}`}
-                          >
-                            <div className="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center font-bold">
-                              {index + 1}
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-sm">
-                                {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
-                              </div>
-                              <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5">
-                                <span>{leg.bearing.toFixed(0)}°</span>
-                                {legEstimate && (
-                                  <Badge 
-                                    variant="outline" 
-                                    className={cn(
-                                      "text-[10px] px-1 py-0",
-                                      legEstimate.pointOfSail === "upwind" && "border-red-400 text-red-600 dark:text-red-400",
-                                      legEstimate.pointOfSail === "downwind" && "border-blue-400 text-blue-600 dark:text-blue-400",
-                                      (legEstimate.pointOfSail === "beam_reach" || legEstimate.pointOfSail === "close_reach" || legEstimate.pointOfSail === "broad_reach") && "border-green-400 text-green-600 dark:text-green-400"
-                                    )}
-                                  >
-                                    {legEstimate.pointOfSail.replace("_", " ")}
-                                  </Badge>
-                                )}
-                                {windRelative !== null && !legEstimate && (
-                                  <span className="text-amber-600 dark:text-amber-400">
-                                    ({windRelative >= 0 ? "+" : ""}{windRelative.toFixed(0)}° to wind)
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
-                              {legEstimate && (
-                                <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                                  <Clock className="w-3 h-3" />
-                                  {formatLegTime(legEstimate.legTimeSeconds)}
+                  <Collapsible open={legsExpanded} onOpenChange={setLegsExpanded}>
+                    <Card>
+                      <CollapsibleTrigger asChild>
+                        <CardHeader 
+                          className="pb-2 cursor-pointer hover-elevate rounded-t-lg min-h-12"
+                          data-testid="button-toggle-route-legs"
+                        >
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <List className="w-4 h-4" />
+                            <span className="flex-1">Route Legs ({courseStats.legs.length})</span>
+                            <ChevronDown className={cn(
+                              "w-4 h-4 transition-transform duration-200",
+                              legsExpanded && "rotate-180"
+                            )} />
+                          </CardTitle>
+                        </CardHeader>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <CardContent className="space-y-2 pt-0">
+                          {courseStats.legs.map((leg, index) => {
+                            let windRelative: number | null = null;
+                            if (windDirection !== undefined) {
+                              let rel = leg.bearing - windDirection;
+                              while (rel > 180) rel -= 360;
+                              while (rel < -180) rel += 360;
+                              windRelative = rel;
+                            }
+                            const legEstimate = raceTimeEstimate?.legs[index];
+                            
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
+                                data-testid={`leg-${index}`}
+                              >
+                                <div className="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center font-bold">
+                                  {index + 1}
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CardContent>
-                  </Card>
+                                <div className="flex-1">
+                                  <div className="text-sm">
+                                    {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5">
+                                    <span>{leg.bearing.toFixed(0)}°</span>
+                                    {legEstimate && (
+                                      <Badge 
+                                        variant="outline" 
+                                        className={cn(
+                                          "text-[10px] px-1 py-0",
+                                          legEstimate.pointOfSail === "upwind" && "border-red-400 text-red-600 dark:text-red-400",
+                                          legEstimate.pointOfSail === "downwind" && "border-blue-400 text-blue-600 dark:text-blue-400",
+                                          (legEstimate.pointOfSail === "beam_reach" || legEstimate.pointOfSail === "close_reach" || legEstimate.pointOfSail === "broad_reach") && "border-green-400 text-green-600 dark:text-green-400"
+                                        )}
+                                      >
+                                        {legEstimate.pointOfSail.replace("_", " ")}
+                                      </Badge>
+                                    )}
+                                    {windRelative !== null && !legEstimate && (
+                                      <span className="text-amber-600 dark:text-amber-400">
+                                        ({windRelative >= 0 ? "+" : ""}{windRelative.toFixed(0)}° to wind)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
+                                  {legEstimate && (
+                                    <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
+                                      <Clock className="w-3 h-3" />
+                                      {formatLegTime(legEstimate.legTimeSeconds)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
                 )}
 
-                {/* Course Statistics */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Ruler className="w-4 h-4" />
-                      Course Statistics
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-xs text-muted-foreground">Total Distance</p>
-                        <p className="text-xl font-bold" data-testid="text-summary-distance">
-                          {courseStats.totalDistance.toFixed(2)} nm
-                        </p>
-                      </div>
-                      <div className="bg-muted/50 rounded-lg p-3">
-                        <p className="text-xs text-muted-foreground">
-                          Est. Race Time
-                          {raceTimeEstimate && (
-                            <span className="ml-1 text-green-600 dark:text-green-400">(VMG)</span>
-                          )}
-                        </p>
-                        <p className="text-xl font-bold flex items-center gap-1" data-testid="text-summary-time">
-                          <Clock className="w-4 h-4" />
-                          {raceTimeEstimate 
-                            ? raceTimeEstimate.totalTimeFormatted
-                            : `${Math.round(courseStats.estimatedTime)} min`
-                          }
-                        </p>
-                        {raceTimeEstimate && boatClass && (
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Sailboat className="w-3 h-3" />
-                            {boatClass.name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                        <p className="text-xs text-muted-foreground">Start Line</p>
-                        <p className="text-lg font-semibold">
-                          {(courseStats.startLineLength * 1852).toFixed(0)} m
-                        </p>
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                        <p className="text-xs text-muted-foreground">Finish Line</p>
-                        <p className="text-lg font-semibold">
-                          {(courseStats.finishLineLength * 1852).toFixed(0)} m
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Line Lengths */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Start Line</p>
+                    <p className="text-lg font-semibold">
+                      {(courseStats.startLineLength * 1852).toFixed(0)} m
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                    <p className="text-xs text-muted-foreground">Finish Line</p>
+                    <p className="text-lg font-semibold">
+                      {(courseStats.finishLineLength * 1852).toFixed(0)} m
+                    </p>
+                  </div>
+                </div>
 
                 {/* Marks Summary */}
                 <Card>
