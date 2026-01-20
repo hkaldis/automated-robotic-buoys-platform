@@ -10,8 +10,11 @@ import {
   insertBuoySchema,
   insertUserSettingsSchema,
   insertSailClubSchema,
+  insertCourseSnapshotSchema,
+  snapshotMarkSchema,
   boatClasses,
   type UserRole,
+  type SnapshotMark,
 } from "@shared/schema";
 import { z } from "zod";
 import { 
@@ -552,6 +555,184 @@ export async function registerRoutes(
       const deleted = await storage.deleteCourse(courseId);
       if (deleted) {
         res.json({ success: true });
+      } else {
+        res.status(500).json({ error: "Failed to delete course" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete course" });
+    }
+  });
+
+  // Course Snapshots - Immutable saved courses
+  
+  // Save a course snapshot
+  app.post("/api/course-snapshots", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const userRole = req.session.role!;
+      const sailClubId = req.session.sailClubId;
+      
+      // Get the current user for username
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Get the current course and marks
+      const { courseId, name } = req.body;
+      if (!courseId || !name) {
+        return res.status(400).json({ error: "Course ID and name are required" });
+      }
+      
+      const course = await storage.getCourse(courseId);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      const marks = await storage.getMarksByCourse(courseId);
+      
+      // Convert marks to snapshot format
+      const snapshotMarks: SnapshotMark[] = marks.map(m => ({
+        name: m.name,
+        role: m.role,
+        order: m.order,
+        lat: m.lat,
+        lng: m.lng,
+        isStartLine: m.isStartLine,
+        isFinishLine: m.isFinishLine,
+        isCourseMark: m.isCourseMark,
+        isGate: m.isGate,
+        gateWidthBoatLengths: m.gateWidthBoatLengths,
+        boatLengthMeters: m.boatLengthMeters,
+        gatePartnerId: m.gatePartnerId,
+        gateSide: m.gateSide,
+      }));
+      
+      // Determine visibility scope based on role
+      let visibilityScope: string;
+      let snapshotSailClubId: string | null = null;
+      let sailClubName: string | null = null;
+      
+      if (userRole === "super_admin") {
+        visibilityScope = "global";
+      } else if (userRole === "club_manager") {
+        visibilityScope = "club";
+        snapshotSailClubId = sailClubId || null;
+        if (snapshotSailClubId) {
+          const club = await storage.getSailClub(snapshotSailClubId);
+          sailClubName = club?.name || null;
+        }
+      } else {
+        visibilityScope = "user";
+        snapshotSailClubId = sailClubId || null;
+        if (snapshotSailClubId) {
+          const club = await storage.getSailClub(snapshotSailClubId);
+          sailClubName = club?.name || null;
+        }
+      }
+      
+      const snapshotData = {
+        name,
+        ownerId: userId,
+        ownerUsername: user.username,
+        sailClubId: snapshotSailClubId,
+        sailClubName,
+        visibilityScope,
+        shape: course.shape,
+        centerLat: course.centerLat,
+        centerLng: course.centerLng,
+        rotation: course.rotation,
+        scale: course.scale,
+        roundingSequence: course.roundingSequence,
+        snapshotMarks,
+      };
+      
+      const snapshot = await storage.createCourseSnapshot(snapshotData);
+      res.status(201).json(snapshot);
+    } catch (error) {
+      console.error("Failed to create course snapshot:", error);
+      res.status(500).json({ error: "Failed to save course" });
+    }
+  });
+  
+  // List course snapshots with pagination and filtering
+  app.get("/api/course-snapshots", requireAuth, async (req, res) => {
+    try {
+      const userId = req.session.userId!;
+      const userRole = req.session.role!;
+      const userSailClubId = req.session.sailClubId || null;
+      
+      const { clubId, search, cursor, limit } = req.query;
+      
+      const result = await storage.listCourseSnapshots({
+        userId,
+        userRole,
+        userSailClubId,
+        clubId: clubId as string | undefined,
+        search: search as string | undefined,
+        cursor: cursor as string | undefined,
+        limit: limit ? parseInt(limit as string, 10) : 25,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Failed to list course snapshots:", error);
+      res.status(500).json({ error: "Failed to load courses" });
+    }
+  });
+  
+  // Get a single course snapshot
+  app.get("/api/course-snapshots/:id", requireAuth, async (req, res) => {
+    try {
+      const snapshotId = req.params.id as string;
+      const snapshot = await storage.getCourseSnapshot(snapshotId);
+      if (!snapshot) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Check visibility permissions
+      const userId = req.session.userId!;
+      const userRole = req.session.role!;
+      const userSailClubId = req.session.sailClubId || null;
+      
+      const canAccess = 
+        userRole === "super_admin" ||
+        snapshot.visibilityScope === "global" ||
+        (snapshot.visibilityScope === "club" && snapshot.sailClubId === userSailClubId) ||
+        (snapshot.visibilityScope === "user" && snapshot.ownerId === userId);
+      
+      if (!canAccess) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(snapshot);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch course" });
+    }
+  });
+  
+  // Delete a course snapshot
+  app.delete("/api/course-snapshots/:id", requireAuth, async (req, res) => {
+    try {
+      const snapshotId = req.params.id as string;
+      const snapshot = await storage.getCourseSnapshot(snapshotId);
+      if (!snapshot) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      // Check delete permissions - only owner or super_admin can delete
+      const userId = req.session.userId!;
+      const userRole = req.session.role!;
+      
+      const canDelete = userRole === "super_admin" || snapshot.ownerId === userId;
+      
+      if (!canDelete) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const deleted = await storage.deleteCourseSnapshot(snapshotId);
+      if (deleted) {
+        res.json({ message: "Course deleted successfully" });
       } else {
         res.status(500).json({ error: "Failed to delete course" });
       }
