@@ -151,7 +151,7 @@ export function CreateRaceDialog({ onCreateRace, trigger }: CreateRaceDialogProp
                 <SelectTrigger id="boat-class" data-testid="select-boat-class">
                   <SelectValue placeholder={boatClassesLoading ? "Loading..." : "Select boat class"} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10000] max-h-60">
                   {boatClassesLoading ? (
                     <div className="flex items-center justify-center p-2">
                       <Loader2 className="w-4 h-4 animate-spin" />

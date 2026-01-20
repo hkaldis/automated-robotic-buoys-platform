@@ -82,7 +82,7 @@ export function TopBar({
   }, [getFullscreenElement, updateFullscreenState]);
 
   return (
-    <header className="h-14 border-b bg-card flex items-center px-4 gap-3 shrink-0 sticky top-0 z-[9999]" data-testid="topbar">
+    <header className="h-12 border-b bg-card flex items-center px-4 gap-3 shrink-0 sticky top-0 z-[9999]" data-testid="topbar">
       <Button 
         variant="ghost" 
         size="icon" 

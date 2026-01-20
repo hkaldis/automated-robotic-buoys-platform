@@ -1333,7 +1333,7 @@ export function SetupPanel({
                 <SelectTrigger className="flex-1 min-h-10" data-testid="select-boat-class-override">
                   <SelectValue placeholder="Select boat class" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[10000] max-h-60">
                   {boatClasses.map((bc) => (
                     <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                   ))}
@@ -2224,7 +2224,8 @@ export function SetupPanel({
             const minPhaseIdx = phaseOrder.indexOf(minPhase);
             const isComplete = idx < currentPhaseIndex;
             const isCurrent = p.id === phase;
-            const canNavigate = idx <= minPhaseIdx && !isCurrent;
+            // Fleet (ready) phase is always accessible regardless of previous steps
+            const canNavigate = (p.id === "ready" || idx <= minPhaseIdx) && !isCurrent;
             
             return (
               <button
@@ -2234,7 +2235,7 @@ export function SetupPanel({
                 className={cn(
                   "flex-1 flex flex-col items-center gap-0.5 transition-opacity",
                   canNavigate ? "cursor-pointer hover:opacity-80" : "",
-                  !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-40" : ""
+                  !canNavigate && !isCurrent && idx > minPhaseIdx && p.id !== "ready" ? "opacity-40" : ""
                 )}
                 data-testid={`button-phase-${p.id}`}
               >

@@ -407,7 +407,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const pendingDeployments = useMemo(() => {
     if (buoyDeployMode !== "manual") return [];
     return getPendingDeployments();
-  }, [buoyDeployMode, getPendingDeployments]);
+  }, [buoyDeployMode, getPendingDeployments, marks, buoys]);
 
   const selectedBuoy = useMemo(() => {
     if (!selectedBuoyId) return null;
