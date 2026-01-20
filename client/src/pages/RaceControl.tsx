@@ -1039,6 +1039,41 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } });
   }, [marks, updateMark]);
 
+  const handleAdjustMarkToWind = useCallback((markId: string, newLat: number, newLng: number) => {
+    const mark = marks.find(m => m.id === markId);
+    if (!mark) return;
+    
+    setLastMarkMove({
+      markId,
+      prevLat: mark.lat,
+      prevLng: mark.lng,
+      timestamp: Date.now(),
+    });
+    
+    updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } }, {
+      onSuccess: () => {
+        toast({
+          title: "Mark Adjusted",
+          description: "Mark position adjusted relative to wind.",
+        });
+      },
+    });
+  }, [marks, updateMark, toast]);
+
+  const handleUndoMarkAdjust = useCallback(() => {
+    if (!lastMarkMove) return;
+    
+    updateMark.mutate({ id: lastMarkMove.markId, data: { lat: lastMarkMove.prevLat, lng: lastMarkMove.prevLng } }, {
+      onSuccess: () => {
+        setLastMarkMove(null);
+        toast({
+          title: "Undone",
+          description: "Mark position restored.",
+        });
+      },
+    });
+  }, [lastMarkMove, updateMark, toast]);
+
   const handleBuoyGotoMapClick = useCallback((buoyId: string) => {
     if (gotoMapClickBuoyId === buoyId) {
       setGotoMapClickBuoyId(null);
@@ -2006,12 +2041,22 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             <MarkEditPanel
               mark={selectedMark}
               buoys={buoys}
+              allMarks={marks}
+              roundingSequence={roundingSequence}
+              windDirection={activeWeatherData?.windDirection}
               onClose={() => { setSelectedMarkId(null); setGotoMapClickMarkId(null); }}
               onSave={(data) => handleSaveMark(selectedMark.id, data)}
               onDelete={() => handleDeleteMark(selectedMark.id)}
               onReposition={() => handleRepositionMark(selectedMark.id)}
               onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
+              onAdjustToWind={(lat, lng) => handleAdjustMarkToWind(selectedMark.id, lat, lng)}
               isRepositioning={!!repositioningMarkId}
+              lastMarkAdjust={lastMarkMove && lastMarkMove.markId === selectedMark.id ? {
+                originalLat: lastMarkMove.prevLat,
+                originalLng: lastMarkMove.prevLng,
+                timestamp: lastMarkMove.timestamp
+              } : null}
+              onUndoMarkAdjust={handleUndoMarkAdjust}
             />
           ) : (
             <SetupPanel 

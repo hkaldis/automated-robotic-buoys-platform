@@ -1,4 +1,4 @@
-import { Ruler, Gauge, Wind, Eye, Anchor } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -6,8 +6,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, type StartLineResizeMode, type StartLineFixBearingMode } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -50,6 +51,15 @@ const fixBearingModeOptions: { value: StartLineFixBearingMode; label: string }[]
   { value: "committee_boat", label: "Move Committee Boat" },
 ];
 
+const windAngleLabels: Record<keyof WindAngleDefaults, string> = {
+  windward: "Windward",
+  leeward: "Leeward",
+  wing: "Wing",
+  offset: "Offset",
+  turning_mark: "Turning Mark",
+  other: "Other",
+};
+
 export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = true, onToggleWindArrows }: SettingsDialogProps) {
   const { 
     distanceUnit, 
@@ -60,6 +70,9 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
     startLineFixBearingMode,
     setStartLineResizeMode,
     setStartLineFixBearingMode,
+    windAngleDefaults,
+    setWindAngleDefault,
+    resetWindAngleDefaults,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -284,6 +297,52 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                   </SelectContent>
                 </Select>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Compass className="w-4 h-4" />
+                Mark Wind Angle Defaults
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Default degrees relative to wind when using "Adjust to Wind" on marks.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {(Object.keys(windAngleDefaults) as Array<keyof WindAngleDefaults>).map((role) => (
+                  <div key={role} className="flex items-center gap-2">
+                    <Label htmlFor={`wind-angle-${role}`} className="text-sm flex-1 min-w-0">
+                      {windAngleLabels[role]}
+                    </Label>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        id={`wind-angle-${role}`}
+                        type="number"
+                        min={-180}
+                        max={360}
+                        value={windAngleDefaults[role]}
+                        onChange={(e) => setWindAngleDefault(role, parseInt(e.target.value) || 0)}
+                        className="w-20 font-mono text-center"
+                        data-testid={`input-wind-angle-${role}`}
+                      />
+                      <span className="text-xs text-muted-foreground">°</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={resetWindAngleDefaults}
+                data-testid="button-reset-wind-angles"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Reset to Defaults
+              </Button>
             </CardContent>
           </Card>
         </div>

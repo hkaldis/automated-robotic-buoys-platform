@@ -5,11 +5,30 @@ type SettingsListener = () => void;
 export type StartLineResizeMode = "both" | "pin" | "committee_boat";
 export type StartLineFixBearingMode = "pin" | "committee_boat";
 
+export interface WindAngleDefaults {
+  windward: number;
+  leeward: number;
+  wing: number;
+  offset: number;
+  turning_mark: number;
+  other: number;
+}
+
+export const DEFAULT_WIND_ANGLES: WindAngleDefaults = {
+  windward: 0,
+  leeward: 180,
+  wing: 120,
+  offset: 10,
+  turning_mark: 0,
+  other: 0,
+};
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
   startLineResizeMode: StartLineResizeMode;
   startLineFixBearingMode: StartLineFixBearingMode;
+  windAngleDefaults: WindAngleDefaults;
 }
 
 class SettingsService {
@@ -18,6 +37,7 @@ class SettingsService {
     speedUnit: "knots",
     startLineResizeMode: "both",
     startLineFixBearingMode: "pin",
+    windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -76,6 +96,28 @@ class SettingsService {
   setStartLineFixBearingMode(mode: StartLineFixBearingMode): void {
     this.settings.startLineFixBearingMode = mode;
     this.notify();
+  }
+
+  getWindAngleDefaults(): WindAngleDefaults {
+    return { ...this.settings.windAngleDefaults };
+  }
+
+  setWindAngleDefault(role: keyof WindAngleDefaults, value: number): void {
+    this.settings.windAngleDefaults[role] = value;
+    this.notify();
+  }
+
+  resetWindAngleDefaults(): void {
+    this.settings.windAngleDefaults = { ...DEFAULT_WIND_ANGLES };
+    this.notify();
+  }
+
+  getWindAngleForRole(role: string): number {
+    const key = role as keyof WindAngleDefaults;
+    if (key in this.settings.windAngleDefaults) {
+      return this.settings.windAngleDefaults[key];
+    }
+    return this.settings.windAngleDefaults.other;
   }
 
   formatDistance(valueNm: number): string {

@@ -185,6 +185,36 @@ export function movePoint(
   };
 }
 
+export interface AdjustToWindResult {
+  lat: number;
+  lng: number;
+  distanceFromRef: number;
+  originalBearing: number;
+  newBearing: number;
+}
+
+export function adjustSingleMarkToWind(
+  markLat: number,
+  markLng: number,
+  refLat: number,
+  refLng: number,
+  windDirection: number,
+  degreesToWind: number
+): AdjustToWindResult {
+  const distanceFromRef = calculateDistance(refLat, refLng, markLat, markLng);
+  const originalBearing = calculateBearing(refLat, refLng, markLat, markLng);
+  const newBearing = normalizeBearing(windDirection + degreesToWind);
+  const newPosition = movePoint(refLat, refLng, newBearing, distanceFromRef);
+  
+  return {
+    lat: newPosition.lat,
+    lng: newPosition.lng,
+    distanceFromRef,
+    originalBearing,
+    newBearing,
+  };
+}
+
 export function getTargetLegBearing(
   role: string,
   windDirection: number,

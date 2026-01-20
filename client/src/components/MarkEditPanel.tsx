@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,16 +10,24 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
+import { useSettings } from "@/hooks/use-settings";
+import { adjustSingleMarkToWind, getStartLineCenter } from "@/lib/course-bearings";
 
 interface MarkEditPanelProps {
   mark: Mark;
   buoys: Buoy[];
+  allMarks: Mark[];
+  roundingSequence: string[];
+  windDirection?: number;
   onClose: () => void;
   onSave: (data: Partial<Mark>) => void;
   onDelete: () => void;
   onReposition?: () => void;
   onNudge?: (direction: "north" | "south" | "east" | "west") => void;
+  onAdjustToWind?: (lat: number, lng: number) => void;
   isRepositioning?: boolean;
+  lastMarkAdjust?: { originalLat: number; originalLng: number; timestamp: number } | null;
+  onUndoMarkAdjust?: () => void;
 }
 
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
@@ -36,14 +44,21 @@ const MARK_ROLES: { value: MarkRole; label: string }[] = [
 
 export function MarkEditPanel({ 
   mark, 
-  buoys, 
+  buoys,
+  allMarks,
+  roundingSequence,
+  windDirection,
   onClose, 
   onSave, 
   onDelete,
   onReposition,
   onNudge,
+  onAdjustToWind,
   isRepositioning,
+  lastMarkAdjust,
+  onUndoMarkAdjust,
 }: MarkEditPanelProps) {
+  const { getWindAngleForRole } = useSettings();
   const [name, setName] = useState(mark.name);
   const [role, setRole] = useState<MarkRole>(mark.role as MarkRole);
   const [lat, setLat] = useState(mark.lat.toString());
@@ -59,6 +74,79 @@ export function MarkEditPanel({
   const [gateStarboardBuoyId, setGateStarboardBuoyId] = useState<string>(mark.gateStarboardBuoyId || "");
   const [hasChanges, setHasChanges] = useState(false);
   
+  const [degreesToWind, setDegreesToWind] = useState(() => getWindAngleForRole(mark.role));
+  const [undoTick, setUndoTick] = useState(0);
+  
+  useEffect(() => {
+    setDegreesToWind(getWindAngleForRole(role));
+  }, [role, getWindAngleForRole]);
+  
+  useEffect(() => {
+    if (!lastMarkAdjust) return;
+    const remainingTime = 60000 - (Date.now() - lastMarkAdjust.timestamp);
+    if (remainingTime <= 0) return;
+    const timer = setTimeout(() => setUndoTick((t) => t + 1), remainingTime);
+    return () => clearTimeout(timer);
+  }, [lastMarkAdjust]);
+  
+  const startLineCenter = useMemo(() => {
+    return getStartLineCenter(allMarks.map(m => ({ role: m.role, lat: m.lat, lng: m.lng })));
+  }, [allMarks]);
+  
+  const hasStartLine = useMemo(() => {
+    const hasPin = allMarks.some(m => m.role === "pin" || (m.isStartLine && m.role !== "start_boat"));
+    const hasCB = allMarks.some(m => m.role === "start_boat");
+    return hasPin && hasCB;
+  }, [allMarks]);
+  
+  const markPositionInSequence = useMemo(() => {
+    const idx = roundingSequence.indexOf(mark.id);
+    return idx;
+  }, [roundingSequence, mark.id]);
+  
+  const previousReferencePosition = useMemo(() => {
+    if (markPositionInSequence < 0) return null;
+    if (markPositionInSequence === 0) return null;
+    
+    const prevEntry = roundingSequence[markPositionInSequence - 1];
+    if (prevEntry === "start") {
+      return startLineCenter;
+    }
+    
+    const prevMark = allMarks.find(m => m.id === prevEntry);
+    if (prevMark) {
+      return { lat: prevMark.lat, lng: prevMark.lng };
+    }
+    return null;
+  }, [markPositionInSequence, roundingSequence, allMarks, startLineCenter]);
+  
+  const isStartOrFinishMark = mark.isStartLine || mark.isFinishLine || mark.role === "start_boat" || mark.role === "pin" || mark.role === "finish";
+  
+  const canAdjustToWind = useMemo(() => {
+    if (isStartOrFinishMark) return { can: false, reason: "Use line controls for start/finish" };
+    if (windDirection === undefined) return { can: false, reason: "No wind data" };
+    if (!hasStartLine) return { can: false, reason: "Define start line first" };
+    if (markPositionInSequence < 0) return { can: false, reason: "Add to route first" };
+    if (markPositionInSequence === 0) return { can: false, reason: "First entry is start" };
+    if (!previousReferencePosition) return { can: false, reason: "No reference position" };
+    return { can: true, reason: null };
+  }, [isStartOrFinishMark, windDirection, hasStartLine, markPositionInSequence, previousReferencePosition]);
+  
+  const handleAdjustToWind = useCallback(() => {
+    if (!canAdjustToWind.can || !previousReferencePosition || windDirection === undefined || !onAdjustToWind) return;
+    
+    const result = adjustSingleMarkToWind(
+      mark.lat,
+      mark.lng,
+      previousReferencePosition.lat,
+      previousReferencePosition.lng,
+      windDirection,
+      degreesToWind
+    );
+    
+    onAdjustToWind(result.lat, result.lng);
+  }, [canAdjustToWind, previousReferencePosition, windDirection, mark.lat, mark.lng, degreesToWind, onAdjustToWind]);
+
   // Track which fields the user has edited (dirty flags)
   // This prevents external updates from overwriting user edits
   const dirtyFieldsRef = useRef<Set<string>>(new Set());
@@ -352,6 +440,58 @@ export function MarkEditPanel({
           </div>
         )}
       </div>
+
+      {!isStartOrFinishMark && (
+        <div className="p-3 border-b bg-blue-500/5">
+          <div className="flex items-center gap-2 mb-2">
+            <Wind className="w-4 h-4 text-blue-500" />
+            <Label className="text-sm font-medium">Adjust to Wind</Label>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={-180}
+                max={360}
+                value={degreesToWind}
+                onChange={(e) => setDegreesToWind(parseInt(e.target.value) || 0)}
+                className="w-20 h-12 text-center text-lg font-mono"
+                disabled={!canAdjustToWind.can}
+                data-testid="input-degrees-to-wind"
+              />
+              <span className="text-sm text-muted-foreground">° to wind</span>
+            </div>
+            
+            <Button
+              variant="default"
+              className="flex-1 h-12 gap-2"
+              onClick={handleAdjustToWind}
+              disabled={!canAdjustToWind.can || !onAdjustToWind}
+              data-testid="button-adjust-to-wind"
+            >
+              <Wind className="w-4 h-4" />
+              Adjust to Wind
+            </Button>
+          </div>
+          
+          {!canAdjustToWind.can && canAdjustToWind.reason && (
+            <p className="text-xs text-muted-foreground mt-2">{canAdjustToWind.reason}</p>
+          )}
+          
+          {lastMarkAdjust && onUndoMarkAdjust && (Date.now() - lastMarkAdjust.timestamp) < 60000 && (
+            <Button
+              variant="outline"
+              className="w-full mt-2 gap-2 h-10 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+              onClick={onUndoMarkAdjust}
+              data-testid="button-undo-mark-adjust"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Undo
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="grid grid-cols-2 gap-3">

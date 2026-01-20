@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
-import type { StartLineResizeMode, StartLineFixBearingMode } from "@/lib/services/settings-service";
-import { settingsService } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -63,11 +63,15 @@ export function useSettings() {
   const [startLineFixBearingMode, setStartLineFixBearingModeState] = useState<StartLineFixBearingMode>(
     settingsService.getStartLineFixBearingMode()
   );
+  const [windAngleDefaults, setWindAngleDefaultsState] = useState<WindAngleDefaults>(
+    settingsService.getWindAngleDefaults()
+  );
 
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
       setStartLineResizeModeState(settingsService.getStartLineResizeMode());
       setStartLineFixBearingModeState(settingsService.getStartLineFixBearingMode());
+      setWindAngleDefaultsState(settingsService.getWindAngleDefaults());
     });
     return unsubscribe;
   }, []);
@@ -78,6 +82,18 @@ export function useSettings() {
 
   const setStartLineFixBearingMode = useCallback((mode: StartLineFixBearingMode) => {
     settingsService.setStartLineFixBearingMode(mode);
+  }, []);
+
+  const setWindAngleDefault = useCallback((role: keyof WindAngleDefaults, value: number) => {
+    settingsService.setWindAngleDefault(role, value);
+  }, []);
+
+  const resetWindAngleDefaults = useCallback(() => {
+    settingsService.resetWindAngleDefaults();
+  }, []);
+
+  const getWindAngleForRole = useCallback((role: string): number => {
+    return settingsService.getWindAngleForRole(role);
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -120,7 +136,12 @@ export function useSettings() {
     startLineFixBearingMode,
     setStartLineResizeMode,
     setStartLineFixBearingMode,
+    windAngleDefaults,
+    setWindAngleDefault,
+    resetWindAngleDefaults,
+    getWindAngleForRole,
   };
 }
 
-export type { StartLineResizeMode, StartLineFixBearingMode };
+export { DEFAULT_WIND_ANGLES };
+export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults };
