@@ -798,6 +798,11 @@ export function SetupPanel({
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">Line Length</p>
                     <p className="text-sm font-semibold">{startLineLength.toFixed(0)} m</p>
+                    {boatClass?.lengthMeters && (
+                      <p className="text-xs text-muted-foreground">
+                        ({(startLineLength / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button
@@ -818,6 +823,19 @@ export function SetupPanel({
                     </Button>
                   </div>
                 </div>
+
+                {startLineCrossingTime && (
+                  <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Crossing time
+                    </p>
+                    <p className="text-sm font-semibold">{startLineCrossingTime.timeFormatted}</p>
+                    <p className="text-xs text-muted-foreground">
+                      ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   variant="outline"
@@ -1006,6 +1024,18 @@ export function SetupPanel({
                 })}
               </div>
             </ScrollArea>
+
+            {canConfirmFinish && courseStats.finishLineLength > 0 && (
+              <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <p className="text-xs text-muted-foreground">Line Length</p>
+                <p className="text-sm font-semibold">{(courseStats.finishLineLength * 1852).toFixed(0)} m</p>
+                {boatClass?.lengthMeters && (
+                  <p className="text-xs text-muted-foreground">
+                    ({((courseStats.finishLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="pt-3 border-t space-y-2 mt-auto">
               {!canConfirmFinish && (
@@ -1401,7 +1431,7 @@ export function SetupPanel({
                           {startLineCrossingTime.timeFormatted}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {startLineCrossingTime.boatSpeed.toFixed(1)} kts)
+                          ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
                         </p>
                       </div>
                     )}
