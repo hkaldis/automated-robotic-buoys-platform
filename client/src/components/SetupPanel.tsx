@@ -1938,13 +1938,31 @@ export function SetupPanel({
         // Get assigned buoys with their data
         const assignedBuoys = buoys.filter(b => assignedBuoyIds.has(b.id));
         
-        // Calculate fleet status counts
-        const movingBuoys = assignedBuoys.filter(b => b.state === "moving_to_target");
-        const onlineBuoys = assignedBuoys.filter(b => b.state === "holding_position" || b.state === "idle");
-        const faultBuoys = assignedBuoys.filter(b => b.state === "fault" || b.state === "unavailable");
-        const lowBatteryBuoys = assignedBuoys.filter(b => b.battery < 20);
+        // Get unassigned buoys
+        const unassignedBuoys = buoys.filter(b => !assignedBuoyIds.has(b.id));
         
-        // Calculate maximum ETA across all buoys
+        // GoTo buoys: moving to target but NOT assigned to a mark
+        const gotoBuoys = unassignedBuoys.filter(b => 
+          b.state === "moving_to_target" && b.targetLat != null && b.targetLng != null
+        );
+        
+        // Available buoys: idle and not moving, not assigned
+        const availableBuoys = unassignedBuoys.filter(b => 
+          (b.state === "idle" || b.state === "holding_position") && 
+          !gotoBuoys.includes(b)
+        );
+        
+        // Issue buoys: fault or unavailable (from all buoys)
+        const issueBuoys = buoys.filter(b => b.state === "fault" || b.state === "unavailable");
+        
+        // Calculate fleet status counts (for ALL buoys)
+        const allMovingBuoys = buoys.filter(b => b.state === "moving_to_target");
+        const allOnStationBuoys = buoys.filter(b => b.state === "holding_position");
+        const allFaultBuoys = buoys.filter(b => b.state === "fault" || b.state === "unavailable");
+        const allLowBatteryBuoys = buoys.filter(b => b.battery < 20);
+        const allIdleBuoys = buoys.filter(b => b.state === "idle");
+        
+        // Calculate maximum ETA across assigned buoys (for course setup)
         const maxEtaSeconds = Math.max(0, ...assignedBuoys.map(b => b.eta ?? 0));
         const maxEtaMinutes = Math.floor(maxEtaSeconds / 60);
         const maxEtaSecondsRemainder = maxEtaSeconds % 60;
@@ -1975,6 +1993,53 @@ export function SetupPanel({
           }
         };
         
+        // Render a buoy card
+        const renderBuoyCard = (buoy: Buoy, subtitle: string) => {
+          const stateInfo = getBuoyStateInfo(buoy.state);
+          const etaFormatted = formatEta(buoy.eta);
+          
+          return (
+            <div
+              key={buoy.id}
+              className={cn(
+                "p-2.5 rounded-lg",
+                stateInfo.bgColor
+              )}
+              data-testid={`buoy-status-${buoy.id}`}
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                  buoy.state === "fault" || buoy.state === "unavailable" 
+                    ? "bg-red-500 text-white" 
+                    : buoy.state === "moving_to_target"
+                    ? "bg-amber-500 text-white"
+                    : buoy.state === "idle"
+                    ? "bg-blue-500 text-white"
+                    : "bg-green-500 text-white"
+                )}>
+                  <Anchor className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{buoy.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] flex-shrink-0">
+                  <span className={cn("font-mono", buoy.battery < 20 ? "text-red-500" : "text-muted-foreground")}>
+                    {buoy.battery}%
+                  </span>
+                  {buoy.state === "moving_to_target" && (
+                    <>
+                      <span className="font-mono text-amber-600">{buoy.speed?.toFixed(1) ?? 0}kts</span>
+                      {etaFormatted && <span className="font-mono font-medium text-amber-600">{etaFormatted}</span>}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        };
+        
         return (
           <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
             {/* Header */}
@@ -1984,135 +2049,105 @@ export function SetupPanel({
               </div>
               <div className="flex-1">
                 <h2 className="text-sm font-semibold">Fleet Status</h2>
-                <p className="text-xs text-muted-foreground">{assignedBuoys.length} buoys assigned</p>
+                <p className="text-xs text-muted-foreground">{buoys.length} buoys total</p>
               </div>
             </div>
 
-            {/* Status Summary */}
-            <div className="grid grid-cols-4 gap-2" data-testid="fleet-status-summary">
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center" data-testid="status-on-station">
-                <p className="text-lg font-bold text-green-600" data-testid="count-on-station">{onlineBuoys.length}</p>
-                <p className="text-[10px] text-muted-foreground">On Station</p>
+            {/* Status Summary - counts for ALL buoys */}
+            <div className="grid grid-cols-5 gap-1.5" data-testid="fleet-status-summary">
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-1.5 text-center" data-testid="status-on-station">
+                <p className="text-base font-bold text-green-600" data-testid="count-on-station">{allOnStationBuoys.length}</p>
+                <p className="text-[9px] text-muted-foreground">Station</p>
               </div>
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2 text-center" data-testid="status-moving">
-                <p className="text-lg font-bold text-amber-600" data-testid="count-moving">{movingBuoys.length}</p>
-                <p className="text-[10px] text-muted-foreground">Moving</p>
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-1.5 text-center" data-testid="status-moving">
+                <p className="text-base font-bold text-amber-600" data-testid="count-moving">{allMovingBuoys.length}</p>
+                <p className="text-[9px] text-muted-foreground">Moving</p>
               </div>
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center" data-testid="status-fault">
-                <p className="text-lg font-bold text-red-600" data-testid="count-fault">{faultBuoys.length}</p>
-                <p className="text-[10px] text-muted-foreground">Fault</p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-1.5 text-center" data-testid="status-idle">
+                <p className="text-base font-bold text-blue-600" data-testid="count-idle">{allIdleBuoys.length}</p>
+                <p className="text-[9px] text-muted-foreground">Idle</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-1.5 text-center" data-testid="status-fault">
+                <p className="text-base font-bold text-red-600" data-testid="count-fault">{allFaultBuoys.length}</p>
+                <p className="text-[9px] text-muted-foreground">Fault</p>
               </div>
               <div className={cn(
-                "rounded-lg p-2 text-center",
-                lowBatteryBuoys.length > 0 ? "bg-orange-50 dark:bg-orange-900/20" : "bg-muted/50"
+                "rounded-lg p-1.5 text-center",
+                allLowBatteryBuoys.length > 0 ? "bg-orange-50 dark:bg-orange-900/20" : "bg-muted/50"
               )} data-testid="status-low-battery">
-                <p className={cn("text-lg font-bold", lowBatteryBuoys.length > 0 ? "text-orange-600" : "text-muted-foreground")} data-testid="count-low-battery">
-                  {lowBatteryBuoys.length}
+                <p className={cn("text-base font-bold", allLowBatteryBuoys.length > 0 ? "text-orange-600" : "text-muted-foreground")} data-testid="count-low-battery">
+                  {allLowBatteryBuoys.length}
                 </p>
-                <p className="text-[10px] text-muted-foreground">Low Batt</p>
+                <p className="text-[9px] text-muted-foreground">Low Bat</p>
               </div>
             </div>
 
             {/* Max ETA for Course Setup */}
             {maxEtaSeconds > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 flex items-center gap-3" data-testid="course-setup-eta">
-                <Clock className="w-5 h-5 text-amber-600" />
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 flex items-center gap-2" data-testid="course-setup-eta">
+                <Clock className="w-4 h-4 text-amber-600" />
                 <div className="flex-1">
-                  <p className="text-xs text-muted-foreground">Course Setup ETA</p>
-                  <p className="text-lg font-bold text-amber-600" data-testid="text-max-eta">
+                  <p className="text-[10px] text-muted-foreground">Course Ready In</p>
+                  <p className="text-base font-bold text-amber-600" data-testid="text-max-eta">
                     {maxEtaMinutes > 0 ? `${maxEtaMinutes}m ${maxEtaSecondsRemainder}s` : `${maxEtaSecondsRemainder}s`}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Buoy List */}
+            {/* Buoy List - organized by category */}
             <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-2">
-                {assignedBuoys.map(buoy => {
-                  const assignment = buoyToMarkMap.get(buoy.id);
-                  const stateInfo = getBuoyStateInfo(buoy.state);
-                  const etaFormatted = formatEta(buoy.eta);
-                  
-                  return (
-                    <div
-                      key={buoy.id}
-                      className={cn(
-                        "p-3 rounded-lg space-y-2",
-                        stateInfo.bgColor
-                      )}
-                      data-testid={`buoy-status-${buoy.id}`}
-                    >
-                      {/* Buoy Header */}
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center",
-                          buoy.state === "fault" || buoy.state === "unavailable" 
-                            ? "bg-red-500 text-white" 
-                            : buoy.state === "moving_to_target"
-                            ? "bg-amber-500 text-white"
-                            : "bg-green-500 text-white"
-                        )}>
-                          <Anchor className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold truncate">{buoy.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {assignment ? assignment.markName : "Unassigned"}
-                          </p>
-                        </div>
-                        <Badge className={cn("text-xs", stateInfo.color, "bg-transparent border-0")}>
-                          {stateInfo.label}
-                        </Badge>
-                      </div>
-
-                      {/* Buoy Details Row */}
-                      <div className="flex items-center gap-4 text-xs">
-                        {/* Battery */}
-                        <div className="flex items-center gap-1">
-                          <Battery className={cn(
-                            "w-3.5 h-3.5",
-                            buoy.battery < 20 ? "text-red-500" : 
-                            buoy.battery < 50 ? "text-amber-500" : "text-green-500"
-                          )} />
-                          <span className="font-mono">{buoy.battery}%</span>
-                        </div>
-                        
-                        {/* Signal */}
-                        <div className="flex items-center gap-1">
-                          <Wifi className={cn(
-                            "w-3.5 h-3.5",
-                            buoy.signalStrength < 30 ? "text-red-500" : 
-                            buoy.signalStrength < 60 ? "text-amber-500" : "text-green-500"
-                          )} />
-                          <span className="font-mono">{buoy.signalStrength}%</span>
-                        </div>
-
-                        {/* Speed + ETA for moving buoys */}
-                        {buoy.state === "moving_to_target" && (
-                          <>
-                            <div className="flex items-center gap-1">
-                              <Navigation2 className="w-3.5 h-3.5 text-amber-600" />
-                              <span className="font-mono">{buoy.speed?.toFixed(1) ?? 0} kts</span>
-                            </div>
-                            {etaFormatted && (
-                              <div className="flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-amber-600" />
-                                <span className="font-mono font-medium">{etaFormatted}</span>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="space-y-3">
+                {/* Assigned to Marks */}
+                {assignedBuoys.length > 0 && (
+                  <div className="space-y-1.5" data-testid="section-assigned">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
+                      Assigned to Marks ({assignedBuoys.length})
+                    </p>
+                    {assignedBuoys.map(buoy => {
+                      const assignment = buoyToMarkMap.get(buoy.id);
+                      return renderBuoyCard(buoy, assignment?.markName ?? "Mark");
+                    })}
+                  </div>
+                )}
                 
-                {assignedBuoys.length === 0 && (
+                {/* GoTo Commands */}
+                {gotoBuoys.length > 0 && (
+                  <div className="space-y-1.5" data-testid="section-goto">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
+                      GoTo Target ({gotoBuoys.length})
+                    </p>
+                    {gotoBuoys.map(buoy => renderBuoyCard(buoy, "Manual GoTo"))}
+                  </div>
+                )}
+                
+                {/* Available */}
+                {availableBuoys.length > 0 && (
+                  <div className="space-y-1.5" data-testid="section-available">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
+                      Available ({availableBuoys.length})
+                    </p>
+                    {availableBuoys.map(buoy => renderBuoyCard(buoy, "Ready"))}
+                  </div>
+                )}
+                
+                {/* Issues */}
+                {issueBuoys.length > 0 && (
+                  <div className="space-y-1.5" data-testid="section-issues">
+                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
+                      Issues ({issueBuoys.length})
+                    </p>
+                    {issueBuoys.map(buoy => {
+                      const stateInfo = getBuoyStateInfo(buoy.state);
+                      return renderBuoyCard(buoy, stateInfo.label);
+                    })}
+                  </div>
+                )}
+                
+                {buoys.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Anchor className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No buoys assigned</p>
-                    <p className="text-xs">Go to Buoys tab to assign buoys</p>
+                    <p className="text-sm">No buoys in fleet</p>
                   </div>
                 )}
               </div>
