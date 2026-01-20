@@ -173,3 +173,36 @@ Simple touch-friendly controls for adjusting start line at sea:
    - `calculateStartLineBearing()`: Bearing from pin to committee boat
    - `handleResizeStartLine()`: Scales from center (both) or fixed mark (pin/cb)
    - `handleFixBearing()`: Geodesic destination-point calculation for spherical accuracy
+
+### Adjust Individual Mark to Wind Feature (January 2026)
+Single-mark wind adjustment for fine-tuning mark positions at sea:
+
+1. **Location**: MarkEditPanel "Adjust to Wind" section (visible for non-start/finish marks)
+
+2. **Role-Based Default Angles** (configurable in Settings):
+   - Windward: 0° (directly upwind from reference)
+   - Leeward: 180° (directly downwind from reference)
+   - Wing: 120° (broad reach angle)
+   - Offset: 10° (slight offset from upwind)
+   - Turning Mark: 0° (same as windward)
+   - Other: 0° (fallback default)
+
+3. **Reference Point Selection**:
+   - Uses the FIRST appearance of the mark in the rounding sequence
+   - Previous mark in sequence becomes the reference point for bearing calculation
+   - Requirement: Mark must be in the rounding sequence (not just on the course)
+
+4. **Adjustment Calculation** (`adjustSingleMarkToWind` in course-bearings.ts):
+   - Calculates distance from reference mark to current mark
+   - Computes new bearing as windDirection + degreesToWind
+   - Uses geodesic destination-point formula for accurate positioning
+
+5. **UI/UX**:
+   - Degrees input with role-based default pre-filled
+   - "Adjust to Wind" button (disabled with reason if mark not in route or no wind data)
+   - Undo button (60-second window) to restore previous position
+   - Settings panel for customizing default angles per role with "Reset to Defaults" button
+
+6. **Settings Persistence**:
+   - Wind angle defaults stored in localStorage via settings-service.ts
+   - Device-specific preferences (suitable for at-sea tablet use)
