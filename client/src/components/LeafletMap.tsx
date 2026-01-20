@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
+import type { PendingDeployment } from "@/hooks/use-buoy-follow";
 import { cn } from "@/lib/utils";
 import { calculateWindAngle, calculateStartLineWindAngle, formatWindRelative } from "@/lib/course-bearings";
 
@@ -53,6 +54,7 @@ interface LeafletMapProps {
   onMapMoveEnd?: (lat: number, lng: number) => void;
   mapLayer?: MapLayerType;
   showSeaMarks?: boolean;
+  pendingDeployments?: PendingDeployment[];
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -725,6 +727,7 @@ export function LeafletMap({
   onMapMoveEnd,
   mapLayer = "osm",
   showSeaMarks = true,
+  pendingDeployments = [],
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -1013,6 +1016,19 @@ export function LeafletMap({
               />
             )}
           </Marker>
+        ))}
+        
+        {pendingDeployments.map((deployment) => (
+          <Polyline
+            key={`pending-${deployment.buoyId}`}
+            positions={[[deployment.currentLat, deployment.currentLng], [deployment.targetLat, deployment.targetLng]]}
+            pathOptions={{ 
+              color: "#f59e0b",
+              weight: 3, 
+              opacity: 0.7,
+              dashArray: "8, 8"
+            }}
+          />
         ))}
       </MapContainer>
       </div>

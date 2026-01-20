@@ -7,8 +7,9 @@ import { BuoyDetailPanel } from "@/components/BuoyDetailPanel";
 import { MarkEditPanel } from "@/components/MarkEditPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Rocket } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/use-settings";
 import type { Event, Buoy, Mark, Course, MarkRole, CourseShape, EventType } from "@shared/schema";
@@ -394,7 +395,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
   const activeWeatherData = demoMode ? demoWeatherData : weatherData;
 
-  const { handleMarkMoved } = useBuoyFollow({
+  const { handleMarkMoved, getPendingDeployments, deployAllPending, buoyDeployMode } = useBuoyFollow({
     marks,
     buoys,
     demoSendCommand: sendDemoCommand,
@@ -402,6 +403,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     windDirection: activeWeatherData?.windDirection ?? 225,
     enabled: !!courseId,
   });
+
+  const pendingDeployments = useMemo(() => {
+    if (buoyDeployMode !== "manual") return [];
+    return getPendingDeployments();
+  }, [buoyDeployMode, getPendingDeployments]);
 
   const selectedBuoy = useMemo(() => {
     if (!selectedBuoyId) return null;
@@ -2109,7 +2115,26 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             onMapMoveEnd={(lat, lng) => setMapCenter({ lat, lng })}
             mapLayer={mapLayer}
             showSeaMarks={showSeaMarks}
+            pendingDeployments={pendingDeployments}
           />
+          
+          {buoyDeployMode === "manual" && pendingDeployments.length > 0 && (
+            <Button
+              size="lg"
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] gap-2 shadow-lg"
+              onClick={() => {
+                const count = deployAllPending();
+                toast({
+                  title: "Deploying Buoys",
+                  description: `Sending ${count} buoy${count !== 1 ? 's' : ''} to their target positions`,
+                });
+              }}
+              data-testid="button-deploy-buoys"
+            >
+              <Rocket className="w-5 h-5" />
+              Deploy Buoys ({pendingDeployments.length})
+            </Button>
+          )}
         </main>
 
         <aside className={`${showSidebar ? 'w-96 xl:w-[440px] border-l' : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
