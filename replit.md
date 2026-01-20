@@ -33,6 +33,7 @@ The application supports a 6-phase `SetupPanel` for course creation: setting sta
 - **Start Line Adjustment Controls**: Touch-friendly controls for resizing and fixing the start line bearing to wind, with configurable modes.
 - **Adjust Individual Mark to Wind**: Allows fine-tuning single mark positions relative to wind in the `MarkEditPanel`, using role-based default angles and a reference point from the rounding sequence.
 - **Fleet Status Dashboard**: Replaced the "Ready to Deploy" screen, providing a summary grid of buoy statuses (On Station, Moving, Fault, Low Batt), Course Setup ETA, and per-buoy status cards.
+- **Buoy Follow System**: Hybrid approach with immediate buoy commands on mark movements plus continuous drift monitoring. Centralized `useBuoyFollow` hook handles all mark update paths (drag, nudge, adjust to wind, course transformation, undo). Configurable settings for distance threshold, poll interval, and debounce time stored in localStorage.
 
 ### UI/UX
 The design is tablet-first with large, touch-friendly controls (min 48px targets), a visual progress stepper, and maritime-themed aesthetics. Role-specific mark visualizations and adherence to World Sailing standards for course geometry are key.

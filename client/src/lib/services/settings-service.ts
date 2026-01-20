@@ -23,12 +23,27 @@ export const DEFAULT_WIND_ANGLES: WindAngleDefaults = {
   other: 0,
 };
 
+export interface BuoyFollowSettings {
+  distanceThresholdMeters: number;
+  pollIntervalSeconds: number;
+  debounceTimeSeconds: number;
+  acceptableDistanceMeters: number;
+}
+
+export const DEFAULT_BUOY_FOLLOW: BuoyFollowSettings = {
+  distanceThresholdMeters: 3,
+  pollIntervalSeconds: 5,
+  debounceTimeSeconds: 3,
+  acceptableDistanceMeters: 1,
+};
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
   startLineResizeMode: StartLineResizeMode;
   startLineFixBearingMode: StartLineFixBearingMode;
   windAngleDefaults: WindAngleDefaults;
+  buoyFollow: BuoyFollowSettings;
 }
 
 class SettingsService {
@@ -38,6 +53,7 @@ class SettingsService {
     startLineResizeMode: "both",
     startLineFixBearingMode: "pin",
     windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
+    buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -118,6 +134,20 @@ class SettingsService {
       return this.settings.windAngleDefaults[key];
     }
     return this.settings.windAngleDefaults.other;
+  }
+
+  getBuoyFollowSettings(): BuoyFollowSettings {
+    return { ...this.settings.buoyFollow };
+  }
+
+  setBuoyFollowSetting<K extends keyof BuoyFollowSettings>(key: K, value: BuoyFollowSettings[K]): void {
+    this.settings.buoyFollow[key] = value;
+    this.notify();
+  }
+
+  resetBuoyFollowSettings(): void {
+    this.settings.buoyFollow = { ...DEFAULT_BUOY_FOLLOW };
+    this.notify();
   }
 
   formatDistance(valueNm: number): string {

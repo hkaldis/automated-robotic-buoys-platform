@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, DEFAULT_WIND_ANGLES, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -73,6 +73,9 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
     windAngleDefaults,
     setWindAngleDefault,
     resetWindAngleDefaults,
+    buoyFollowSettings,
+    setBuoyFollowSetting,
+    resetBuoyFollowSettings,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -339,6 +342,109 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                 className="w-full gap-2"
                 onClick={resetWindAngleDefaults}
                 data-testid="button-reset-wind-angles"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Reset to Defaults
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Anchor className="w-4 h-4" />
+                Buoy Follow Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Configure how buoys automatically follow mark movements and correct drift.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="distance-threshold" className="text-sm">Distance Threshold</Label>
+                    <p className="text-[10px] text-muted-foreground">Trigger reposition when buoy drifts this far</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="distance-threshold"
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={buoyFollowSettings.distanceThresholdMeters}
+                      onChange={(e) => setBuoyFollowSetting("distanceThresholdMeters", parseInt(e.target.value) || 3)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-distance-threshold"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">m</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="poll-interval" className="text-sm">Poll Interval</Label>
+                    <p className="text-[10px] text-muted-foreground">How often to check buoy positions</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="poll-interval"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={buoyFollowSettings.pollIntervalSeconds}
+                      onChange={(e) => setBuoyFollowSetting("pollIntervalSeconds", parseInt(e.target.value) || 5)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-poll-interval"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">sec</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="debounce-time" className="text-sm">Debounce Time</Label>
+                    <p className="text-[10px] text-muted-foreground">Wait before sending reposition command</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="debounce-time"
+                      type="number"
+                      min={0}
+                      max={30}
+                      value={buoyFollowSettings.debounceTimeSeconds}
+                      onChange={(e) => setBuoyFollowSetting("debounceTimeSeconds", parseInt(e.target.value) || 3)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-debounce-time"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">sec</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="acceptable-distance" className="text-sm">Acceptable Distance</Label>
+                    <p className="text-[10px] text-muted-foreground">Consider buoy "on station" within this range</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="acceptable-distance"
+                      type="number"
+                      min={0.5}
+                      max={10}
+                      step={0.5}
+                      value={buoyFollowSettings.acceptableDistanceMeters}
+                      onChange={(e) => setBuoyFollowSetting("acceptableDistanceMeters", parseFloat(e.target.value) || 1)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-acceptable-distance"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">m</span>
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={resetBuoyFollowSettings}
+                data-testid="button-reset-buoy-follow"
               >
                 <RotateCcw className="w-3 h-3" />
                 Reset to Defaults

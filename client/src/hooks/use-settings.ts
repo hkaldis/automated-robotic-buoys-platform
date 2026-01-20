@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
-import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -66,12 +66,16 @@ export function useSettings() {
   const [windAngleDefaults, setWindAngleDefaultsState] = useState<WindAngleDefaults>(
     settingsService.getWindAngleDefaults()
   );
+  const [buoyFollowSettings, setBuoyFollowSettingsState] = useState<BuoyFollowSettings>(
+    settingsService.getBuoyFollowSettings()
+  );
 
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
       setStartLineResizeModeState(settingsService.getStartLineResizeMode());
       setStartLineFixBearingModeState(settingsService.getStartLineFixBearingMode());
       setWindAngleDefaultsState(settingsService.getWindAngleDefaults());
+      setBuoyFollowSettingsState(settingsService.getBuoyFollowSettings());
     });
     return unsubscribe;
   }, []);
@@ -94,6 +98,14 @@ export function useSettings() {
 
   const getWindAngleForRole = useCallback((role: string): number => {
     return settingsService.getWindAngleForRole(role);
+  }, []);
+
+  const setBuoyFollowSetting = useCallback(<K extends keyof BuoyFollowSettings>(key: K, value: BuoyFollowSettings[K]) => {
+    settingsService.setBuoyFollowSetting(key, value);
+  }, []);
+
+  const resetBuoyFollowSettings = useCallback(() => {
+    settingsService.resetBuoyFollowSettings();
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -140,8 +152,11 @@ export function useSettings() {
     setWindAngleDefault,
     resetWindAngleDefaults,
     getWindAngleForRole,
+    buoyFollowSettings,
+    setBuoyFollowSetting,
+    resetBuoyFollowSettings,
   };
 }
 
-export { DEFAULT_WIND_ANGLES };
-export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW };
+export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings };
