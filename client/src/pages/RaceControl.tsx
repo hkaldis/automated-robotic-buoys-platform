@@ -1458,29 +1458,52 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
     
     // Build new rounding sequence from the loaded marks
-    // Since snapshot roundingSequence may contain old IDs or tokens, 
-    // we'll rebuild it based on the new marks
+    // Snapshot roundingSequence contains mark names (not IDs) for portability
+    // Also supports backward compatibility with old snapshots that used IDs
     if (snapshot.roundingSequence && snapshot.roundingSequence.length > 0) {
-      // For snapshots, rounding sequence contains mark names or special tokens
-      // We need to map them to the new mark IDs
-      const newRoundingSequence: string[] = [];
+      // Create maps for multiple lookup strategies
+      const nameToNewId = new Map<string, string>();
+      const orderToNewId = new Map<number, string>();
       
+      sourceMarks.forEach((sourceMark, index) => {
+        if (newMarkIds[index]) {
+          nameToNewId.set(sourceMark.name, newMarkIds[index]);
+          orderToNewId.set(sourceMark.order, newMarkIds[index]);
+        }
+      });
+      
+      // Map the saved rounding sequence to new IDs
+      // Try multiple strategies: name match, order match, index match
+      const newRoundingSequence: string[] = [];
       for (const item of snapshot.roundingSequence) {
         if (item === "start" || item === "finish") {
           newRoundingSequence.push(item);
         } else {
-          // Find the new mark by matching order in sourceMarks
-          const sourceMarkIndex = sourceMarks.findIndex(m => 
-            // Match by name if the item looks like a mark ID or name
-            m.name === item || m.order.toString() === item
-          );
-          if (sourceMarkIndex !== -1 && newMarkIds[sourceMarkIndex]) {
-            newRoundingSequence.push(newMarkIds[sourceMarkIndex]);
+          // Strategy 1: Try name match (new snapshots)
+          let newId = nameToNewId.get(item);
+          
+          // Strategy 2: Try order match (if item looks like a number)
+          if (!newId) {
+            const orderNum = parseInt(item, 10);
+            if (!isNaN(orderNum)) {
+              newId = orderToNewId.get(orderNum);
+            }
+          }
+          
+          // Strategy 3: Try finding by index in source marks (legacy with UUIDs)
+          if (!newId) {
+            const sourceIndex = sourceMarks.findIndex(m => m.name === item);
+            if (sourceIndex !== -1 && newMarkIds[sourceIndex]) {
+              newId = newMarkIds[sourceIndex];
+            }
+          }
+          
+          if (newId) {
+            newRoundingSequence.push(newId);
           }
         }
       }
       
-      // If we couldn't map the sequence, create a default one based on course marks
       if (newRoundingSequence.length > 0) {
         setLocalRoundingSequence(newRoundingSequence);
         await updateCourse.mutateAsync({

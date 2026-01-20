@@ -591,6 +591,26 @@ export async function registerRoutes(
       
       const marks = await storage.getMarksByCourse(courseId);
       
+      // Create a map of mark IDs to mark names for rounding sequence conversion
+      const markIdToName = new Map<string, string>();
+      marks.forEach(m => markIdToName.set(m.id, m.name));
+      
+      // Convert rounding sequence from mark IDs to mark names
+      // This ensures the snapshot is portable and can be loaded into any course
+      const snapshotRoundingSequence: string[] = [];
+      if (course.roundingSequence) {
+        for (const item of course.roundingSequence) {
+          if (item === "start" || item === "finish") {
+            snapshotRoundingSequence.push(item);
+          } else {
+            const markName = markIdToName.get(item);
+            if (markName) {
+              snapshotRoundingSequence.push(markName);
+            }
+          }
+        }
+      }
+      
       // Convert marks to snapshot format
       const snapshotMarks: SnapshotMark[] = marks.map(m => ({
         name: m.name,
@@ -643,7 +663,7 @@ export async function registerRoutes(
         centerLng: course.centerLng,
         rotation: course.rotation,
         scale: course.scale,
-        roundingSequence: course.roundingSequence,
+        roundingSequence: snapshotRoundingSequence,
         snapshotMarks,
       };
       
