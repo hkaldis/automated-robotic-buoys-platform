@@ -124,9 +124,20 @@ export function estimateRaceTime(
     // boatSpeed = VMG / cos(angle), because VMG = boatSpeed * cos(angle)
     // Since sailingDistance already accounts for the longer tacking/jibing path,
     // we divide by boatSpeed (not VMG) to get correct time
-    const boatSpeed = pointOfSail === "upwind" || pointOfSail === "downwind"
-      ? vmg / Math.cos((optimalTwa * Math.PI) / 180)
-      : vmg;
+    let boatSpeed: number;
+    if (pointOfSail === "upwind") {
+      // For upwind, optimalTwa is the angle from the wind (e.g., 42°)
+      const cosAngle = Math.cos((optimalTwa * Math.PI) / 180);
+      boatSpeed = vmg / Math.max(cosAngle, 0.5);
+    } else if (pointOfSail === "downwind") {
+      // For downwind, use deviation from dead downwind (180 - optimalTwa)
+      // e.g., if optimalTwa = 145°, deviation = 35°, cos(35°) ≈ 0.82
+      const deviationFromDead = 180 - optimalTwa;
+      const cosAngle = Math.cos((deviationFromDead * Math.PI) / 180);
+      boatSpeed = vmg / Math.max(cosAngle, 0.5);
+    } else {
+      boatSpeed = vmg;
+    }
     
     // Use boatSpeed when sailingDistance is inflated for tacking/jibing
     // Use vmg when using straight-line distance
@@ -262,4 +273,64 @@ function calculateBearing(lat1: number, lng1: number, lat2: number, lng2: number
   
   let bearing = (Math.atan2(y, x) * 180) / Math.PI;
   return (bearing + 360) % 360;
+}
+
+export interface LineCrossingEstimate {
+  distanceNm: number;
+  distanceMeters: number;
+  bearing: number;
+  windAngle: number;
+  pointOfSail: PointOfSail;
+  boatSpeed: number;
+  timeSeconds: number;
+  timeFormatted: string;
+}
+
+export function estimateLineCrossingTime(
+  mark1: { lat: number; lng: number },
+  mark2: { lat: number; lng: number },
+  boatClass: BoatClass,
+  windSpeedKnots: number,
+  windDirectionDeg: number
+): LineCrossingEstimate {
+  const distanceNm = haversine(mark1.lat, mark1.lng, mark2.lat, mark2.lng);
+  const distanceMeters = distanceNm * 1852;
+  const bearing = calculateBearing(mark1.lat, mark1.lng, mark2.lat, mark2.lng);
+  
+  const { absoluteTwa: twa } = calculateWindAngle(bearing, windDirectionDeg);
+  const windCategory = getWindCategory(windSpeedKnots);
+  const pointOfSail = determinePointOfSail(twa, boatClass.noGoZoneAngle);
+  
+  const vmg = getVMG(boatClass, pointOfSail, windCategory);
+  
+  let boatSpeed: number;
+  if (pointOfSail === "upwind") {
+    const optimalTwa = boatClass.upwindTwa;
+    const cosAngle = Math.cos((optimalTwa * Math.PI) / 180);
+    boatSpeed = vmg / Math.max(cosAngle, 0.5);
+  } else if (pointOfSail === "downwind") {
+    const optimalTwa = boatClass.downwindTwa;
+    const deviationFromDead = 180 - optimalTwa;
+    const cosAngle = Math.cos((deviationFromDead * Math.PI) / 180);
+    boatSpeed = vmg / Math.max(cosAngle, 0.5);
+  } else {
+    boatSpeed = vmg;
+  }
+  
+  const timeSeconds = (distanceNm / boatSpeed) * 3600;
+  
+  const minutes = Math.floor(timeSeconds / 60);
+  const secs = Math.round(timeSeconds % 60);
+  const timeFormatted = minutes > 0 ? `${minutes}m ${secs}s` : `${secs}s`;
+  
+  return {
+    distanceNm,
+    distanceMeters,
+    bearing,
+    windAngle: twa,
+    pointOfSail,
+    boatSpeed: Math.abs(boatSpeed),
+    timeSeconds,
+    timeFormatted,
+  };
 }

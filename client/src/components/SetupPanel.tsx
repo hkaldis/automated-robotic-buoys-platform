@@ -14,7 +14,7 @@ import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@sha
 import { cn } from "@/lib/utils";
 import { AutoAdjustWizard, OriginalPosition } from "./AutoAdjustWizard";
 import { useBoatClass, useBoatClasses } from "@/hooks/use-api";
-import { estimateRaceTime, buildLegsFromRoundingSequence } from "@/lib/race-time-estimation";
+import { estimateRaceTime, buildLegsFromRoundingSequence, estimateLineCrossingTime } from "@/lib/race-time-estimation";
 import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
@@ -111,7 +111,16 @@ export function SetupPanel({
   const { startLineResizeMode, startLineFixBearingMode } = useSettings();
   
   // Allow override of boat class in Review phase for quick at-sea comparisons
-  const [boatClassOverrideId, setBoatClassOverrideId] = useState<string>("");
+  // Initialize to event's boat class ID so dropdown shows event's selection by default
+  const [boatClassOverrideId, setBoatClassOverrideId] = useState<string>(event.boatClassId || "");
+  
+  // Update override when event's boat class changes
+  useEffect(() => {
+    if (event.boatClassId && !boatClassOverrideId) {
+      setBoatClassOverrideId(event.boatClassId);
+    }
+  }, [event.boatClassId, boatClassOverrideId]);
+  
   const overrideBoatClass = boatClasses.find(bc => bc.id === boatClassOverrideId);
   const boatClass = overrideBoatClass || eventBoatClass;
   
@@ -487,6 +496,26 @@ export function SetupPanel({
     
     return estimateRaceTime(legs, boatClass, windSpeed, windDirection);
   }, [boatClass, roundingSequence, marks, startLineMarks, windSpeed, windDirection]);
+  
+  // Calculate start line crossing time
+  const startLineCrossingTime = useMemo(() => {
+    if (!boatClass || startLineMarks.length < 2 || windSpeed === undefined || windDirection === undefined) {
+      return null;
+    }
+    
+    const cbMark = startLineMarks.find(m => m.role === "start_boat");
+    const pinMarkFound = startLineMarks.find(m => m.role === "pin");
+    
+    if (!cbMark || !pinMarkFound) return null;
+    
+    return estimateLineCrossingTime(
+      { lat: cbMark.lat, lng: cbMark.lng },
+      { lat: pinMarkFound.lat, lng: pinMarkFound.lng },
+      boatClass,
+      windSpeed,
+      windDirection
+    );
+  }, [boatClass, startLineMarks, windSpeed, windDirection]);
   
   // Format leg time for display
   const formatLegTime = (seconds: number): string => {
@@ -1357,12 +1386,36 @@ export function SetupPanel({
                     <p className="text-lg font-semibold">
                       {(courseStats.startLineLength * 1852).toFixed(0)} m
                     </p>
+                    {boatClass?.lengthMeters && (
+                      <p className="text-sm text-muted-foreground">
+                        ({((courseStats.startLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                      </p>
+                    )}
+                    {startLineCrossingTime && (
+                      <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-800">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Crossing time
+                        </p>
+                        <p className="text-sm font-medium">
+                          {startLineCrossingTime.timeFormatted}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {startLineCrossingTime.boatSpeed.toFixed(1)} kts)
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
                     <p className="text-xs text-muted-foreground">Finish Line</p>
                     <p className="text-lg font-semibold">
                       {(courseStats.finishLineLength * 1852).toFixed(0)} m
                     </p>
+                    {boatClass?.lengthMeters && (
+                      <p className="text-sm text-muted-foreground">
+                        ({((courseStats.finishLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                      </p>
+                    )}
                   </div>
                 </div>
 

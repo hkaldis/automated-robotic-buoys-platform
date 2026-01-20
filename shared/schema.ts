@@ -59,6 +59,9 @@ export const boatClasses = pgTable("boat_classes", {
   hullType: text("hull_type").notNull().default("displacement"),
   crewSize: integer("crew_size").notNull().default(1),
   
+  // Boat dimensions
+  lengthMeters: real("length_meters").notNull().default(4.0),  // Hull length in meters
+  
   // Upwind performance (VMG in knots at different wind speeds)
   upwindVmgLight: real("upwind_vmg_light").notNull(),    // 0-8 kts wind
   upwindVmgMedium: real("upwind_vmg_medium").notNull(),  // 8-14 kts wind
@@ -216,6 +219,7 @@ export const insertBoatClassSchema = createInsertSchema(boatClasses).pick({
   name: true,
   hullType: true,
   crewSize: true,
+  lengthMeters: true,
   upwindVmgLight: true,
   upwindVmgMedium: true,
   upwindVmgHeavy: true,
