@@ -2118,29 +2118,6 @@ export function SetupPanel({
               </div>
             </ScrollArea>
 
-            {/* Footer */}
-            <div className="pt-3 border-t space-y-2 mt-auto">
-              {onDeployCourse && (
-                <Button
-                  size="lg"
-                  className="w-full gap-2 h-12"
-                  onClick={onDeployCourse}
-                  data-testid="button-deploy-course"
-                >
-                  <Play className="w-5 h-5" />
-                  Deploy Course
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={() => setPhase("assign_buoys")}
-                data-testid="button-back-assign"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Back to Buoy Assignment
-              </Button>
-            </div>
           </div>
         );
     }
