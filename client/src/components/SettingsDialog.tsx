@@ -1,4 +1,4 @@
-import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map, Ship } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -67,6 +67,11 @@ const windAngleLabels: Record<keyof WindAngleDefaults, string> = {
   other: "Other",
 };
 
+const buoyDeployModeOptions: { value: BuoyDeployMode; label: string; description: string }[] = [
+  { value: "automatic", label: "Automatic", description: "Buoys move immediately when marks are moved" },
+  { value: "manual", label: "Manual Deploy", description: "Move marks freely, then deploy all buoys at once" },
+];
+
 export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = true, onToggleWindArrows }: SettingsDialogProps) {
   const { 
     distanceUnit, 
@@ -87,6 +92,8 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
     setMapLayer,
     showSeaMarks,
     setShowSeaMarks,
+    buoyDeployMode,
+    setBuoyDeployMode,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -399,6 +406,37 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                 <RotateCcw className="w-3 h-3" />
                 Reset to Defaults
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Ship className="w-4 h-4" />
+                Buoy Movement Mode
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup 
+                value={buoyDeployMode} 
+                onValueChange={(v) => setBuoyDeployMode(v as BuoyDeployMode)}
+                className="space-y-2"
+              >
+                {buoyDeployModeOptions.map((opt) => (
+                  <Label
+                    key={opt.value}
+                    htmlFor={`deploy-${opt.value}`}
+                    className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover-elevate data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                    data-state={buoyDeployMode === opt.value ? "checked" : "unchecked"}
+                  >
+                    <RadioGroupItem value={opt.value} id={`deploy-${opt.value}`} className="mt-0.5" />
+                    <div>
+                      <span className="text-sm font-medium">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground">{opt.description}</p>
+                    </div>
+                  </Label>
+                ))}
+              </RadioGroup>
             </CardContent>
           </Card>
 
