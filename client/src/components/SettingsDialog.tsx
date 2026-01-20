@@ -1,4 +1,4 @@
-import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map, Ship } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map, Ship, Move } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_COURSE_ADJUSTMENT, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode, type CourseAdjustmentSettings } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -94,6 +94,9 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
     setShowSeaMarks,
     buoyDeployMode,
     setBuoyDeployMode,
+    courseAdjustmentSettings,
+    setCourseAdjustmentSetting,
+    resetCourseAdjustmentSettings,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -437,6 +440,70 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                   </Label>
                 ))}
               </RadioGroup>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Move className="w-4 h-4" />
+                Course Adjustment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Configure the step size for course rotation and resizing controls.
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="rotation-degrees" className="text-sm">Rotate Course</Label>
+                    <p className="text-[10px] text-muted-foreground">Degrees per rotation step</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="rotation-degrees"
+                      type="number"
+                      min={1}
+                      max={45}
+                      value={courseAdjustmentSettings.rotationDegrees}
+                      onChange={(e) => setCourseAdjustmentSetting("rotationDegrees", parseInt(e.target.value) || 5)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-rotation-degrees"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">°</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="resize-percent" className="text-sm">Resize Course</Label>
+                    <p className="text-[10px] text-muted-foreground">Percentage change per resize step</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="resize-percent"
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={courseAdjustmentSettings.resizePercent}
+                      onChange={(e) => setCourseAdjustmentSetting("resizePercent", parseInt(e.target.value) || 10)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-resize-percent"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">%</span>
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetCourseAdjustmentSettings}
+                className="w-full"
+                data-testid="button-reset-course-adjustment"
+              >
+                <RotateCcw className="w-3 h-3 mr-2" />
+                Reset to Defaults
+              </Button>
             </CardContent>
           </Card>
 

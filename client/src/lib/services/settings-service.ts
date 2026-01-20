@@ -45,6 +45,16 @@ export type BuoyDeployMode = "automatic" | "manual";
 
 export const DEFAULT_BUOY_DEPLOY_MODE: BuoyDeployMode = "automatic";
 
+export interface CourseAdjustmentSettings {
+  rotationDegrees: number;
+  resizePercent: number;
+}
+
+export const DEFAULT_COURSE_ADJUSTMENT: CourseAdjustmentSettings = {
+  rotationDegrees: 5,
+  resizePercent: 10,
+};
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
@@ -55,6 +65,7 @@ interface UserSettings {
   mapLayer: MapLayerType;
   showSeaMarks: boolean;
   buoyDeployMode: BuoyDeployMode;
+  courseAdjustment: CourseAdjustmentSettings;
 }
 
 class SettingsService {
@@ -68,6 +79,7 @@ class SettingsService {
     mapLayer: DEFAULT_MAP_LAYER,
     showSeaMarks: true,
     buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
+    courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -188,6 +200,20 @@ class SettingsService {
 
   setBuoyDeployMode(mode: BuoyDeployMode): void {
     this.settings.buoyDeployMode = mode;
+    this.notify();
+  }
+
+  getCourseAdjustmentSettings(): CourseAdjustmentSettings {
+    return { ...this.settings.courseAdjustment };
+  }
+
+  setCourseAdjustmentSetting<K extends keyof CourseAdjustmentSettings>(key: K, value: CourseAdjustmentSettings[K]): void {
+    this.settings.courseAdjustment[key] = value;
+    this.notify();
+  }
+
+  resetCourseAdjustmentSettings(): void {
+    this.settings.courseAdjustment = { ...DEFAULT_COURSE_ADJUSTMENT };
     this.notify();
   }
 

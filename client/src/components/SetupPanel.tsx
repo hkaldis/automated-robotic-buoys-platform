@@ -113,7 +113,7 @@ export function SetupPanel({
   const boatClasses = boatClassesData || [];
   
   // Start line adjustment settings
-  const { startLineResizeMode, startLineFixBearingMode } = useSettings();
+  const { startLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings } = useSettings();
   
   // Allow override of boat class in Review phase for quick at-sea comparisons
   // Initialize to event's boat class ID so dropdown shows event's selection by default
@@ -587,7 +587,7 @@ export function SetupPanel({
   const handleResizeStartLine = useCallback((increase: boolean) => {
     if (!pinMark || !committeeMark) return;
     
-    const scaleFactor = increase ? 1.1 : 0.9;
+    const scaleFactor = increase ? (1 + courseAdjustmentSettings.resizePercent / 100) : (1 - courseAdjustmentSettings.resizePercent / 100);
     const centerLat = (pinMark.lat + committeeMark.lat) / 2;
     const centerLng = (pinMark.lng + committeeMark.lng) / 2;
     
@@ -607,7 +607,7 @@ export function SetupPanel({
       const newCbLng = pinMark.lng + (committeeMark.lng - pinMark.lng) * scaleFactor;
       onSaveMark?.(committeeMark.id, { lat: newCbLat, lng: newCbLng });
     }
-  }, [pinMark, committeeMark, startLineResizeMode, onSaveMark]);
+  }, [pinMark, committeeMark, startLineResizeMode, onSaveMark, courseAdjustmentSettings.resizePercent]);
 
   // Fix bearing to be perpendicular to wind using geodesic destination-point formula
   const handleFixBearing = useCallback(() => {
@@ -1511,41 +1511,41 @@ export function SetupPanel({
                         variant="outline"
                         size="lg"
                         className="flex-col gap-1 h-auto py-3"
-                        onClick={() => onTransformCourse?.({ scale: 1.1 })}
+                        onClick={() => onTransformCourse?.({ scale: 1 + courseAdjustmentSettings.resizePercent / 100 })}
                         data-testid="button-scale-up"
                       >
                         <Maximize2 className="w-5 h-5" />
-                        <span className="text-xs">Larger</span>
+                        <span className="text-xs">+{courseAdjustmentSettings.resizePercent}%</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="lg"
                         className="flex-col gap-1 h-auto py-3"
-                        onClick={() => onTransformCourse?.({ scale: 0.9 })}
+                        onClick={() => onTransformCourse?.({ scale: 1 - courseAdjustmentSettings.resizePercent / 100 })}
                         data-testid="button-scale-down"
                       >
                         <Maximize2 className="w-5 h-5 rotate-180" />
-                        <span className="text-xs">Smaller</span>
+                        <span className="text-xs">-{courseAdjustmentSettings.resizePercent}%</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="lg"
                         className="flex-col gap-1 h-auto py-3"
-                        onClick={() => onTransformCourse?.({ rotation: -5 })}
+                        onClick={() => onTransformCourse?.({ rotation: -courseAdjustmentSettings.rotationDegrees })}
                         data-testid="button-rotate-ccw"
                       >
                         <RotateCcw className="w-5 h-5" />
-                        <span className="text-xs">-5°</span>
+                        <span className="text-xs">-{courseAdjustmentSettings.rotationDegrees}°</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="lg"
                         className="flex-col gap-1 h-auto py-3"
-                        onClick={() => onTransformCourse?.({ rotation: 5 })}
+                        onClick={() => onTransformCourse?.({ rotation: courseAdjustmentSettings.rotationDegrees })}
                         data-testid="button-rotate-cw"
                       >
                         <RotateCw className="w-5 h-5" />
-                        <span className="text-xs">+5°</span>
+                        <span className="text-xs">+{courseAdjustmentSettings.rotationDegrees}°</span>
                       </Button>
                     </div>
                     

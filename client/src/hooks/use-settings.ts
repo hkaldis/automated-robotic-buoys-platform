@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
-import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -78,6 +78,9 @@ export function useSettings() {
   const [buoyDeployMode, setBuoyDeployModeState] = useState<BuoyDeployMode>(
     settingsService.getBuoyDeployMode()
   );
+  const [courseAdjustmentSettings, setCourseAdjustmentSettingsState] = useState<CourseAdjustmentSettings>(
+    settingsService.getCourseAdjustmentSettings()
+  );
 
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
@@ -88,6 +91,7 @@ export function useSettings() {
       setMapLayerState(settingsService.getMapLayer());
       setShowSeaMarksState(settingsService.getShowSeaMarks());
       setBuoyDeployModeState(settingsService.getBuoyDeployMode());
+      setCourseAdjustmentSettingsState(settingsService.getCourseAdjustmentSettings());
     });
     return unsubscribe;
   }, []);
@@ -130,6 +134,14 @@ export function useSettings() {
 
   const setBuoyDeployMode = useCallback((mode: BuoyDeployMode) => {
     settingsService.setBuoyDeployMode(mode);
+  }, []);
+
+  const setCourseAdjustmentSetting = useCallback(<K extends keyof CourseAdjustmentSettings>(key: K, value: CourseAdjustmentSettings[K]) => {
+    settingsService.setCourseAdjustmentSetting(key, value);
+  }, []);
+
+  const resetCourseAdjustmentSettings = useCallback(() => {
+    settingsService.resetCourseAdjustmentSettings();
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -185,8 +197,11 @@ export function useSettings() {
     setShowSeaMarks,
     buoyDeployMode,
     setBuoyDeployMode,
+    courseAdjustmentSettings,
+    setCourseAdjustmentSetting,
+    resetCourseAdjustmentSettings,
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE };
-export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT };
+export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings };
