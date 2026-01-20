@@ -1,9 +1,9 @@
 {
-  "name": "Robotic Buoys Platform",
-  "short_name": "RoBuoys",
+  "name": "Alconmarks",
+  "short_name": "Alconmarks",
   "description": "Maritime control system for managing automated robotic buoys during sailing races",
   "start_url": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#0f172a",
   "theme_color": "#3b82f6",
