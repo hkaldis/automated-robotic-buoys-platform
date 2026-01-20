@@ -89,7 +89,7 @@ export function MarksList({ marks, buoys, selectedMarkId, onSelectMark }: MarksL
         })}
         {marks.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No marks defined yet
+            No points defined yet
           </p>
         )}
       </div>

@@ -133,15 +133,15 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
         // Start/Finish line marks - Committee boat at STARBOARD (+lng), Pin at PORT (-lng)
         // These are NOT course marks (isCourseMark: false) - they define start/finish only
         { name: "Committee Boat", role: "start_boat", lat: startLineLat, lng: baseLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: true, isCourseMark: false },
-        { name: "Pin Mark", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true, isCourseMark: false },
-        // Mark 1 - Windward mark (one leg length directly upwind from base)
-        { name: "Mark 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
-        // Mark 2 - Wing mark (60° to STARBOARD, equal leg length from windward)
+        { name: "Pin", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: true, isCourseMark: false },
+        // Point 1 - Windward point (one leg length directly upwind from base)
+        { name: "Point 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Point 2 - Wing point (60° to STARBOARD, equal leg length from windward)
         // Position: halfway up in lat, offset to starboard by sin(60°)*legLength
-        { name: "Mark 2 (Wing)", role: "wing", lat: baseLat + windwardLegLength * cosReach, lng: baseLng + windwardLegLength * sinReach, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
-        // Mark 3 - Leeward mark (at bottom/downwind, on centerline)
-        // Equal leg length from wing mark back to leeward completes the equilateral
-        { name: "Mark 3 (Leeward)", role: "leeward", lat: baseLat, lng: baseLng, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Point 2 (Wing)", role: "wing", lat: baseLat + windwardLegLength * cosReach, lng: baseLng + windwardLegLength * sinReach, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Point 3 - Leeward point (at bottom/downwind, on centerline)
+        // Equal leg length from wing point back to leeward completes the equilateral
+        { name: "Point 3 (Leeward)", role: "leeward", lat: baseLat, lng: baseLng, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
       ];
       
     case "trapezoid":
@@ -159,15 +159,15 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
         // Start/Finish line marks - 0.05nm below leeward gate, separate from course
         // These are NOT course marks (isCourseMark: false)
         { name: "Start Boat", role: "start_boat", lat: startLineLat, lng: baseLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: false, isCourseMark: false },
-        { name: "Pin Mark", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: false, isCourseMark: false },
-        // Mark 1 - Windward mark (one leg length directly upwind)
-        { name: "Mark 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
-        // Mark 2 - Wing mark (60° reaching leg to starboard from windward at 67% length)
+        { name: "Pin", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: false, isCourseMark: false },
+        // Point 1 - Windward point (one leg length directly upwind)
+        { name: "Point 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Point 2 - Wing point (60° reaching leg to starboard from windward at 67% length)
         // Position: cos(60°) up from base, sin(60°) to starboard
-        { name: "Mark 2 (Wing)", role: "wing", lat: baseLat + reachLegLength * cosReach, lng: baseLng + reachLegLength * sinReach, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Point 2 (Wing)", role: "wing", lat: baseLat + reachLegLength * cosReach, lng: baseLng + reachLegLength * sinReach, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
         // Leeward gate (3s/3p) - square to wind, 10 hull lengths wide
-        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: leewardGateLat, lng: baseLng + gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
-        { name: "Mark 3p (Gate Port)", role: "gate", lat: leewardGateLat, lng: baseLng - gateHalfWidth, order: 5, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Point 3s (Gate Starboard)", role: "gate", lat: leewardGateLat, lng: baseLng + gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Point 3p (Gate Port)", role: "gate", lat: leewardGateLat, lng: baseLng - gateHalfWidth, order: 5, isStartLine: false, isFinishLine: false, isCourseMark: true },
         // Finish line marks - near leeward gate but separate
         { name: "Finish Boat", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng + startLineHalfWidth * 0.7, order: 6, isStartLine: false, isFinishLine: true, isCourseMark: false },
         { name: "Finish Pin", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng - startLineHalfWidth * 0.7, order: 7, isStartLine: false, isFinishLine: true, isCourseMark: false },
@@ -182,13 +182,13 @@ function generateShapeMarks(shape: CourseShape, centerLat: number, centerLng: nu
       return [
         // Start line marks - 0.05nm below leeward gate
         { name: "Start Boat", role: "start_boat", lat: startLineLat, lng: baseLng + startLineHalfWidth, order: 0, isStartLine: true, isFinishLine: false, isCourseMark: false },
-        { name: "Pin Mark", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: false, isCourseMark: false },
-        // Mark 1 - Windward mark (one leg length directly upwind from start line center)
-        { name: "Mark 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
-        // Gate marks at leeward end (at base latitude, straddling centerline)
-        // Starboard mark at +lng, Port at -lng
-        { name: "Mark 3s (Gate Starboard)", role: "gate", lat: leewardGateLat, lng: baseLng + gateHalfWidth, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
-        { name: "Mark 3p (Gate Port)", role: "gate", lat: leewardGateLat, lng: baseLng - gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Pin", role: "pin", lat: startLineLat, lng: baseLng - startLineHalfWidth, order: 1, isStartLine: true, isFinishLine: false, isCourseMark: false },
+        // Point 1 - Windward point (one leg length directly upwind from start line center)
+        { name: "Point 1 (Windward)", role: "windward", lat: baseLat + windwardLegLength, lng: baseLng, order: 2, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        // Gate points at leeward end (at base latitude, straddling centerline)
+        // Starboard point at +lng, Port at -lng
+        { name: "Point 3s (Gate Starboard)", role: "gate", lat: leewardGateLat, lng: baseLng + gateHalfWidth, order: 3, isStartLine: false, isFinishLine: false, isCourseMark: true },
+        { name: "Point 3p (Gate Port)", role: "gate", lat: leewardGateLat, lng: baseLng - gateHalfWidth, order: 4, isStartLine: false, isFinishLine: false, isCourseMark: true },
         // Finish line marks - near leeward gate but separate
         { name: "Finish Boat", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng + startLineHalfWidth * 0.7, order: 5, isStartLine: false, isFinishLine: true, isCourseMark: false },
         { name: "Finish Pin", role: "finish", lat: leewardGateLat - startLineOffset * 0.5, lng: baseLng - startLineHalfWidth * 0.7, order: 6, isStartLine: false, isFinishLine: true, isCourseMark: false },
@@ -789,8 +789,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         }
         
         toast({
-          title: "Mark Deleted",
-          description: "Mark has been removed from the course.",
+          title: "Point Deleted",
+          description: "Point has been removed from the course.",
         });
       },
     });
@@ -1080,8 +1080,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       onSuccess: () => {
         handleMarkMoved(markId, newLat, newLng);
         toast({
-          title: "Mark Adjusted",
-          description: "Mark position adjusted relative to wind.",
+          title: "Point Adjusted",
+          description: "Point position adjusted relative to wind.",
         });
       },
     });
@@ -1611,12 +1611,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       await queryClient.invalidateQueries({ queryKey: ["/api/courses", course.id, "marks"] });
 
       if (data.courseShape === "custom") {
-        setPendingMarkData({ name: "Mark 1", role: "turning_mark" });
+        setPendingMarkData({ name: "Point 1", role: "turning_mark" });
         setContinuousPlacement(true);
         setMarkCounter(1);
         toast({
           title: "Custom Course",
-          description: "Click on the map to add marks. Press 'Done' when finished.",
+          description: "Click on the map to add points. Press 'Done' when finished.",
         });
       } else {
         toast({
@@ -1895,12 +1895,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       
       toast({
         title: "Undo Complete",
-        description: "Marks restored to previous positions",
+        description: "Points restored to previous positions",
       });
     } catch (error) {
       toast({
         title: "Undo Failed",
-        description: error instanceof Error ? error.message : "Failed to restore marks",
+        description: error instanceof Error ? error.message : "Failed to restore points",
         variant: "destructive",
       });
     }

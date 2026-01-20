@@ -348,7 +348,7 @@ export function SidePanel({
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center justify-between">
-                <span>Course Marks</span>
+                <span>Course Points</span>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="text-xs">{marks.length}</Badge>
                   {onAddMark && onPlaceMarkOnMap && (
@@ -421,7 +421,7 @@ export function SidePanel({
 
       <div className="p-4 border-t space-y-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Marks assigned</span>
+          <span className="text-muted-foreground">Points assigned</span>
           <span className={cn(
             "font-medium",
             allAssigned ? "text-green-500" : "text-muted-foreground"

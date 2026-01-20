@@ -697,7 +697,7 @@ export function SetupPanel({
   // Updated phases with sequence step
   const phases = [
     { id: "start_line", label: "Start", number: 1 },
-    { id: "marks", label: "Marks", number: 2 },
+    { id: "marks", label: "Points", number: 2 },
     { id: "finish_line", label: "Finish", number: 3 },
     { id: "sequence", label: "Route", number: 4 },
     { id: "summary", label: "Review", number: 5 },
@@ -859,7 +859,7 @@ export function SetupPanel({
                 onClick={() => setPhase("marks")}
                 data-testid="button-continue-marks"
               >
-                Continue to Course Marks
+                Continue to Course Points
                 <ChevronRight className="w-4 h-4" />
               </Button>
               {!hasStartLine && (
@@ -879,8 +879,8 @@ export function SetupPanel({
                 <MapPin className="w-4 h-4 text-primary" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold">Course Marks</h2>
-                <p className="text-xs text-muted-foreground">Add marks (M1, M2, M3...)</p>
+                <h2 className="text-sm font-semibold">Course Points</h2>
+                <p className="text-xs text-muted-foreground">Add points (M1, M2, M3...)</p>
               </div>
             </div>
 
@@ -890,7 +890,7 @@ export function SetupPanel({
               data-testid="button-add-course-mark"
             >
               <Plus className="w-4 h-4" />
-              Add Course Mark (M{courseMarks.length + 1})
+              Add Course Point (M{courseMarks.length + 1})
             </Button>
 
             <ScrollArea className="flex-1 min-h-0">
@@ -1010,7 +1010,7 @@ export function SetupPanel({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{mark.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {mark.isCourseMark ? "Course Mark" : mark.role}
+                          {mark.isCourseMark ? "Course Point" : mark.role}
                         </p>
                       </div>
                       <div className="flex gap-1">
@@ -2102,11 +2102,11 @@ export function SetupPanel({
                 {assignedBuoys.length > 0 && (
                   <div className="space-y-1.5" data-testid="section-assigned">
                     <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
-                      Assigned to Marks ({assignedBuoys.length})
+                      Assigned to Points ({assignedBuoys.length})
                     </p>
                     {assignedBuoys.map(buoy => {
                       const assignment = buoyToMarkMap.get(buoy.id);
-                      return renderBuoyCard(buoy, assignment?.markName ?? "Mark");
+                      return renderBuoyCard(buoy, assignment?.markName ?? "Point");
                     })}
                   </div>
                 )}
@@ -2449,7 +2449,7 @@ export function SetupPanel({
               <table className="w-full text-sm">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="text-left p-2 font-medium">Mark</th>
+                    <th className="text-left p-2 font-medium">Point</th>
                     <th className="text-left p-2 font-medium">Latitude</th>
                     <th className="text-left p-2 font-medium">Longitude</th>
                     <th className="text-left p-2 font-medium">Bearing (°N)</th>

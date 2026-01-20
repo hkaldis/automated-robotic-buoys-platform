@@ -37,7 +37,7 @@ const MARK_ROLES: { value: MarkRole; label: string }[] = [
   { value: "wing", label: "Wing" },
   { value: "leeward", label: "Leeward" },
   { value: "offset", label: "Offset" },
-  { value: "turning_mark", label: "Turning Mark" },
+  { value: "turning_mark", label: "Turning Point" },
   { value: "finish", label: "Finish" },
   { value: "other", label: "Other" },
 ];
@@ -501,7 +501,7 @@ export function MarkEditPanel({
               id="mark-name"
               value={name}
               onChange={(e) => setNameDirty(e.target.value)}
-              placeholder="Mark name"
+              placeholder="Point name"
               data-testid="input-mark-name"
             />
           </div>

@@ -389,7 +389,7 @@ export function AutoAdjustWizard({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-primary" />
-                    <span className="font-medium">{currentStep.markName || "Mark"}</span>
+                    <span className="font-medium">{currentStep.markName || "Point"}</span>
                   </div>
                   <span className="text-sm text-muted-foreground capitalize">
                     {currentRole.replace(/_/g, " ")}

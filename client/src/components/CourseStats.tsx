@@ -163,7 +163,7 @@ export function CourseStats({ marks, boatClass, targetDuration }: CourseStatsPro
           <div className="flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Clock className="w-3 h-3" />
-              Course Marks
+              Course Points
             </span>
             <span className="font-medium">{courseMarksOnly.length}</span>
           </div>

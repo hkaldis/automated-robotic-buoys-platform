@@ -13,15 +13,15 @@ interface AddMarkDialogProps {
   trigger?: React.ReactNode;
 }
 
-const MARK_ROLES: { value: MarkRole; label: string }[] = [
+const POINT_ROLES: { value: MarkRole; label: string }[] = [
   { value: "start_boat", label: "Committee Boat" },
-  { value: "pin", label: "Pin Mark" },
-  { value: "windward", label: "Mark 1 (Windward)" },
-  { value: "wing", label: "Mark 2 (Wing)" },
-  { value: "leeward", label: "Mark 3 (Leeward)" },
-  { value: "gate", label: "Gate Mark" },
-  { value: "offset", label: "Offset Mark" },
-  { value: "turning_mark", label: "Turning Mark" },
+  { value: "pin", label: "Pin" },
+  { value: "windward", label: "Point 1 (Windward)" },
+  { value: "wing", label: "Point 2 (Wing)" },
+  { value: "leeward", label: "Point 3 (Leeward)" },
+  { value: "gate", label: "Gate" },
+  { value: "offset", label: "Offset" },
+  { value: "turning_mark", label: "Turning Point" },
   { value: "finish", label: "Finish" },
   { value: "other", label: "Other" },
 ];
@@ -63,9 +63,9 @@ export function AddMarkDialog({ onAdd, onPlaceOnMap, trigger }: AddMarkDialogPro
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm" className="gap-1" data-testid="button-add-mark">
+          <Button variant="outline" size="sm" className="gap-1" data-testid="button-add-point">
             <Plus className="w-4 h-4" />
-            Add Mark
+            Add Point
           </Button>
         )}
       </DialogTrigger>
@@ -73,10 +73,10 @@ export function AddMarkDialog({ onAdd, onPlaceOnMap, trigger }: AddMarkDialogPro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-blue-500" />
-            Add New Mark
+            Add New Point
           </DialogTitle>
           <DialogDescription>
-            Create a new course mark by entering details below.
+            Create a new course point by entering details below.
           </DialogDescription>
         </DialogHeader>
 
@@ -87,7 +87,7 @@ export function AddMarkDialog({ onAdd, onPlaceOnMap, trigger }: AddMarkDialogPro
               id="new-mark-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Windward Mark"
+              placeholder="e.g., Windward Point"
               data-testid="input-new-mark-name"
             />
           </div>
@@ -99,7 +99,7 @@ export function AddMarkDialog({ onAdd, onPlaceOnMap, trigger }: AddMarkDialogPro
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                {MARK_ROLES.map((r) => (
+                {POINT_ROLES.map((r) => (
                   <SelectItem key={r.value} value={r.value}>
                     {r.label}
                   </SelectItem>
@@ -173,7 +173,7 @@ export function AddMarkDialog({ onAdd, onPlaceOnMap, trigger }: AddMarkDialogPro
             disabled={!name.trim() || (mode === "coordinates" && (!lat || !lng))}
             data-testid="button-create-mark"
           >
-            {mode === "map" ? "Place on Map" : "Create Mark"}
+            {mode === "map" ? "Place on Map" : "Create Point"}
           </Button>
         </DialogFooter>
       </DialogContent>

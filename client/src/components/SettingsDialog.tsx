@@ -62,7 +62,7 @@ const windAngleLabels: Record<keyof WindAngleDefaults, string> = {
   leeward: "Leeward",
   wing: "Wing",
   offset: "Offset",
-  turning_mark: "Turning Mark",
+  turning_mark: "Turning Point",
   other: "Other",
 };
 
