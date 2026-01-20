@@ -1164,39 +1164,6 @@ export function LeafletMap({
         )}
       </div>
 
-      {weatherData && (
-        <Card className="absolute top-4 right-4 p-3 z-[400]" data-testid="map-wind-badge">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <Wind className="w-4 h-4 text-chart-1 shrink-0" />
-              <div 
-                className="w-5 h-5 text-chart-1"
-                style={{ transform: `rotate(${(weatherData.windDirection + 180)}deg)` }}
-                title={`Wind blows toward ${((weatherData.windDirection + 180) % 360).toFixed(0)}°`}
-              >
-                <ArrowUp className="w-5 h-5" />
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground text-xs">from </span>
-                <span className="font-mono">{weatherData.windDirection.toFixed(0)}°</span>
-                <span className="text-muted-foreground ml-1">@ {weatherData.windSpeed.toFixed(1)} kts</span>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {mapOrientation === "head-to-wind" && (
-                <Badge variant="secondary" className="text-xs">Head to Wind</Badge>
-              )}
-              {showWindArrows && (
-                <Badge variant="outline" className="text-xs">Arrows On</Badge>
-              )}
-              {showWindRelative && (
-                <Badge variant="outline" className="text-xs">Wind Bearings</Badge>
-              )}
-              <Badge variant="outline" className="text-xs capitalize">{weatherData.source}</Badge>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {isPlacingMark && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]">
