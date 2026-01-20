@@ -16,7 +16,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 95,
     signalStrength: 98,
-    windSpeed: 40.5,
+    windSpeed: 12.5,
     windDirection: 225,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -34,7 +34,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 87,
     signalStrength: 95,
-    windSpeed: 40.2,
+    windSpeed: 12.2,
     windDirection: 223,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -52,7 +52,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 72,
     signalStrength: 92,
-    windSpeed: 41.1,
+    windSpeed: 13.1,
     windDirection: 227,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -70,7 +70,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 65,
     signalStrength: 88,
-    windSpeed: 40.8,
+    windSpeed: 12.8,
     windDirection: 224,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -88,7 +88,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 91,
     signalStrength: 97,
-    windSpeed: 40.4,
+    windSpeed: 12.4,
     windDirection: 226,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -106,7 +106,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 78,
     signalStrength: 90,
-    windSpeed: 40.6,
+    windSpeed: 12.6,
     windDirection: 228,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -124,7 +124,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 83,
     signalStrength: 93,
-    windSpeed: 40.9,
+    windSpeed: 12.9,
     windDirection: 222,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -142,7 +142,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 89,
     signalStrength: 94,
-    windSpeed: 40.3,
+    windSpeed: 12.3,
     windDirection: 225,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -160,7 +160,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 76,
     signalStrength: 91,
-    windSpeed: 40.7,
+    windSpeed: 12.7,
     windDirection: 223,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -178,7 +178,7 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
     speed: 0,
     battery: 82,
     signalStrength: 96,
-    windSpeed: 40.5,
+    windSpeed: 12.5,
     windDirection: 226,
     currentSpeed: 0.8,
     currentDirection: 180,
@@ -251,7 +251,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
           return buoy;
         }
 
-        const speed = 3 + Math.random() * 0.5;
+        const speed = 20 + Math.random() * 20;
         const distanceNm = calculateDistance(buoy.lat, buoy.lng, buoy.targetLat, buoy.targetLng);
         
         if (distanceNm < 0.01) {
@@ -303,7 +303,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
           const finalTargetLat = targetLat ?? buoy.targetLat ?? buoy.lat + 0.002;
           const finalTargetLng = targetLng ?? buoy.targetLng ?? buoy.lng + 0.002;
           const distanceNm = calculateDistance(buoy.lat, buoy.lng, finalTargetLat, finalTargetLng);
-          const speed = 3.25;
+          const speed = 30;
           const eta = Math.round((distanceNm / speed) * 3600);
           return {
             ...buoy,
