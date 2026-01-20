@@ -42,6 +42,18 @@ function calculateGateBuoyPosition(
   };
 }
 
+export interface PendingDeployment {
+  buoyId: string;
+  buoyName: string;
+  currentLat: number;
+  currentLng: number;
+  targetLat: number;
+  targetLng: number;
+  markId: string;
+  markName: string;
+  distanceMeters: number;
+}
+
 interface UseBuoyFollowOptions {
   marks: Mark[];
   buoys: Buoy[];
@@ -59,10 +71,11 @@ export function useBuoyFollow({
   windDirection = 0,
   enabled = true,
 }: UseBuoyFollowOptions) {
-  const { buoyFollowSettings } = useSettings();
+  const { buoyFollowSettings, buoyDeployMode } = useSettings();
   const buoyCommand = useBuoyCommand(demoSendCommand, courseId);
   const debounceTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const lastCommandTime = useRef<Map<string, number>>(new Map());
+  const previousDeployMode = useRef(buoyDeployMode);
 
   const sendBuoyToMark = useCallback((buoyId: string, targetLat: number, targetLng: number) => {
     const now = Date.now();
@@ -79,7 +92,98 @@ export function useBuoyFollow({
     });
   }, [buoyCommand, buoyFollowSettings.debounceTimeSeconds]);
 
+  const getPendingDeployments = useCallback((): PendingDeployment[] => {
+    const pending: PendingDeployment[] = [];
+    const threshold = buoyFollowSettings.acceptableDistanceMeters;
+
+    marks.forEach(mark => {
+      if (mark.isGate) {
+        const gateWidthMeters = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+        
+        if (mark.gatePortBuoyId) {
+          const buoy = buoys.find(b => b.id === mark.gatePortBuoyId);
+          if (buoy) {
+            const targetPos = calculateGateBuoyPosition(mark.lat, mark.lng, gateWidthMeters, windDirection, "port");
+            const distance = calculateDistanceMeters(buoy.lat, buoy.lng, targetPos.lat, targetPos.lng);
+            if (distance > threshold) {
+              pending.push({
+                buoyId: buoy.id,
+                buoyName: buoy.name,
+                currentLat: buoy.lat,
+                currentLng: buoy.lng,
+                targetLat: targetPos.lat,
+                targetLng: targetPos.lng,
+                markId: mark.id,
+                markName: `${mark.name} (Port)`,
+                distanceMeters: distance,
+              });
+            }
+          }
+        }
+        
+        if (mark.gateStarboardBuoyId) {
+          const buoy = buoys.find(b => b.id === mark.gateStarboardBuoyId);
+          if (buoy) {
+            const targetPos = calculateGateBuoyPosition(mark.lat, mark.lng, gateWidthMeters, windDirection, "starboard");
+            const distance = calculateDistanceMeters(buoy.lat, buoy.lng, targetPos.lat, targetPos.lng);
+            if (distance > threshold) {
+              pending.push({
+                buoyId: buoy.id,
+                buoyName: buoy.name,
+                currentLat: buoy.lat,
+                currentLng: buoy.lng,
+                targetLat: targetPos.lat,
+                targetLng: targetPos.lng,
+                markId: mark.id,
+                markName: `${mark.name} (Starboard)`,
+                distanceMeters: distance,
+              });
+            }
+          }
+        }
+      } else if (mark.assignedBuoyId) {
+        const buoy = buoys.find(b => b.id === mark.assignedBuoyId);
+        if (buoy) {
+          const distance = calculateDistanceMeters(buoy.lat, buoy.lng, mark.lat, mark.lng);
+          if (distance > threshold) {
+            pending.push({
+              buoyId: buoy.id,
+              buoyName: buoy.name,
+              currentLat: buoy.lat,
+              currentLng: buoy.lng,
+              targetLat: mark.lat,
+              targetLng: mark.lng,
+              markId: mark.id,
+              markName: mark.name,
+              distanceMeters: distance,
+            });
+          }
+        }
+      }
+    });
+
+    return pending;
+  }, [marks, buoys, buoyFollowSettings.acceptableDistanceMeters, windDirection]);
+
+  const deployAllPending = useCallback(() => {
+    const pending = getPendingDeployments();
+    lastCommandTime.current.clear();
+    pending.forEach(deployment => {
+      buoyCommand.mutate({
+        id: deployment.buoyId,
+        command: "move_to_target",
+        targetLat: deployment.targetLat,
+        targetLng: deployment.targetLng,
+      });
+    });
+    return pending.length;
+  }, [getPendingDeployments, buoyCommand]);
+
   const commandBuoyForMark = useCallback((mark: Mark, immediate: boolean = false) => {
+    if (buoyDeployMode === "manual") {
+      return;
+    }
+    
     if (!mark.assignedBuoyId && !mark.gatePortBuoyId && !mark.gateStarboardBuoyId) {
       return;
     }
@@ -125,17 +229,29 @@ export function useBuoyFollow({
         );
       }
     }
-  }, [sendBuoyToMark, buoyFollowSettings.debounceTimeSeconds, windDirection]);
+  }, [sendBuoyToMark, buoyFollowSettings.debounceTimeSeconds, windDirection, buoyDeployMode]);
 
   const handleMarkMoved = useCallback((markId: string, newLat: number, newLng: number) => {
+    if (buoyDeployMode === "manual") {
+      return;
+    }
+    
     const mark = marks.find(m => m.id === markId);
     if (!mark) return;
     const updatedMark = { ...mark, lat: newLat, lng: newLng };
     commandBuoyForMark(updatedMark, true);
-  }, [marks, commandBuoyForMark]);
+  }, [marks, commandBuoyForMark, buoyDeployMode]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (previousDeployMode.current === "manual" && buoyDeployMode === "automatic") {
+      deployAllPending();
+    }
+    previousDeployMode.current = buoyDeployMode;
+  }, [buoyDeployMode, deployAllPending]);
+
+  useEffect(() => {
+    if (!enabled || buoyDeployMode === "manual") return;
+    
     const interval = setInterval(() => {
       marks.forEach(mark => {
         if (mark.isGate) {
@@ -173,7 +289,7 @@ export function useBuoyFollow({
     }, buoyFollowSettings.pollIntervalSeconds * 1000);
 
     return () => clearInterval(interval);
-  }, [enabled, marks, buoys, buoyFollowSettings, sendBuoyToMark, windDirection]);
+  }, [enabled, marks, buoys, buoyFollowSettings, sendBuoyToMark, windDirection, buoyDeployMode]);
 
   useEffect(() => {
     return () => {
@@ -185,5 +301,8 @@ export function useBuoyFollow({
   return {
     handleMarkMoved,
     commandBuoyForMark,
+    getPendingDeployments,
+    deployAllPending,
+    buoyDeployMode,
   };
 }
