@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@shared/schema";
 import { cn } from "@/lib/utils";
-import { AutoAdjustDialog } from "./AutoAdjustDialog";
+import { AutoAdjustWizard, OriginalPosition } from "./AutoAdjustWizard";
 import { useBoatClass, useBoatClasses } from "@/hooks/use-api";
 import { estimateRaceTime, buildLegsFromRoundingSequence } from "@/lib/race-time-estimation";
 import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
@@ -68,7 +68,9 @@ interface SetupPanelProps {
   onAutoAssignBuoys?: () => void;
   onPhaseChange?: (phase: SetupPhase) => void;
   onClearAllMarks?: () => void;
-  onAutoAdjustMarks?: (adjustedMarks: Array<{ id: string; lat: number; lng: number }>, originalPositions: Array<{ id: string; lat: number; lng: number }>) => void;
+  onAutoAdjustMark?: (markId: string, lat: number, lng: number) => void;
+  onAutoAdjustStartLine?: (pinLat: number, pinLng: number, cbLat: number, cbLng: number) => void;
+  onAutoAdjustComplete?: (originalPositions: OriginalPosition[]) => void;
   lastAutoAdjust?: { positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null;
   onUndoAutoAdjust?: () => void;
 }
@@ -94,7 +96,9 @@ export function SetupPanel({
   onAutoAssignBuoys,
   onPhaseChange,
   onClearAllMarks,
-  onAutoAdjustMarks,
+  onAutoAdjustMark,
+  onAutoAdjustStartLine,
+  onAutoAdjustComplete,
   lastAutoAdjust,
   onUndoAutoAdjust,
 }: SetupPanelProps) {
@@ -1494,7 +1498,7 @@ export function SetupPanel({
                       Drag marks on the map to reposition them
                     </p>
                     
-                    {onAutoAdjustMarks && windDirection !== undefined && (
+                    {onAutoAdjustMark && onAutoAdjustStartLine && onAutoAdjustComplete && windDirection !== undefined && (
                       <div className="space-y-2 mt-2">
                         <Button
                           variant="default"
@@ -2273,13 +2277,16 @@ export function SetupPanel({
         </DialogContent>
       </Dialog>
 
-      {onAutoAdjustMarks && windDirection !== undefined && (
-        <AutoAdjustDialog
+      {onAutoAdjustMark && onAutoAdjustStartLine && onAutoAdjustComplete && windDirection !== undefined && (
+        <AutoAdjustWizard
           open={showAutoAdjustDialog}
           onOpenChange={setShowAutoAdjustDialog}
           marks={marks}
+          roundingSequence={roundingSequence}
           windDirection={windDirection}
-          onApply={onAutoAdjustMarks}
+          onApplyMark={onAutoAdjustMark}
+          onApplyStartLine={onAutoAdjustStartLine}
+          onComplete={onAutoAdjustComplete}
         />
       )}
     </div>
