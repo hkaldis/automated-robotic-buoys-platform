@@ -119,6 +119,7 @@ Backend validation in `server/validation.ts` and `server/routes.ts`:
 VMG-based race time estimation using sailing physics and boat class performance data:
 
 1. **Boat Classes Database**: 20 common sailing classes with performance data:
+   - `lengthMeters`: Hull length in meters (used for boat-length calculations)
    - VMG (Velocity Made Good) at light/medium/heavy wind conditions
    - Reach speeds at different wind bands
    - Optimal upwind and downwind true wind angles (TWA)
@@ -137,7 +138,9 @@ VMG-based race time estimation using sailing physics and boat class performance 
    - Per-leg estimates with point-of-sail color coding (red=upwind, green=reach, blue=downwind)
    - Total estimated race time shown with "(VMG)" indicator when using physics-based calculation
    - Falls back to simple estimate (distance/4.5kts) if no boat class selected
-   - **Boat class selector** in Review phase for quick at-sea changes (session-only override)
+   - **Boat class selector** in Review phase for quick at-sea changes (defaults to event's class)
+   - **Start/Finish line in boat lengths**: Displays line length in meters and boat lengths
+   - **Start line crossing time**: Time to sail from committee boat to pin using VMG physics
 
 4. **API Endpoints**:
    - GET /api/boat-classes - List all boat classes
