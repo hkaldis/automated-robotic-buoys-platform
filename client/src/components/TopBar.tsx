@@ -1,14 +1,22 @@
-import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2 } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useSettings } from "@/hooks/use-settings";
+
+interface WeatherData {
+  windSpeed: number;
+  windDirection: number;
+  source: string;
+}
 
 interface TopBarProps {
   eventName: string;
   clubName: string;
   demoMode?: boolean;
   userRole?: string;
+  weatherData?: WeatherData | null;
   onMenuClick?: () => void;
   onSettingsClick?: () => void;
   onToggleDemoMode?: () => void;
@@ -21,6 +29,7 @@ export function TopBar({
   clubName, 
   demoMode,
   userRole,
+  weatherData,
   onMenuClick, 
   onSettingsClick,
   onToggleDemoMode,
@@ -28,6 +37,7 @@ export function TopBar({
   onClearCourse,
 }: TopBarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { formatSpeed, formatBearing } = useSettings();
 
   const getFullscreenElement = useCallback(() => {
     const doc = document as any;
@@ -153,6 +163,28 @@ export function TopBar({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Clear course</TooltipContent>
+          </Tooltip>
+        )}
+
+        {weatherData && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted/50" data-testid="wind-display">
+                <Wind className="w-4 h-4 text-chart-1" />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-mono font-medium" data-testid="text-wind-speed">
+                    {formatSpeed(weatherData.windSpeed)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">from</span>
+                  <span className="text-sm font-mono" data-testid="text-wind-direction">
+                    {formatBearing(weatherData.windDirection)}
+                  </span>
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              Wind: {formatSpeed(weatherData.windSpeed)} from {formatBearing(weatherData.windDirection)} ({weatherData.source})
+            </TooltipContent>
           </Tooltip>
         )}
 

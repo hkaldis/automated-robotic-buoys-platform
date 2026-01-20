@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
-import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -69,6 +69,12 @@ export function useSettings() {
   const [buoyFollowSettings, setBuoyFollowSettingsState] = useState<BuoyFollowSettings>(
     settingsService.getBuoyFollowSettings()
   );
+  const [mapLayer, setMapLayerState] = useState<MapLayerType>(
+    settingsService.getMapLayer()
+  );
+  const [showSeaMarks, setShowSeaMarksState] = useState<boolean>(
+    settingsService.getShowSeaMarks()
+  );
 
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
@@ -76,6 +82,8 @@ export function useSettings() {
       setStartLineFixBearingModeState(settingsService.getStartLineFixBearingMode());
       setWindAngleDefaultsState(settingsService.getWindAngleDefaults());
       setBuoyFollowSettingsState(settingsService.getBuoyFollowSettings());
+      setMapLayerState(settingsService.getMapLayer());
+      setShowSeaMarksState(settingsService.getShowSeaMarks());
     });
     return unsubscribe;
   }, []);
@@ -106,6 +114,14 @@ export function useSettings() {
 
   const resetBuoyFollowSettings = useCallback(() => {
     settingsService.resetBuoyFollowSettings();
+  }, []);
+
+  const setMapLayer = useCallback((layer: MapLayerType) => {
+    settingsService.setMapLayer(layer);
+  }, []);
+
+  const setShowSeaMarks = useCallback((show: boolean) => {
+    settingsService.setShowSeaMarks(show);
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -155,8 +171,12 @@ export function useSettings() {
     buoyFollowSettings,
     setBuoyFollowSetting,
     resetBuoyFollowSettings,
+    mapLayer,
+    setMapLayer,
+    showSeaMarks,
+    setShowSeaMarks,
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW };
-export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER };
+export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType };

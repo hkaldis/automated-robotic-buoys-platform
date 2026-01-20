@@ -1,4 +1,4 @@
-import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -51,6 +51,12 @@ const fixBearingModeOptions: { value: StartLineFixBearingMode; label: string }[]
   { value: "committee_boat", label: "Move Committee Boat" },
 ];
 
+const mapLayerOptions: { value: MapLayerType; label: string; description: string }[] = [
+  { value: "osm", label: "Standard Map", description: "OpenStreetMap street and terrain view" },
+  { value: "satellite", label: "Satellite", description: "Aerial imagery view" },
+  { value: "nautical", label: "Nautical Chart", description: "Marine chart styling" },
+];
+
 const windAngleLabels: Record<keyof WindAngleDefaults, string> = {
   windward: "Windward",
   leeward: "Leeward",
@@ -76,6 +82,10 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
     buoyFollowSettings,
     setBuoyFollowSetting,
     resetBuoyFollowSettings,
+    mapLayer,
+    setMapLayer,
+    showSeaMarks,
+    setShowSeaMarks,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -115,6 +125,48 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                   data-testid="switch-wind-arrows"
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="sea-marks-toggle" className="text-sm">
+                  Show Sea Marks Overlay
+                </Label>
+                <Switch
+                  id="sea-marks-toggle"
+                  checked={showSeaMarks}
+                  onCheckedChange={(checked) => setShowSeaMarks(checked)}
+                  data-testid="switch-sea-marks"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Map className="w-4 h-4" />
+                Map Layer
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RadioGroup 
+                value={mapLayer} 
+                onValueChange={(v) => setMapLayer(v as MapLayerType)}
+                className="space-y-2"
+              >
+                {mapLayerOptions.map((opt) => (
+                  <Label
+                    key={opt.value}
+                    htmlFor={`map-${opt.value}`}
+                    className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover-elevate data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                    data-state={mapLayer === opt.value ? "checked" : "unchecked"}
+                  >
+                    <RadioGroupItem value={opt.value} id={`map-${opt.value}`} className="mt-0.5" />
+                    <div>
+                      <span className="text-sm font-medium">{opt.label}</span>
+                      <p className="text-xs text-muted-foreground">{opt.description}</p>
+                    </div>
+                  </Label>
+                ))}
+              </RadioGroup>
             </CardContent>
           </Card>
 

@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { MapLayerType } from "@/lib/services/settings-service";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
@@ -50,6 +51,8 @@ interface LeafletMapProps {
   lastMarkMove?: { markId: string; prevLat: number; prevLng: number; timestamp: number } | null;
   onUndoMarkMove?: () => void;
   onMapMoveEnd?: (lat: number, lng: number) => void;
+  mapLayer?: MapLayerType;
+  showSeaMarks?: boolean;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -720,6 +723,8 @@ export function LeafletMap({
   lastMarkMove,
   onUndoMarkMove,
   onMapMoveEnd,
+  mapLayer = "osm",
+  showSeaMarks = true,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -860,15 +865,31 @@ export function LeafletMap({
           ref={mapRef}
           zoomControl={false}
         >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <TileLayer
-          attribution='Map data: &copy; <a href="https://www.openseamap.org">OpenSeaMap</a> contributors'
-          url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
-          opacity={0.8}
-        />
+        {mapLayer === "osm" && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        )}
+        {mapLayer === "satellite" && (
+          <TileLayer
+            attribution='Tiles &copy; Esri'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          />
+        )}
+        {mapLayer === "nautical" && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        )}
+        {showSeaMarks && (
+          <TileLayer
+            attribution='Map data: &copy; <a href="https://www.openseamap.org">OpenSeaMap</a> contributors'
+            url="https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
+            opacity={0.8}
+          />
+        )}
         
         <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} />
         <MapMoveHandler onMapMoveEnd={onMapMoveEnd} />

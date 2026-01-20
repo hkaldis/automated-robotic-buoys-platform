@@ -37,6 +37,10 @@ export const DEFAULT_BUOY_FOLLOW: BuoyFollowSettings = {
   acceptableDistanceMeters: 1,
 };
 
+export type MapLayerType = "osm" | "satellite" | "nautical";
+
+export const DEFAULT_MAP_LAYER: MapLayerType = "osm";
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
@@ -44,6 +48,8 @@ interface UserSettings {
   startLineFixBearingMode: StartLineFixBearingMode;
   windAngleDefaults: WindAngleDefaults;
   buoyFollow: BuoyFollowSettings;
+  mapLayer: MapLayerType;
+  showSeaMarks: boolean;
 }
 
 class SettingsService {
@@ -54,6 +60,8 @@ class SettingsService {
     startLineFixBearingMode: "pin",
     windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
     buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
+    mapLayer: DEFAULT_MAP_LAYER,
+    showSeaMarks: true,
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -147,6 +155,24 @@ class SettingsService {
 
   resetBuoyFollowSettings(): void {
     this.settings.buoyFollow = { ...DEFAULT_BUOY_FOLLOW };
+    this.notify();
+  }
+
+  getMapLayer(): MapLayerType {
+    return this.settings.mapLayer;
+  }
+
+  setMapLayer(layer: MapLayerType): void {
+    this.settings.mapLayer = layer;
+    this.notify();
+  }
+
+  getShowSeaMarks(): boolean {
+    return this.settings.showSeaMarks;
+  }
+
+  setShowSeaMarks(show: boolean): void {
+    this.settings.showSeaMarks = show;
     this.notify();
   }
 

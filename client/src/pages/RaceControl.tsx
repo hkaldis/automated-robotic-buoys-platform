@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSettings } from "@/hooks/use-settings";
 import type { Event, Buoy, Mark, Course, MarkRole, CourseShape, EventType } from "@shared/schema";
 import { 
   useBuoys, 
@@ -279,6 +280,7 @@ interface RaceControlProps {
 
 export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
   const { user } = useAuth();
+  const { mapLayer, showSeaMarks } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [alertDismissed, setAlertDismissed] = useState(false);
@@ -1953,6 +1955,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         clubName="Oakland Yacht Club"
         demoMode={demoMode}
         userRole={user?.role}
+        weatherData={activeWeatherData}
         onSettingsClick={() => setSettingsOpen(true)}
         onToggleDemoMode={toggleDemoMode}
         onBackClick={() => {
@@ -2022,6 +2025,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               }
             }}
             onMapMoveEnd={(lat, lng) => setMapCenter({ lat, lng })}
+            mapLayer={mapLayer}
+            showSeaMarks={showSeaMarks}
           />
         </main>
 

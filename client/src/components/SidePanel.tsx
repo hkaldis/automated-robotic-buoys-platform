@@ -9,7 +9,6 @@ import { Separator } from "@/components/ui/separator";
 import { CourseShapeSelector } from "./CourseShapeSelector";
 import { MarksList } from "./MarksList";
 import { BuoyCard } from "./BuoyCard";
-import { WindIndicator } from "./WindIndicator";
 import { BuoyDetailPanel } from "./BuoyDetailPanel";
 import { MarkEditPanel } from "./MarkEditPanel";
 import { AddMarkDialog } from "./AddMarkDialog";
@@ -31,6 +30,7 @@ interface SidePanelProps {
   course?: Course | null;
   buoys: Buoy[];
   marks: Mark[];
+  roundingSequence?: string[];
   selectedBuoy: Buoy | null;
   selectedMark: Mark | null;
   weatherData?: WeatherData | null;
@@ -52,6 +52,7 @@ export function SidePanel({
   course,
   buoys, 
   marks, 
+  roundingSequence = [],
   selectedBuoy, 
   selectedMark,
   weatherData, 
@@ -140,6 +141,8 @@ export function SidePanel({
       <MarkEditPanel
         mark={selectedMark}
         buoys={buoys}
+        allMarks={marks}
+        roundingSequence={roundingSequence}
         onClose={() => onMarkSelect?.(null)}
         onSave={(data) => onSaveMark?.(selectedMark.id, data)}
         onDelete={() => onDeleteMark?.(selectedMark.id)}
@@ -174,12 +177,6 @@ export function SidePanel({
 
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
-          <div className="flex justify-center py-2">
-            <WindIndicator size="md" weatherData={weatherData} />
-          </div>
-
-          <Separator />
-
           <CourseShapeSelector 
             selectedShape={selectedShape} 
             onSelect={(shape) => {
