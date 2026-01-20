@@ -74,6 +74,8 @@ interface SetupPanelProps {
   onAutoAdjustComplete?: (originalPositions: OriginalPosition[]) => void;
   lastAutoAdjust?: { positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null;
   onUndoAutoAdjust?: () => void;
+  moveCourseMode?: boolean;
+  onSetMoveCourseMode?: (enabled: boolean) => void;
 }
 
 export function SetupPanel({
@@ -102,6 +104,8 @@ export function SetupPanel({
   onAutoAdjustComplete,
   lastAutoAdjust,
   onUndoAutoAdjust,
+  moveCourseMode,
+  onSetMoveCourseMode,
 }: SetupPanelProps) {
   // Fetch boat classes for race time estimation
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
@@ -1579,8 +1583,22 @@ export function SetupPanel({
                       </Button>
                     </div>
                     
+                    {/* Tap to Move button */}
+                    <Button
+                      variant={moveCourseMode ? "default" : "outline"}
+                      className="w-full gap-2 h-12"
+                      onClick={() => onSetMoveCourseMode?.(!moveCourseMode)}
+                      data-testid="button-tap-to-move"
+                    >
+                      <Navigation2 className="w-4 h-4" />
+                      {moveCourseMode ? "Tap Map to Move Course" : "Tap to Move"}
+                    </Button>
+                    
                     <p className="text-xs text-center text-muted-foreground">
-                      Drag marks on the map to reposition them
+                      {moveCourseMode 
+                        ? "Tap anywhere on the map to relocate the course"
+                        : "Drag points on the map to reposition them"
+                      }
                     </p>
                     
                     {onAutoAdjustMark && onAutoAdjustStartLine && onAutoAdjustComplete && windDirection !== undefined && (

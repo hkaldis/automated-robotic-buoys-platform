@@ -328,6 +328,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Confirmation dialog state for clearing course from top bar
   const [showClearCourseConfirm, setShowClearCourseConfirm] = useState(false);
   
+  // Move course mode - when enabled, clicking on map moves entire course to that location
+  const [moveCourseMode, setMoveCourseMode] = useState(false);
+  
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoModeContext();
@@ -833,6 +836,94 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Track if placement was auto-enabled by phase change (vs manual button click)
   const [autoPlacementEnabled, setAutoPlacementEnabled] = useState(false);
 
+  // Track if a transform is in progress to prevent race conditions
+  const [isTransforming, setIsTransforming] = useState(false);
+
+  // Apply course transformation (called directly or after confirmation)
+  const applyCourseTransform = useCallback(async (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
+    if (marks.length === 0 || isTransforming) return;
+
+    setIsTransforming(true);
+
+    try {
+      // Take a snapshot of current positions to prevent race conditions
+      const markSnapshot = marks.map(m => ({ ...m }));
+
+      // Find the committee boat (pivot point for rotation)
+      const committeeBoat = markSnapshot.find(m => m.role === "start_boat" || m.name === "Committee Boat" || m.name === "Start Boat");
+      
+      // For rotation: use committee boat as pivot. For scale: use course center
+      const pivotLat = committeeBoat?.lat ?? markSnapshot.reduce((sum, m) => sum + m.lat, 0) / markSnapshot.length;
+      const pivotLng = committeeBoat?.lng ?? markSnapshot.reduce((sum, m) => sum + m.lng, 0) / markSnapshot.length;
+      
+      // For scaling, always use center of course
+      const centerLat = markSnapshot.reduce((sum, m) => sum + m.lat, 0) / markSnapshot.length;
+      const centerLng = markSnapshot.reduce((sum, m) => sum + m.lng, 0) / markSnapshot.length;
+
+      // Calculate new positions for all marks from the snapshot
+      const newPositions = markSnapshot.map(mark => {
+        let newLat = mark.lat;
+        let newLng = mark.lng;
+
+        // Apply scaling (relative to center)
+        if (transform.scale) {
+          const dLat = mark.lat - centerLat;
+          const dLng = mark.lng - centerLng;
+          newLat = centerLat + dLat * transform.scale;
+          newLng = centerLng + dLng * transform.scale;
+        }
+
+        // Apply rotation (relative to committee boat pivot - committee boat stays fixed)
+        if (transform.rotation) {
+          // Committee boat doesn't move during rotation
+          if (committeeBoat && mark.id === committeeBoat.id) {
+            return { mark, newLat: mark.lat, newLng: mark.lng };
+          }
+          
+          const dLat = newLat - pivotLat;
+          const dLng = newLng - pivotLng;
+          const angle = transform.rotation * Math.PI / 180;
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+          const rotatedDLat = dLat * cosA - dLng * sinA;
+          const rotatedDLng = dLat * sinA + dLng * cosA;
+          newLat = pivotLat + rotatedDLat;
+          newLng = pivotLng + rotatedDLng;
+        }
+
+        // Apply translation
+        if (transform.translateLat) {
+          newLat += transform.translateLat;
+        }
+        if (transform.translateLng) {
+          newLng += transform.translateLng;
+        }
+
+        return { mark, newLat, newLng };
+      });
+
+      // Update all mark positions atomically using Promise.all
+      await Promise.all(
+        newPositions.map(({ mark, newLat, newLng }) =>
+          updateMark.mutateAsync({ id: mark.id, data: { lat: newLat, lng: newLng } })
+        )
+      );
+
+      // Trigger buoy follow for all marks after atomic update
+      for (const { mark, newLat, newLng } of newPositions) {
+        handleMarkMoved(mark.id, newLat, newLng);
+      }
+
+      toast({
+        title: "Course Adjusted",
+        description: transform.scale ? (transform.scale > 1 ? "Course enlarged." : "Course reduced.") :
+                     transform.rotation ? "Course rotated." : "Course moved.",
+      });
+    } finally {
+      setIsTransforming(false);
+    }
+  }, [marks, updateMark, handleMarkMoved, toast, isTransforming]);
+
   // Handle phase changes from SetupPanel - auto-enable placement in marks phase
   const handlePhaseChange = useCallback((phase: string) => {
     setCurrentSetupPhase(phase);
@@ -952,8 +1043,23 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         }
       );
       setGotoMapClickBuoyId(null);
+    } else if (moveCourseMode && marks.length > 0) {
+      // Move entire course: calculate delta from committee boat to clicked location
+      const committeeBoat = marks.find(m => m.role === "start_boat" || m.name === "Committee Boat" || m.name === "Start Boat");
+      const pivotMark = committeeBoat || marks[0];
+      
+      const translateLat = lat - pivotMark.lat;
+      const translateLng = lng - pivotMark.lng;
+      
+      applyCourseTransform({ translateLat, translateLng });
+      setMoveCourseMode(false);
+      
+      toast({
+        title: "Course Moved",
+        description: "Course relocated to new position.",
+      });
     }
-  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, gotoMapClickBuoyId, marks, buoyCommand]);
+  }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, gotoMapClickBuoyId, marks, buoyCommand, moveCourseMode, applyCourseTransform]);
 
   const handleStopPlacement = useCallback(() => {
     setPendingMarkData(null);
@@ -1440,64 +1546,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       });
     }
   }, [currentCourse, marks, demoMode, sendDemoCommand, buoyCommand, deleteAllMarks, updateCourse, toast]);
-
-  // Apply course transformation (called directly or after confirmation)
-  const applyCourseTransform = useCallback(async (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
-    if (marks.length === 0) return;
-
-    // Calculate course center
-    const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
-    const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
-
-    // Calculate new positions for all marks
-    const newPositions = marks.map(mark => {
-      let newLat = mark.lat;
-      let newLng = mark.lng;
-
-      // Apply scaling (relative to center)
-      if (transform.scale) {
-        const dLat = mark.lat - centerLat;
-        const dLng = mark.lng - centerLng;
-        newLat = centerLat + dLat * transform.scale;
-        newLng = centerLng + dLng * transform.scale;
-      }
-
-      // Apply rotation (relative to center)
-      if (transform.rotation) {
-        const dLat = newLat - centerLat;
-        const dLng = newLng - centerLng;
-        const angle = transform.rotation * Math.PI / 180;
-        const cosA = Math.cos(angle);
-        const sinA = Math.sin(angle);
-        const rotatedDLat = dLat * cosA - dLng * sinA;
-        const rotatedDLng = dLat * sinA + dLng * cosA;
-        newLat = centerLat + rotatedDLat;
-        newLng = centerLng + rotatedDLng;
-      }
-
-      // Apply translation
-      if (transform.translateLat) {
-        newLat += transform.translateLat;
-      }
-      if (transform.translateLng) {
-        newLng += transform.translateLng;
-      }
-
-      return { mark, newLat, newLng };
-    });
-
-    // Update all mark positions and trigger buoy follow
-    for (const { mark, newLat, newLng } of newPositions) {
-      await updateMark.mutateAsync({ id: mark.id, data: { lat: newLat, lng: newLng } });
-      handleMarkMoved(mark.id, newLat, newLng);
-    }
-
-    toast({
-      title: "Course Adjusted",
-      description: transform.scale ? (transform.scale > 1 ? "Course enlarged." : "Course reduced.") :
-                   transform.rotation ? "Course rotated." : "Course moved.",
-    });
-  }, [marks, updateMark, handleMarkMoved, toast]);
 
   // Transform course (scale, rotate, move) - shows confirmation if buoys are assigned
   const handleTransformCourse = useCallback((transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
@@ -2091,6 +2139,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onAutoAdjustComplete={handleAutoAdjustComplete}
               lastAutoAdjust={lastAutoAdjust}
               onUndoAutoAdjust={handleUndoAutoAdjust}
+              moveCourseMode={moveCourseMode}
+              onSetMoveCourseMode={setMoveCourseMode}
             />
           )}
         </aside>
