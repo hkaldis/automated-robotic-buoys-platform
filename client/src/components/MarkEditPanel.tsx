@@ -52,6 +52,7 @@ export function MarkEditPanel({
   const [isStartLine, setIsStartLine] = useState(mark.isStartLine ?? false);
   const [isFinishLine, setIsFinishLine] = useState(mark.isFinishLine ?? false);
   const [isGate, setIsGate] = useState(mark.isGate ?? false);
+  const [gateSide, setGateSide] = useState<"port" | "starboard">((mark.gateSide as "port" | "starboard") ?? "port");
   const [gateWidthBoatLengths, setGateWidthBoatLengths] = useState(mark.gateWidthBoatLengths ?? 8);
   const [boatLengthMeters, setBoatLengthMeters] = useState(mark.boatLengthMeters ?? 6);
   const [gatePortBuoyId, setGatePortBuoyId] = useState<string>(mark.gatePortBuoyId || "");
@@ -75,12 +76,13 @@ export function MarkEditPanel({
       isStartLine !== (mark.isStartLine ?? false) ||
       isFinishLine !== (mark.isFinishLine ?? false) ||
       isGate !== (mark.isGate ?? false) ||
+      gateSide !== (mark.gateSide ?? "port") ||
       gateWidthBoatLengths !== (mark.gateWidthBoatLengths ?? 8) ||
       boatLengthMeters !== (mark.boatLengthMeters ?? 6) ||
       gatePortBuoyId !== (mark.gatePortBuoyId || "") ||
       gateStarboardBuoyId !== (mark.gateStarboardBuoyId || "");
     setHasChanges(changed);
-  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, mark]);
+  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateSide, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, mark]);
 
   // Track previous mark ID to detect selection changes
   const prevMarkIdRef = useRef(mark.id);
@@ -100,6 +102,7 @@ export function MarkEditPanel({
       setIsStartLine(mark.isStartLine ?? false);
       setIsFinishLine(mark.isFinishLine ?? false);
       setIsGate(mark.isGate ?? false);
+      setGateSide((mark.gateSide as "port" | "starboard") ?? "port");
       setGateWidthBoatLengths(mark.gateWidthBoatLengths ?? 8);
       setBoatLengthMeters(mark.boatLengthMeters ?? 6);
       setGatePortBuoyId(mark.gatePortBuoyId || "");
@@ -119,6 +122,7 @@ export function MarkEditPanel({
     if (!dirty.has("isStartLine")) setIsStartLine(mark.isStartLine ?? false);
     if (!dirty.has("isFinishLine")) setIsFinishLine(mark.isFinishLine ?? false);
     if (!dirty.has("isGate")) setIsGate(mark.isGate ?? false);
+    if (!dirty.has("gateSide")) setGateSide((mark.gateSide as "port" | "starboard") ?? "port");
     if (!dirty.has("gateWidthBoatLengths")) setGateWidthBoatLengths(mark.gateWidthBoatLengths ?? 8);
     if (!dirty.has("boatLengthMeters")) setBoatLengthMeters(mark.boatLengthMeters ?? 6);
     if (!dirty.has("gatePortBuoyId")) setGatePortBuoyId(mark.gatePortBuoyId || "");
@@ -156,7 +160,15 @@ export function MarkEditPanel({
   }, []);
   const setIsGateDirty = useCallback((value: boolean) => {
     dirtyFieldsRef.current.add("isGate");
+    // When converting to a gate, also mark gateSide as dirty to ensure it's sent
+    if (value) {
+      dirtyFieldsRef.current.add("gateSide");
+    }
     setIsGate(value);
+  }, []);
+  const setGateSideDirty = useCallback((value: "port" | "starboard") => {
+    dirtyFieldsRef.current.add("gateSide");
+    setGateSide(value);
   }, []);
   const setGateWidthBoatLengthsDirty = useCallback((value: number) => {
     dirtyFieldsRef.current.add("gateWidthBoatLengths");
@@ -221,6 +233,7 @@ export function MarkEditPanel({
       isStartLine,
       isFinishLine,
       isGate,
+      gateSide: isGate ? gateSide : null,
       gateWidthBoatLengths: isGate ? gateWidthBoatLengths : null,
       boatLengthMeters: isGate ? boatLengthMeters : null,
       gatePortBuoyId: isGate ? (gatePortBuoyId || null) : null,
@@ -232,7 +245,7 @@ export function MarkEditPanel({
     
     setTimeout(() => setSaveStatus("saved"), 100);
     setTimeout(() => setSaveStatus("idle"), 2000);
-  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, onSave]);
+  }, [name, role, lat, lng, assignedBuoyId, isStartLine, isFinishLine, isGate, gateSide, gateWidthBoatLengths, boatLengthMeters, gatePortBuoyId, gateStarboardBuoyId, onSave]);
 
   // Autosave when any field changes (debounced)
   useEffect(() => {
