@@ -307,6 +307,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   // Undo state for last mark position change
   const [lastMarkMove, setLastMarkMove] = useState<{ markId: string; prevLat: number; prevLng: number; timestamp: number } | null>(null);
+  const [isGpsLocating, setIsGpsLocating] = useState(false);
   
   // Undo state for auto-adjust
   const [lastAutoAdjust, setLastAutoAdjust] = useState<{ positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null>(null);
@@ -1199,7 +1200,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [marks, updateMark, toast, handleMarkMoved]);
 
-  const handleUndoMarkAdjust = useCallback(() => {
+  const handleUndoMarkMove = useCallback(() => {
     if (!lastMarkMove) return;
     
     updateMark.mutate({ id: lastMarkMove.markId, data: { lat: lastMarkMove.prevLat, lng: lastMarkMove.prevLng } }, {
@@ -1208,11 +1209,68 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         setLastMarkMove(null);
         toast({
           title: "Undone",
-          description: "Mark position restored.",
+          description: "Point position restored.",
         });
       },
     });
   }, [lastMarkMove, updateMark, toast, handleMarkMoved]);
+  
+  const handleMoveMarkToGPS = useCallback((markId: string) => {
+    const mark = marks.find(m => m.id === markId);
+    if (!mark) return;
+    
+    if (!navigator.geolocation) {
+      toast({
+        title: "GPS Not Available",
+        description: "Your device doesn't support GPS location.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsGpsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsGpsLocating(false);
+        const { latitude, longitude } = position.coords;
+        setLastMarkMove({ markId, prevLat: mark.lat, prevLng: mark.lng, timestamp: Date.now() });
+        updateMark.mutate({ id: markId, data: { lat: latitude, lng: longitude } }, {
+          onSuccess: () => {
+            handleMarkMoved(markId, latitude, longitude);
+            toast({
+              title: "Point Moved",
+              description: "Point moved to your current GPS position.",
+            });
+          },
+        });
+      },
+      (error) => {
+        setIsGpsLocating(false);
+        toast({
+          title: "GPS Error",
+          description: error.message || "Could not get your location.",
+          variant: "destructive",
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [marks, updateMark, toast, handleMarkMoved]);
+  
+  const handleMoveMarkToCoordinates = useCallback((markId: string, lat: number, lng: number) => {
+    const mark = marks.find(m => m.id === markId);
+    if (!mark) return;
+    
+    setLastMarkMove({ markId, prevLat: mark.lat, prevLng: mark.lng, timestamp: Date.now() });
+    updateMark.mutate({ id: markId, data: { lat, lng } }, {
+      onSuccess: () => {
+        handleMarkMoved(markId, lat, lng);
+        toast({
+          title: "Point Moved",
+          description: `Point moved to ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
+        });
+      },
+    });
+  }, [marks, updateMark, toast, handleMarkMoved]);
 
   const handleBuoyGotoMapClick = useCallback((buoyId: string) => {
     if (gotoMapClickBuoyId === buoyId) {
@@ -2061,16 +2119,17 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onClose={() => { setSelectedMarkId(null); setGotoMapClickMarkId(null); }}
               onSave={(data) => handleSaveMark(selectedMark.id, data)}
               onDelete={() => handleDeleteMark(selectedMark.id)}
-              onReposition={() => handleRepositionMark(selectedMark.id)}
+              onMoveToGPS={() => handleMoveMarkToGPS(selectedMark.id)}
+              onMoveToCoordinates={(lat, lng) => handleMoveMarkToCoordinates(selectedMark.id, lat, lng)}
               onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
               onAdjustToWind={(lat, lng) => handleAdjustMarkToWind(selectedMark.id, lat, lng)}
-              isRepositioning={!!repositioningMarkId}
-              lastMarkAdjust={lastMarkMove && lastMarkMove.markId === selectedMark.id ? {
+              lastMovePosition={lastMarkMove && lastMarkMove.markId === selectedMark.id ? {
                 originalLat: lastMarkMove.prevLat,
                 originalLng: lastMarkMove.prevLng,
                 timestamp: lastMarkMove.timestamp
               } : null}
-              onUndoMarkAdjust={handleUndoMarkAdjust}
+              onUndoMove={handleUndoMarkMove}
+              isGpsLocating={isGpsLocating}
             />
           ) : (
             <SetupPanel 
@@ -2078,7 +2137,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               course={currentCourse}
               buoys={buoys}
               marks={marks}
-              savedCourses={courses}
               roundingSequence={roundingSequence}
               windDirection={activeWeatherData?.windDirection}
               windSpeed={activeWeatherData?.windSpeed}

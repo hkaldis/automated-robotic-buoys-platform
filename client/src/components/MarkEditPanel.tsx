@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw } from "lucide-react";
+import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { adjustSingleMarkToWind, getStartLineCenter } from "@/lib/course-bearings";
@@ -22,12 +23,13 @@ interface MarkEditPanelProps {
   onClose: () => void;
   onSave: (data: Partial<Mark>) => void;
   onDelete: () => void;
-  onReposition?: () => void;
+  onMoveToGPS?: () => void;
+  onMoveToCoordinates?: (lat: number, lng: number) => void;
   onNudge?: (direction: "north" | "south" | "east" | "west") => void;
   onAdjustToWind?: (lat: number, lng: number) => void;
-  isRepositioning?: boolean;
-  lastMarkAdjust?: { originalLat: number; originalLng: number; timestamp: number } | null;
-  onUndoMarkAdjust?: () => void;
+  lastMovePosition?: { originalLat: number; originalLng: number; timestamp: number } | null;
+  onUndoMove?: () => void;
+  isGpsLocating?: boolean;
 }
 
 const MARK_ROLES: { value: MarkRole; label: string }[] = [
@@ -51,12 +53,13 @@ export function MarkEditPanel({
   onClose, 
   onSave, 
   onDelete,
-  onReposition,
+  onMoveToGPS,
+  onMoveToCoordinates,
   onNudge,
   onAdjustToWind,
-  isRepositioning,
-  lastMarkAdjust,
-  onUndoMarkAdjust,
+  lastMovePosition,
+  onUndoMove,
+  isGpsLocating,
 }: MarkEditPanelProps) {
   const { getWindAngleForRole } = useSettings();
   const [name, setName] = useState(mark.name);
@@ -76,18 +79,21 @@ export function MarkEditPanel({
   
   const [degreesToWind, setDegreesToWind] = useState(() => getWindAngleForRole(mark.role));
   const [undoTick, setUndoTick] = useState(0);
+  const [showCoordinatesDialog, setShowCoordinatesDialog] = useState(false);
+  const [coordLat, setCoordLat] = useState(mark.lat.toString());
+  const [coordLng, setCoordLng] = useState(mark.lng.toString());
   
   useEffect(() => {
     setDegreesToWind(getWindAngleForRole(role));
   }, [role, getWindAngleForRole]);
   
   useEffect(() => {
-    if (!lastMarkAdjust) return;
-    const remainingTime = 60000 - (Date.now() - lastMarkAdjust.timestamp);
+    if (!lastMovePosition) return;
+    const remainingTime = 60000 - (Date.now() - lastMovePosition.timestamp);
     if (remainingTime <= 0) return;
     const timer = setTimeout(() => setUndoTick((t) => t + 1), remainingTime);
     return () => clearTimeout(timer);
-  }, [lastMarkAdjust]);
+  }, [lastMovePosition]);
   
   const startLineCenter = useMemo(() => {
     return getStartLineCenter(allMarks.map(m => ({ role: m.role, lat: m.lat, lng: m.lng })));
@@ -384,17 +390,35 @@ export function MarkEditPanel({
       <div className="p-3 border-b bg-muted/30">
         <div className="flex items-center justify-between mb-2">
           <Label className="text-sm font-medium">Position</Label>
-          {onReposition && (
-            <Button 
-              variant={isRepositioning ? "default" : "outline"} 
-              size="sm"
-              onClick={onReposition}
-              data-testid="button-reposition-mark"
-            >
-              <Navigation className="w-4 h-4 mr-1" />
-              {isRepositioning ? "Click Map..." : "Tap to Place"}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {onMoveToGPS && (
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={onMoveToGPS}
+                disabled={isGpsLocating}
+                title={isGpsLocating ? "Locating..." : "Move to current GPS position"}
+                data-testid="button-move-to-gps"
+              >
+                <Crosshair className={`w-5 h-5 ${isGpsLocating ? "animate-pulse" : ""}`} />
+              </Button>
+            )}
+            {onMoveToCoordinates && (
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => {
+                  setCoordLat(mark.lat.toString());
+                  setCoordLng(mark.lng.toString());
+                  setShowCoordinatesDialog(true);
+                }}
+                title="Enter specific coordinates"
+                data-testid="button-enter-coordinates"
+              >
+                <MapPin className="w-5 h-5" />
+              </Button>
+            )}
+          </div>
         </div>
         
         {/* Prominent nudge controls for wet finger use */}
@@ -439,6 +463,20 @@ export function MarkEditPanel({
             </div>
           </div>
         )}
+        
+        {/* Undo button - appears after any position change */}
+        {lastMovePosition && onUndoMove && (Date.now() - lastMovePosition.timestamp) < 60000 && (
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full mt-3 gap-2 border-orange-500 text-orange-600"
+            onClick={onUndoMove}
+            data-testid="button-undo-move"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Undo Move
+          </Button>
+        )}
       </div>
 
       {!isStartOrFinishMark && (
@@ -477,18 +515,6 @@ export function MarkEditPanel({
           
           {!canAdjustToWind.can && canAdjustToWind.reason && (
             <p className="text-xs text-muted-foreground mt-2">{canAdjustToWind.reason}</p>
-          )}
-          
-          {lastMarkAdjust && onUndoMarkAdjust && (Date.now() - lastMarkAdjust.timestamp) < 60000 && (
-            <Button
-              variant="outline"
-              className="w-full mt-2 gap-2 h-10 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
-              onClick={onUndoMarkAdjust}
-              data-testid="button-undo-mark-adjust"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Undo
-            </Button>
           )}
         </div>
       )}
@@ -783,6 +809,62 @@ export function MarkEditPanel({
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      
+      {/* Coordinates Dialog */}
+      <Dialog open={showCoordinatesDialog} onOpenChange={setShowCoordinatesDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Enter Coordinates</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="coord-lat">Latitude</Label>
+              <Input
+                id="coord-lat"
+                type="number"
+                step="0.0001"
+                value={coordLat}
+                onChange={(e) => setCoordLat(e.target.value)}
+                placeholder="e.g. 51.5074"
+                className="text-lg font-mono"
+                data-testid="input-coord-lat"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="coord-lng">Longitude</Label>
+              <Input
+                id="coord-lng"
+                type="number"
+                step="0.0001"
+                value={coordLng}
+                onChange={(e) => setCoordLng(e.target.value)}
+                placeholder="e.g. -0.1278"
+                className="text-lg font-mono"
+                data-testid="input-coord-lng"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCoordinatesDialog(false)} data-testid="button-coord-cancel">
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                const parsedLat = parseFloat(coordLat);
+                const parsedLng = parseFloat(coordLng);
+                if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+                  onMoveToCoordinates?.(parsedLat, parsedLng);
+                  setShowCoordinatesDialog(false);
+                }
+              }}
+              disabled={isNaN(parseFloat(coordLat)) || isNaN(parseFloat(coordLng))}
+              data-testid="button-place-at-coordinates"
+            >
+              Place
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
