@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Minus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind } from "lucide-react";
+import { Plus, Minus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
@@ -700,7 +701,8 @@ export function SetupPanel({
     { id: "finish_line", label: "Finish", number: 3 },
     { id: "sequence", label: "Route", number: 4 },
     { id: "summary", label: "Review", number: 5 },
-    { id: "assign_buoys", label: "Buoys", number: 6 },
+    { id: "assign_buoys", label: "Assign", number: 6 },
+    { id: "ready", label: "Fleet", number: 7 },
   ];
 
   const currentPhaseIndex = phases.findIndex(p => p.id === phase);
@@ -1913,53 +1915,230 @@ export function SetupPanel({
         );
 
       case "ready":
+        // Build buoy status data with assignments
+        const assignedBuoyIds = new Set<string>();
+        const buoyToMarkMap = new Map<string, { markName: string; markRole: string }>();
+        
+        marks.forEach(mark => {
+          if (mark.isGate) {
+            if (mark.gatePortBuoyId) {
+              assignedBuoyIds.add(mark.gatePortBuoyId);
+              buoyToMarkMap.set(mark.gatePortBuoyId, { markName: `${mark.name} (Port)`, markRole: mark.role });
+            }
+            if (mark.gateStarboardBuoyId) {
+              assignedBuoyIds.add(mark.gateStarboardBuoyId);
+              buoyToMarkMap.set(mark.gateStarboardBuoyId, { markName: `${mark.name} (Stbd)`, markRole: mark.role });
+            }
+          } else if (mark.assignedBuoyId) {
+            assignedBuoyIds.add(mark.assignedBuoyId);
+            buoyToMarkMap.set(mark.assignedBuoyId, { markName: mark.name, markRole: mark.role });
+          }
+        });
+        
+        // Get assigned buoys with their data
+        const assignedBuoys = buoys.filter(b => assignedBuoyIds.has(b.id));
+        
+        // Calculate fleet status counts
+        const movingBuoys = assignedBuoys.filter(b => b.state === "moving_to_target");
+        const onlineBuoys = assignedBuoys.filter(b => b.state === "holding_position" || b.state === "idle");
+        const faultBuoys = assignedBuoys.filter(b => b.state === "fault" || b.state === "unavailable");
+        const lowBatteryBuoys = assignedBuoys.filter(b => b.battery < 20);
+        
+        // Calculate maximum ETA across all buoys
+        const maxEtaSeconds = Math.max(0, ...assignedBuoys.map(b => b.eta ?? 0));
+        const maxEtaMinutes = Math.floor(maxEtaSeconds / 60);
+        const maxEtaSecondsRemainder = maxEtaSeconds % 60;
+        
+        // Format ETA helper
+        const formatEta = (etaSeconds: number | null | undefined) => {
+          if (!etaSeconds || etaSeconds <= 0) return null;
+          const mins = Math.floor(etaSeconds / 60);
+          const secs = etaSeconds % 60;
+          return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        };
+        
+        // Get buoy state display info
+        const getBuoyStateInfo = (state: string) => {
+          switch (state) {
+            case "moving_to_target":
+              return { label: "Moving", color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" };
+            case "holding_position":
+              return { label: "On Station", color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" };
+            case "idle":
+              return { label: "Idle", color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30" };
+            case "fault":
+              return { label: "Fault", color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30" };
+            case "unavailable":
+              return { label: "Offline", color: "text-gray-500", bgColor: "bg-gray-100 dark:bg-gray-800/30" };
+            default:
+              return { label: state, color: "text-muted-foreground", bgColor: "bg-muted/50" };
+          }
+        };
+        
         return (
           <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            <div className="text-center space-y-4 flex-1 flex flex-col items-center justify-center">
-              <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center bg-green-100 dark:bg-green-900/30">
-                <Check className="w-10 h-10 text-green-600" />
+            {/* Header */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-primary/10">
+                <Radio className="w-4 h-4 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold">Ready to Deploy!</h2>
-              <div className="space-y-2 text-sm">
-                <p className="flex items-center justify-center gap-2">
-                  <Badge className="bg-green-500 text-white px-2.5 py-0.5">
-                    {startLineMarks.length}
-                  </Badge>
-                  start line marks
-                </p>
-                <p className="flex items-center justify-center gap-2">
-                  <Badge variant="secondary" className="px-2.5 py-0.5">
-                    {courseMarks.length}
-                  </Badge>
-                  course marks
-                </p>
-                <p className="flex items-center justify-center gap-2">
-                  <Badge className="bg-blue-500 text-white px-2.5 py-0.5">
-                    {finishLineMarks.length}
-                  </Badge>
-                  finish line marks
-                </p>
+              <div className="flex-1">
+                <h2 className="text-sm font-semibold">Fleet Status</h2>
+                <p className="text-xs text-muted-foreground">{assignedBuoys.length} buoys assigned</p>
               </div>
             </div>
 
+            {/* Status Summary */}
+            <div className="grid grid-cols-4 gap-2" data-testid="fleet-status-summary">
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2 text-center" data-testid="status-on-station">
+                <p className="text-lg font-bold text-green-600" data-testid="count-on-station">{onlineBuoys.length}</p>
+                <p className="text-[10px] text-muted-foreground">On Station</p>
+              </div>
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2 text-center" data-testid="status-moving">
+                <p className="text-lg font-bold text-amber-600" data-testid="count-moving">{movingBuoys.length}</p>
+                <p className="text-[10px] text-muted-foreground">Moving</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-2 text-center" data-testid="status-fault">
+                <p className="text-lg font-bold text-red-600" data-testid="count-fault">{faultBuoys.length}</p>
+                <p className="text-[10px] text-muted-foreground">Fault</p>
+              </div>
+              <div className={cn(
+                "rounded-lg p-2 text-center",
+                lowBatteryBuoys.length > 0 ? "bg-orange-50 dark:bg-orange-900/20" : "bg-muted/50"
+              )} data-testid="status-low-battery">
+                <p className={cn("text-lg font-bold", lowBatteryBuoys.length > 0 ? "text-orange-600" : "text-muted-foreground")} data-testid="count-low-battery">
+                  {lowBatteryBuoys.length}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Low Batt</p>
+              </div>
+            </div>
+
+            {/* Max ETA for Course Setup */}
+            {maxEtaSeconds > 0 && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 flex items-center gap-3" data-testid="course-setup-eta">
+                <Clock className="w-5 h-5 text-amber-600" />
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">Course Setup ETA</p>
+                  <p className="text-lg font-bold text-amber-600" data-testid="text-max-eta">
+                    {maxEtaMinutes > 0 ? `${maxEtaMinutes}m ${maxEtaSecondsRemainder}s` : `${maxEtaSecondsRemainder}s`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Buoy List */}
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="space-y-2">
+                {assignedBuoys.map(buoy => {
+                  const assignment = buoyToMarkMap.get(buoy.id);
+                  const stateInfo = getBuoyStateInfo(buoy.state);
+                  const etaFormatted = formatEta(buoy.eta);
+                  
+                  return (
+                    <div
+                      key={buoy.id}
+                      className={cn(
+                        "p-3 rounded-lg space-y-2",
+                        stateInfo.bgColor
+                      )}
+                      data-testid={`buoy-status-${buoy.id}`}
+                    >
+                      {/* Buoy Header */}
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center",
+                          buoy.state === "fault" || buoy.state === "unavailable" 
+                            ? "bg-red-500 text-white" 
+                            : buoy.state === "moving_to_target"
+                            ? "bg-amber-500 text-white"
+                            : "bg-green-500 text-white"
+                        )}>
+                          <Anchor className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{buoy.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {assignment ? assignment.markName : "Unassigned"}
+                          </p>
+                        </div>
+                        <Badge className={cn("text-xs", stateInfo.color, "bg-transparent border-0")}>
+                          {stateInfo.label}
+                        </Badge>
+                      </div>
+
+                      {/* Buoy Details Row */}
+                      <div className="flex items-center gap-4 text-xs">
+                        {/* Battery */}
+                        <div className="flex items-center gap-1">
+                          <Battery className={cn(
+                            "w-3.5 h-3.5",
+                            buoy.battery < 20 ? "text-red-500" : 
+                            buoy.battery < 50 ? "text-amber-500" : "text-green-500"
+                          )} />
+                          <span className="font-mono">{buoy.battery}%</span>
+                        </div>
+                        
+                        {/* Signal */}
+                        <div className="flex items-center gap-1">
+                          <Wifi className={cn(
+                            "w-3.5 h-3.5",
+                            buoy.signalStrength < 30 ? "text-red-500" : 
+                            buoy.signalStrength < 60 ? "text-amber-500" : "text-green-500"
+                          )} />
+                          <span className="font-mono">{buoy.signalStrength}%</span>
+                        </div>
+
+                        {/* Speed + ETA for moving buoys */}
+                        {buoy.state === "moving_to_target" && (
+                          <>
+                            <div className="flex items-center gap-1">
+                              <Navigation2 className="w-3.5 h-3.5 text-amber-600" />
+                              <span className="font-mono">{buoy.speed?.toFixed(1) ?? 0} kts</span>
+                            </div>
+                            {etaFormatted && (
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                <span className="font-mono font-medium">{etaFormatted}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {assignedBuoys.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Anchor className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No buoys assigned</p>
+                    <p className="text-xs">Go to Buoys tab to assign buoys</p>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Footer */}
             <div className="pt-3 border-t space-y-2 mt-auto">
-              <Button
-                size="lg"
-                className="w-full gap-2 h-12"
-                onClick={onDeployCourse}
-                data-testid="button-deploy-course"
-              >
-                <Play className="w-5 h-5" />
-                Deploy Course
-              </Button>
+              {onDeployCourse && (
+                <Button
+                  size="lg"
+                  className="w-full gap-2 h-12"
+                  onClick={onDeployCourse}
+                  data-testid="button-deploy-course"
+                >
+                  <Play className="w-5 h-5" />
+                  Deploy Course
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className="w-full gap-2"
-                onClick={() => setPhase("start_line")}
-                data-testid="button-edit-course"
+                onClick={() => setPhase("assign_buoys")}
+                data-testid="button-back-assign"
               >
-                <Pencil className="w-4 h-4" />
-                Edit Course
+                <ChevronLeft className="w-4 h-4" />
+                Back to Buoy Assignment
               </Button>
             </div>
           </div>

@@ -1779,12 +1779,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       };
     });
     
-    const maxDist = Math.max(...assignments.map(a => a.distance));
-    const estimatedTime = maxDist / 0.5;
+    // Calculate max ETA based on distance and estimated buoy speed (0.5 kts = ~0.93 km/h)
+    const BUOY_SPEED_KTS = 0.5;
+    const distances = assignments.map(a => a.distance);
+    const maxDistNm = distances.length > 0 ? Math.max(...distances) : 0;
+    // Time in seconds: distance (nm) / speed (kts) * 3600
+    const maxEtaSeconds = maxDistNm > 0 ? Math.round((maxDistNm / BUOY_SPEED_KTS) * 3600) : 0;
+    const maxEtaMinutes = Math.floor(maxEtaSeconds / 60);
+    const maxEtaRemainder = maxEtaSeconds % 60;
+    const etaDisplay = maxEtaSeconds > 0 
+      ? (maxEtaMinutes > 0 ? `${maxEtaMinutes}m ${maxEtaRemainder}s` : `${maxEtaRemainder}s`)
+      : "immediate";
     
     toast({
       title: "Auto-Assigning Buoys",
-      description: `Assigning ${assignmentOps.length} buoys...`,
+      description: `Assigning ${assignmentOps.length} buoys. Est. setup: ${etaDisplay}`,
     });
 
     executeAutoAssignWithRecovery(assignmentOps, {
@@ -1824,7 +1833,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       if (result.success) {
         toast({
           title: "Auto-Assignment Complete",
-          description: `Assigned ${assignmentOps.length} buoys. Max deployment: ${Math.round(estimatedTime / 60)} min.`,
+          description: `Assigned ${assignmentOps.length} buoys. Est. setup: ${etaDisplay}`,
         });
       } else {
         let description = `Completed ${result.completed} of ${assignmentOps.length * 2} operations. ${result.failed} failed.`;
