@@ -6,7 +6,6 @@ import { SetupPanel } from "@/components/SetupPanel";
 import { BuoyDetailPanel } from "@/components/BuoyDetailPanel";
 import { MarkEditPanel } from "@/components/MarkEditPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { AlertBanner } from "@/components/AlertBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { AlertTriangle } from "lucide-react";
@@ -287,8 +286,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const { mapLayer, showSeaMarks } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [alertDismissed, setAlertDismissed] = useState(false);
-  const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
+    const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   // Placement state: pendingMarkData being non-null means we're placing a mark
   const [pendingMarkData, setPendingMarkData] = useState<{ name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean } | null>(null);
@@ -616,7 +614,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       title: "Course Rotation",
       description: "Adjusting course to align with current wind direction.",
     });
-    setAlertDismissed(true);
   }, [toast]);
 
   const handleFetchWeatherAtLocation = useCallback((lat: number, lng: number) => {
@@ -2059,13 +2056,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         }}
         onClearCourse={() => setShowClearCourseConfirm(true)}
       />
-
-      {!alertDismissed && (
-        <AlertBanner 
-          onDismiss={() => setAlertDismissed(true)}
-          onRotateCourse={handleRotateCourse}
-        />
-      )}
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         <main className="flex-1 relative min-w-0 overflow-hidden">
