@@ -73,18 +73,31 @@ The design prioritizes a tablet-first approach with large, touch-friendly contro
 - When `activeCourseId` is null/undefined, no marks are fetched (prevents showing wrong course's marks)
 - `useEffect` initializes `activeCourseId` from: 1) event's courseId, 2) first available course if no event course
 
-### Auto-Adjust Course to Wind Feature
-The Auto-Adjust feature (in `client/src/lib/course-bearings.ts` and `AutoAdjustDialog.tsx`) calculates optimal mark positions based on wind direction using sequential leg-based calculation:
+### Auto-Adjust Course to Wind Feature (Updated January 2026)
+The Auto-Adjust feature now uses a step-by-step wizard approach (`client/src/components/AutoAdjustWizard.tsx`) for adjusting mark positions based on wind direction:
 
-1. **Sequential Bearing Calculation**: Each mark's optimal bearing is calculated based on the line from the PREVIOUS mark to the current mark, compared to wind direction
-2. **Start Line Reference**: First mark uses start line center as reference point (requires start line to be defined)
-3. **Micro-Adjustment**: If bearing delta ≤ 7°, applies only 30% correction to prevent dramatic movement when close to optimal
-4. **Validation**: Blocks apply if:
-   - No start line defined
-   - Missing order values on any mark
-   - Duplicate order values
-   - Missing gateSide on gate marks
-5. **Gate Handling**: Gates use isGate and gateSide metadata from marks table
+1. **Wizard Flow**: Sequential steps through the entire course:
+   - Step 1: Adjust start line perpendicular to wind
+   - Steps 2+: Adjust each unique mark in rounding sequence order
+   - Final: Summary with Finish button
+
+2. **Role-Based Defaults**: Each mark role has a configurable default angle (from Settings):
+   - Windward: 0° (directly upwind)
+   - Leeward: 180° (directly downwind)
+   - Wing: -120° (broad reach, opposite side)
+   - Offset: 10° (slight offset from upwind)
+   - Unknown roles: User is prompted to enter degrees
+
+3. **Sequential Chaining**: Uses local positions map to ensure each mark adjustment references the latest coordinates from previous steps (not stale parent state)
+
+4. **Skip Option**: Any step can be skipped without adjustment
+
+5. **Undo All**: On completion, stores original positions for 60-second undo window
+
+6. **Implementation Details**:
+   - `adjustSingleMarkToWind()`: Core calculation function in course-bearings.ts
+   - `localPositions` Map: Tracks updated positions for sequential chaining
+   - `useEffect`: Initializes degrees input when step changes
 
 ### MarkEditPanel State Sync (January 2026)
 The MarkEditPanel uses a dirty-flag pattern to prevent external updates from overwriting active user edits:
