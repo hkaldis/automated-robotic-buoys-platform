@@ -568,7 +568,24 @@ export function SetupPanel({
     if (!pinMark || !committeeMark || windDirection === undefined) return;
     
     const distanceM = startLineLength;
-    const targetBearing = (windDirection + 90) % 360;
+    // Current bearing from committee boat TO pin (direction we need to preserve)
+    const bearingPinToCommittee = calculateStartLineBearing(pinMark, committeeMark);
+    const bearingCommitteeToPin = (bearingPinToCommittee + 180) % 360;
+    
+    // Choose which perpendicular bearing is closer to current (preserves pin's relative position)
+    const option1 = (windDirection + 90 + 360) % 360;
+    const option2 = (windDirection - 90 + 360) % 360;
+    
+    // Calculate angular difference (0-180 range)
+    const angleDiff = (a: number, b: number) => {
+      let diff = Math.abs(a - b) % 360;
+      return diff > 180 ? 360 - diff : diff;
+    };
+    
+    const delta1 = angleDiff(bearingCommitteeToPin, option1);
+    const delta2 = angleDiff(bearingCommitteeToPin, option2);
+    const targetBearing = delta1 <= delta2 ? option1 : option2;
+    
     const R = 6371e3;
     
     if (startLineFixBearingMode === "pin") {
