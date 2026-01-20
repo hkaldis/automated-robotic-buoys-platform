@@ -319,6 +319,25 @@ export function useCreateCourse() {
   });
 }
 
+export function useDeleteCourse(onError?: (error: Error) => void) {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/courses/${id}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete course");
+      }
+      return id;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries("courses");
+    },
+    onError: (error: Error) => {
+      onError?.(error);
+    },
+  });
+}
+
 export function useUpdateCourse(courseId?: string, onError?: (error: Error) => void) {
   const capturedCourseId = courseId;
   

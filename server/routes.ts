@@ -541,6 +541,25 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/courses/:id", requireAuth, async (req, res) => {
+    try {
+      const courseId = req.params.id as string;
+      const existingCourse = await storage.getCourse(courseId);
+      if (!existingCourse) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      
+      const deleted = await storage.deleteCourse(courseId);
+      if (deleted) {
+        res.json({ success: true });
+      } else {
+        res.status(500).json({ error: "Failed to delete course" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete course" });
+    }
+  });
+
   app.get("/api/courses/:courseId/marks", async (req, res) => {
     try {
       const marks = await storage.getMarksByCourse(req.params.courseId);

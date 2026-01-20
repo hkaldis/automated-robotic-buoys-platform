@@ -28,6 +28,7 @@ import {
   useUpdateCourse,
   useCreateEvent,
   useCreateCourse,
+  useDeleteCourse,
 } from "@/hooks/use-api";
 import { queryClient, apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
 import { useDemoModeContext } from "@/contexts/DemoModeContext";
@@ -369,6 +370,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const updateCourse = useUpdateCourse(courseId, mutationErrorHandler);
   const createEvent = useCreateEvent();
   const createCourse = useCreateCourse();
+  const deleteCourse = useDeleteCourse(mutationErrorHandler);
   const deleteAllMarks = useDeleteAllMarks(mutationErrorHandler);
 
   const buoys = demoMode ? demoBuoys : apiBuoys;
@@ -1365,6 +1367,23 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [currentCourse, marks, roundingSequence, createCourse, updateCourse, toast]);
 
+  // Delete a saved course
+  const handleDeleteCourse = useCallback(async (courseId: string) => {
+    try {
+      await deleteCourse.mutateAsync(courseId);
+      toast({
+        title: "Course Deleted",
+        description: "The saved course has been removed.",
+      });
+    } catch (error) {
+      toast({
+        title: "Delete Failed",
+        description: "Could not delete the course. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [deleteCourse, toast]);
+
   // Load a saved course
   const handleLoadCourse = useCallback(async (courseId: string, mode: "exact" | "shape_only") => {
     if (mode === "exact") {
@@ -2141,6 +2160,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onUndoAutoAdjust={handleUndoAutoAdjust}
               moveCourseMode={moveCourseMode}
               onSetMoveCourseMode={setMoveCourseMode}
+              onDeleteCourse={handleDeleteCourse}
             />
           )}
         </aside>

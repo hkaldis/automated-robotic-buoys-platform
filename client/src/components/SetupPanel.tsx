@@ -76,6 +76,7 @@ interface SetupPanelProps {
   onUndoAutoAdjust?: () => void;
   moveCourseMode?: boolean;
   onSetMoveCourseMode?: (enabled: boolean) => void;
+  onDeleteCourse?: (courseId: string) => void;
 }
 
 export function SetupPanel({
@@ -106,6 +107,7 @@ export function SetupPanel({
   onUndoAutoAdjust,
   moveCourseMode,
   onSetMoveCourseMode,
+  onDeleteCourse,
 }: SetupPanelProps) {
   // Fetch boat classes for race time estimation
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
@@ -2284,11 +2286,11 @@ export function SetupPanel({
         setShowLoadDialog(open);
         if (!open) setSelectedLoadCourse(null);
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Load Race Course</DialogTitle>
           </DialogHeader>
-          <div className="py-4 space-y-3">
+          <div className="py-4 space-y-3 overflow-y-auto flex-1 min-h-0">
             {savedCourses.length === 0 ? (
               <p className="text-center text-muted-foreground">No saved courses</p>
             ) : selectedLoadCourse ? (
@@ -2336,17 +2338,43 @@ export function SetupPanel({
               </div>
             ) : (
               // Step 1: Select a course
-              savedCourses.map((course) => (
-                <button
-                  key={course.id}
-                  onClick={() => setSelectedLoadCourse(course.id)}
-                  className="w-full p-3 rounded-lg bg-muted/50 hover-elevate text-left"
-                  data-testid={`button-select-course-${course.id}`}
-                >
-                  <p className="font-semibold">{course.name}</p>
-                  <p className="text-sm text-muted-foreground">{course.shape}</p>
-                </button>
-              ))
+              <div className="space-y-2">
+                {savedCourses.map((course) => {
+                  const hasMarks = course.roundingSequence && course.roundingSequence.length > 0;
+                  return (
+                    <div 
+                      key={course.id}
+                      className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover-elevate"
+                    >
+                      <button
+                        onClick={() => setSelectedLoadCourse(course.id)}
+                        className="flex-1 text-left"
+                        data-testid={`button-select-course-${course.id}`}
+                      >
+                        <p className="font-semibold">{course.name}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">{course.shape}</span>
+                          {!hasMarks && (
+                            <span className="text-xs text-amber-600 dark:text-amber-500">(No points)</span>
+                          )}
+                        </div>
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteCourse?.(course.id);
+                        }}
+                        data-testid={`button-delete-course-${course.id}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
           <DialogFooter>

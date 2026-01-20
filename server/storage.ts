@@ -39,6 +39,7 @@ export interface IStorage {
   getCourses(): Promise<Course[]>;
   createCourse(course: InsertCourse): Promise<Course>;
   updateCourse(id: string, course: Partial<InsertCourse>): Promise<Course | undefined>;
+  deleteCourse(id: string): Promise<boolean>;
 
   getMark(id: string): Promise<Mark | undefined>;
   getMarksByCourse(courseId: string): Promise<Mark[]>;
@@ -324,6 +325,18 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...course };
     this.courses.set(id, updated);
     return updated;
+  }
+
+  async deleteCourse(id: string): Promise<boolean> {
+    // Delete all marks for this course first
+    const marksToDelete: string[] = [];
+    this.marks.forEach((mark, markId) => {
+      if (mark.courseId === id) {
+        marksToDelete.push(markId);
+      }
+    });
+    marksToDelete.forEach(markId => this.marks.delete(markId));
+    return this.courses.delete(id);
   }
 
   async getMark(id: string): Promise<Mark | undefined> {

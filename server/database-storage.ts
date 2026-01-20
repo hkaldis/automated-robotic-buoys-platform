@@ -183,6 +183,14 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async deleteCourse(id: string): Promise<boolean> {
+    // First delete all marks for this course
+    await db.delete(marks).where(eq(marks.courseId, id));
+    // Then delete the course
+    const result = await db.delete(courses).where(eq(courses.id, id)).returning();
+    return result.length > 0;
+  }
+
   async getMark(id: string): Promise<Mark | undefined> {
     const [mark] = await db.select().from(marks).where(eq(marks.id, id));
     return mark;
