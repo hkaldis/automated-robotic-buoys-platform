@@ -450,7 +450,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           setActiveCourseId(newCourse.id);
           toast({
             title: "Course Created",
-            description: "A new course has been created. You can now add marks.",
+            description: "A new course has been created. You can now add points.",
           });
         },
       });
@@ -813,7 +813,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     if (!currentCourse) {
       toast({
         title: "Error",
-        description: "No course available to add mark to.",
+        description: "No course available to add point to.",
         variant: "destructive",
       });
       return;
@@ -970,7 +970,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       if (!currentCourse) {
         toast({
           title: "No Course Available",
-          description: "Please wait for the course to load before placing marks.",
+          description: "Please wait for the course to load before placing points.",
           variant: "destructive",
         });
         return;
@@ -1088,7 +1088,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       }
       setRepositioningMarkId(markId);
       toast({
-        title: "Reposition Mark",
+        title: "Reposition Point",
         description: "Click on the map to set the new position.",
       });
     }
@@ -1102,7 +1102,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       if (!mark?.assignedBuoyId) {
         toast({
           title: "No buoy assigned",
-          description: "Assign a buoy to this mark first.",
+          description: "Assign a buoy to this point first.",
           variant: "destructive",
         });
         return;
@@ -1129,7 +1129,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     if (!buoyId) {
       toast({
         title: "No buoy assigned",
-        description: "Assign a buoy to this mark first.",
+        description: "Assign a buoy to this point first.",
         variant: "destructive",
       });
       return;
@@ -1583,7 +1583,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       
       toast({
         title: "Course Cleared",
-        description: "All marks have been removed and buoys set to idle.",
+        description: "All points have been removed and buoys set to idle.",
       });
     } catch (error) {
       toast({
@@ -1770,7 +1770,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     if (slots.length === 0) {
       toast({
         title: "All Assigned",
-        description: "All marks already have buoys assigned.",
+        description: "All points already have buoys assigned.",
       });
       return;
     }
@@ -1934,7 +1934,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     } catch (error) {
       toast({
         title: "Adjustment Failed",
-        description: error instanceof Error ? error.message : "Failed to adjust mark",
+        description: error instanceof Error ? error.message : "Failed to adjust point",
         variant: "destructive",
       });
     }
@@ -2121,7 +2121,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           {buoyDeployMode === "manual" && pendingDeployments.length > 0 && (
             <Button
               size="lg"
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] gap-2 shadow-lg"
+              className="absolute top-4 right-4 z-[1000] gap-2 shadow-lg"
               onClick={() => {
                 const count = deployAllPending();
                 toast({

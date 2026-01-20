@@ -320,7 +320,7 @@ export function AutoAdjustWizard({
           <Card className="border-destructive bg-destructive/10">
             <CardContent className="pt-4">
               <p className="text-sm text-destructive">
-                No marks to adjust. Add course marks and define a rounding sequence first.
+                No points to adjust. Add course points and define a rounding sequence first.
               </p>
             </CardContent>
           </Card>

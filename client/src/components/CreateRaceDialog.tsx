@@ -24,8 +24,8 @@ interface CreateRaceDialogProps {
 }
 
 const COURSE_SHAPES: { value: CourseShape; label: string; description: string }[] = [
-  { value: "triangle", label: "Triangle", description: "Classic 3-mark triangular course" },
-  { value: "trapezoid", label: "Trapezoid", description: "4-mark trapezoidal course" },
+  { value: "triangle", label: "Triangle", description: "Classic 3-point triangular course" },
+  { value: "trapezoid", label: "Trapezoid", description: "4-point trapezoidal course" },
   { value: "windward_leeward", label: "Windward-Leeward", description: "Up-down course with gates" },
   { value: "custom", label: "Custom", description: "Build your own course layout" },
 ];

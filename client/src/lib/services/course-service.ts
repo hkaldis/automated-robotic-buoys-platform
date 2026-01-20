@@ -156,11 +156,11 @@ class CourseService {
           this.offsetPosition(center, downwindBearing - 90, 0.05)));
         marks.push(this.createMark("Pin", "pin", 1, 
           this.offsetPosition(center, downwindBearing + 90, 0.05)));
-        marks.push(this.createMark("Mark 1", "turning_mark", 2, 
+        marks.push(this.createMark("M1", "turning_mark", 2, 
           this.offsetPosition(center, upwindBearing, baseDistance)));
-        marks.push(this.createMark("Mark 2", "turning_mark", 3, 
+        marks.push(this.createMark("M2", "turning_mark", 3, 
           this.offsetPosition(center, downwindBearing + 45, baseDistance * 0.7)));
-        marks.push(this.createMark("Mark 3", "turning_mark", 4, 
+        marks.push(this.createMark("M3", "turning_mark", 4, 
           this.offsetPosition(center, downwindBearing - 45, baseDistance * 0.7)));
         break;
       case "trapezoid":
@@ -168,13 +168,13 @@ class CourseService {
           this.offsetPosition(center, downwindBearing - 90, 0.05)));
         marks.push(this.createMark("Pin", "pin", 1, 
           this.offsetPosition(center, downwindBearing + 90, 0.05)));
-        marks.push(this.createMark("Mark 1", "turning_mark", 2, 
+        marks.push(this.createMark("M1", "turning_mark", 2, 
           this.offsetPosition(center, upwindBearing - 30, baseDistance)));
-        marks.push(this.createMark("Mark 2", "turning_mark", 3, 
+        marks.push(this.createMark("M2", "turning_mark", 3, 
           this.offsetPosition(center, upwindBearing + 30, baseDistance)));
-        marks.push(this.createMark("Mark 3", "turning_mark", 4, 
+        marks.push(this.createMark("M3", "turning_mark", 4, 
           this.offsetPosition(center, downwindBearing + 30, baseDistance * 0.6)));
-        marks.push(this.createMark("Mark 4", "turning_mark", 5, 
+        marks.push(this.createMark("M4", "turning_mark", 5, 
           this.offsetPosition(center, downwindBearing - 30, baseDistance * 0.6)));
         break;
       case "windward_leeward":
@@ -182,9 +182,9 @@ class CourseService {
           this.offsetPosition(center, downwindBearing - 90, 0.05)));
         marks.push(this.createMark("Pin", "pin", 1, 
           this.offsetPosition(center, downwindBearing + 90, 0.05)));
-        marks.push(this.createMark("Windward Mark", "turning_mark", 2, 
+        marks.push(this.createMark("Windward", "turning_mark", 2, 
           this.offsetPosition(center, upwindBearing, baseDistance)));
-        marks.push(this.createMark("Leeward Mark", "turning_mark", 3, 
+        marks.push(this.createMark("Leeward", "turning_mark", 3, 
           this.offsetPosition(center, downwindBearing, baseDistance)));
         break;
       default:

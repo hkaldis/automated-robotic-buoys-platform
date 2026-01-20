@@ -377,8 +377,8 @@ export function MarkEditPanel({
             <MapPin className="w-5 h-5 text-blue-500" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold">Edit Mark</h2>
-            <p className="text-xs text-muted-foreground">Modify mark properties</p>
+            <h2 className="text-lg font-semibold">Edit Point</h2>
+            <p className="text-xs text-muted-foreground">Modify point properties</p>
           </div>
         </div>
         <Button variant="ghost" size="icon" onClick={onClose} data-testid="button-close-mark-edit">

@@ -68,8 +68,8 @@ const windAngleLabels: Record<keyof WindAngleDefaults, string> = {
 };
 
 const buoyDeployModeOptions: { value: BuoyDeployMode; label: string; description: string }[] = [
-  { value: "automatic", label: "Automatic", description: "Buoys move immediately when marks are moved" },
-  { value: "manual", label: "Manual Deploy", description: "Move marks freely, then deploy all buoys at once" },
+  { value: "automatic", label: "Automatic", description: "Buoys move immediately when points are moved" },
+  { value: "manual", label: "Manual Deploy", description: "Move points freely, then deploy all buoys at once" },
 ];
 
 export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = true, onToggleWindArrows }: SettingsDialogProps) {
@@ -103,7 +103,7 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="settings-dialog">
+      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto" data-testid="settings-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Settings
@@ -367,12 +367,12 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Compass className="w-4 h-4" />
-                Mark Wind Angle Defaults
+                Point Wind Angle Defaults
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Default degrees relative to wind when using "Adjust to Wind" on marks.
+                Default degrees relative to wind when using "Adjust to Wind" on points.
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {(Object.keys(windAngleDefaults) as Array<keyof WindAngleDefaults>).map((role) => (
@@ -449,7 +449,7 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                Configure how buoys automatically follow mark movements and correct drift.
+                Configure how buoys automatically follow point movements and correct drift.
               </p>
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">

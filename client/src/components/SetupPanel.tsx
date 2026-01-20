@@ -876,7 +876,7 @@ export function SetupPanel({
               </Button>
               {!hasStartLine && (
                 <p className="text-center text-xs text-muted-foreground mt-1.5">
-                  Add both marks to continue
+                  Add both points to continue
                 </p>
               )}
             </div>
@@ -929,8 +929,8 @@ export function SetupPanel({
                 {courseMarks.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No course marks yet</p>
-                    <p className="text-xs">Tap the button above to add marks</p>
+                    <p className="text-sm">No course points yet</p>
+                    <p className="text-xs">Tap the button above to add points</p>
                   </div>
                 )}
               </div>
@@ -959,7 +959,7 @@ export function SetupPanel({
               </div>
               {!hasCourseMarks && (
                 <p className="text-center text-xs text-muted-foreground">
-                  Add at least 1 course mark to continue
+                  Add at least 1 course point to continue
                 </p>
               )}
             </div>
@@ -1252,7 +1252,7 @@ export function SetupPanel({
                   )}
                   {roundingSequence.includes("start") && roundingSequence.includes("finish") && 
                    roundingSequence.filter(e => e !== "start" && e !== "finish").length === 0 && (
-                    <p className="text-center text-amber-600 text-xs">Add at least one course mark</p>
+                    <p className="text-center text-amber-600 text-xs">Add at least one course point</p>
                   )}
                 </>
               )}
@@ -1762,7 +1762,7 @@ export function SetupPanel({
               </div>
               <div className="flex-1">
                 <h2 className="text-sm font-semibold">Assign Buoys</h2>
-                <p className="text-xs text-muted-foreground">Tap marks to assign robotic buoys</p>
+                <p className="text-xs text-muted-foreground">Tap points to assign robotic buoys</p>
               </div>
               {onAutoAssignBuoys && (
                 <Button

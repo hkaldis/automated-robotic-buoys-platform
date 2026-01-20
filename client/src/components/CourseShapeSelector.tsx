@@ -13,7 +13,7 @@ const shapes: { shape: CourseShape; label: string; icon: typeof Triangle; descri
     shape: "triangle", 
     label: "Triangle (T)", 
     icon: Triangle,
-    description: "Olympic triangle with wing mark"
+    description: "Olympic triangle with wing point"
   },
   { 
     shape: "trapezoid", 
@@ -31,7 +31,7 @@ const shapes: { shape: CourseShape; label: string; icon: typeof Triangle; descri
     shape: "custom", 
     label: "Custom", 
     icon: Pencil,
-    description: "Place marks manually"
+    description: "Place points manually"
   },
 ];
 
