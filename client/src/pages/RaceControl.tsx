@@ -2021,8 +2021,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               marks={marks}
               savedCourses={courses}
               roundingSequence={roundingSequence}
-              windDirection={weatherData?.windDirection}
-              windSpeed={weatherData?.windSpeed}
+              windDirection={activeWeatherData?.windDirection}
+              windSpeed={activeWeatherData?.windSpeed}
               onMarkSelect={handleMarkSelectFromPanel}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}
