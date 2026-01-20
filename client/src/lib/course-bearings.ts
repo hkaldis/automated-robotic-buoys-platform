@@ -99,6 +99,25 @@ export function formatWindRelative(signedRelative: number): string {
   return `${sign}${signedRelative.toFixed(0)}° to wind`;
 }
 
+// For start lines: Calculate deviation from perpendicular to wind
+// 0° means the line is exactly perpendicular to the wind (ideal for upwind start)
+export function calculateStartLineWindAngle(lineBearing: number, windDirection: number): WindAngleResult {
+  // For a perpendicular start line, lineBearing should be windDirection + 90 (or - 90)
+  // We want to show how far off from perpendicular the line is
+  const perpendicularBearing = normalizeBearing(windDirection + 90);
+  let signedRelative = lineBearing - perpendicularBearing;
+  while (signedRelative > 180) signedRelative -= 360;
+  while (signedRelative < -180) signedRelative += 360;
+  
+  // Clamp to -90 to +90 since the line could be perpendicular in either direction
+  if (signedRelative > 90) signedRelative -= 180;
+  if (signedRelative < -90) signedRelative += 180;
+  
+  const absoluteTwa = Math.abs(signedRelative);
+  
+  return { signedRelative, absoluteTwa };
+}
+
 export function calculateBearing(
   lat1: number,
   lng1: number,

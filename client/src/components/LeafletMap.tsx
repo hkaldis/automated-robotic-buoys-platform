@@ -10,7 +10,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/componen
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { cn } from "@/lib/utils";
-import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
+import { calculateWindAngle, calculateStartLineWindAngle, formatWindRelative } from "@/lib/course-bearings";
 
 interface WeatherData {
   windSpeed: number;
@@ -452,6 +452,12 @@ function formatWindRelativeBearing(bearing: number, windDirection: number): stri
   return formatWindRelative(signedRelative);
 }
 
+// For start/finish lines: show deviation from perpendicular to wind
+function formatStartLineWindAngle(bearing: number, windDirection: number): string {
+  const { signedRelative } = calculateStartLineWindAngle(bearing, windDirection);
+  return formatWindRelative(signedRelative);
+}
+
 function LegLabels({ 
   marks, 
   formatDistance, 
@@ -525,7 +531,7 @@ function LegLabels({
             <div className="text-[10px] opacity-80">Start Line</div>
             <div>{formatDistance(distance)}</div>
             {showWindRelative && windDirection !== undefined ? (
-              <div className="text-amber-300">{formatWindRelativeBearing(bearing, windDirection)}</div>
+              <div className="text-amber-300">{formatStartLineWindAngle(bearing, windDirection)}</div>
             ) : (
               <div>{formatBearing(bearing)}</div>
             )}
@@ -596,7 +602,7 @@ function LegLabels({
             <div className="text-[10px] opacity-80">Finish Line</div>
             <div>{formatDistance(distance)}</div>
             {showWindRelative && windDirection !== undefined ? (
-              <div className="text-amber-300">{formatWindRelativeBearing(bearing, windDirection)}</div>
+              <div className="text-amber-300">{formatStartLineWindAngle(bearing, windDirection)}</div>
             ) : (
               <div>{formatBearing(bearing)}</div>
             )}
