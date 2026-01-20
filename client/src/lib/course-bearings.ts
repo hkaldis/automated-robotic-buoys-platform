@@ -46,7 +46,7 @@ const MICRO_FACTOR = 0.3;
 export const ROLE_TARGET_BEARINGS: Record<string, number> = {
   windward: 0,
   leeward: 180,
-  wing: 120,
+  wing: -120,
   offset: 10,
 };
 

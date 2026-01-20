@@ -182,7 +182,7 @@ Single-mark wind adjustment for fine-tuning mark positions at sea:
 2. **Role-Based Default Angles** (configurable in Settings):
    - Windward: 0° (directly upwind from reference)
    - Leeward: 180° (directly downwind from reference)
-   - Wing: 120° (broad reach angle)
+   - Wing: -120° (broad reach angle, opposite side)
    - Offset: 10° (slight offset from upwind)
    - Turning Mark: 0° (same as windward)
    - Other: 0° (fallback default)

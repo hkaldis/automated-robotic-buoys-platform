@@ -17,7 +17,7 @@ export interface WindAngleDefaults {
 export const DEFAULT_WIND_ANGLES: WindAngleDefaults = {
   windward: 0,
   leeward: 180,
-  wing: 120,
+  wing: -120,
   offset: 10,
   turning_mark: 0,
   other: 0,
