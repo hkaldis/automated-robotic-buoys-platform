@@ -184,6 +184,54 @@ export const userSettings = pgTable("user_settings", {
   selectedWindBuoyId: varchar("selected_wind_buoy_id"),
 });
 
+// Visibility scope for saved course snapshots
+export const visibilityScopeSchema = z.enum(["global", "club", "user"]);
+export type VisibilityScope = z.infer<typeof visibilityScopeSchema>;
+
+// Snapshot of a mark at save time (stored as JSON)
+export const snapshotMarkSchema = z.object({
+  name: z.string(),
+  role: z.string(),
+  order: z.number(),
+  lat: z.number(),
+  lng: z.number(),
+  isStartLine: z.boolean().nullable(),
+  isFinishLine: z.boolean().nullable(),
+  isCourseMark: z.boolean().nullable(),
+  isGate: z.boolean().nullable(),
+  gateWidthBoatLengths: z.number().nullable(),
+  boatLengthMeters: z.number().nullable(),
+  gatePartnerId: z.string().nullable(),
+  gateSide: z.string().nullable(),
+});
+export type SnapshotMark = z.infer<typeof snapshotMarkSchema>;
+
+// Immutable course snapshots - complete copy of course state at save time
+export const courseSnapshots = pgTable("course_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  
+  // Ownership and visibility
+  ownerId: varchar("owner_id").notNull(),         // User who saved it
+  ownerUsername: text("owner_username").notNull(), // For display without joins
+  sailClubId: varchar("sail_club_id"),            // Club association (null for super_admin global)
+  sailClubName: text("sail_club_name"),           // For display without joins
+  visibilityScope: text("visibility_scope").notNull().default("user"), // global, club, user
+  
+  // Course metadata snapshot
+  shape: text("shape").notNull(),
+  centerLat: real("center_lat").notNull(),
+  centerLng: real("center_lng").notNull(),
+  rotation: real("rotation").notNull().default(0),
+  scale: real("scale").notNull().default(1),
+  roundingSequence: text("rounding_sequence").array(),
+  
+  // Snapshot of all marks as JSON array - immutable copy
+  snapshotMarks: jsonb("snapshot_marks").$type<SnapshotMark[]>().notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -293,6 +341,23 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).pick({
   selectedWindBuoyId: true,
 });
 
+export const insertCourseSnapshotSchema = createInsertSchema(courseSnapshots).pick({
+  name: true,
+  ownerId: true,
+  ownerUsername: true,
+  sailClubId: true,
+  sailClubName: true,
+  visibilityScope: true,
+  shape: true,
+  centerLat: true,
+  centerLng: true,
+  rotation: true,
+  scale: true,
+  roundingSequence: true,
+}).extend({
+  snapshotMarks: z.array(snapshotMarkSchema),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -320,6 +385,9 @@ export type Buoy = typeof buoys.$inferSelect;
 
 export type InsertUserSettings = z.infer<typeof insertUserSettingsSchema>;
 export type UserSettings = typeof userSettings.$inferSelect;
+
+export type InsertCourseSnapshot = z.infer<typeof insertCourseSnapshotSchema>;
+export type CourseSnapshot = typeof courseSnapshots.$inferSelect;
 
 // Frontend-only types for services
 export interface WeatherData {

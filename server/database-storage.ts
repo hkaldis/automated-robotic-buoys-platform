@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, or, ilike, desc, gt } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -9,6 +9,7 @@ import {
   marks,
   buoys,
   userSettings,
+  courseSnapshots,
   type User,
   type InsertUser,
   type SailClub,
@@ -25,8 +26,10 @@ import {
   type InsertUserSettings,
   type UserEventAccess,
   type InsertUserEventAccess,
+  type CourseSnapshot,
+  type InsertCourseSnapshot,
 } from "@shared/schema";
-import type { IStorage } from "./storage";
+import type { IStorage, CourseSnapshotListParams, CourseSnapshotListResult } from "./storage";
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
@@ -287,6 +290,128 @@ export class DatabaseStorage implements IStorage {
   async updateUserSettings(userId: string, settings: Partial<InsertUserSettings>): Promise<UserSettings | undefined> {
     const [updated] = await db.update(userSettings).set(settings).where(eq(userSettings.userId, userId)).returning();
     return updated;
+  }
+
+  // Course Snapshot methods
+  async getCourseSnapshot(id: string): Promise<CourseSnapshot | undefined> {
+    const [snapshot] = await db.select().from(courseSnapshots).where(eq(courseSnapshots.id, id));
+    return snapshot;
+  }
+
+  async listCourseSnapshots(params: CourseSnapshotListParams): Promise<CourseSnapshotListResult> {
+    const { userId, userRole, userSailClubId, clubId, search, cursor, limit = 25 } = params;
+    
+    // Build visibility conditions based on user role
+    const visibilityConditions = [];
+    
+    if (userRole === "super_admin") {
+      // Super admin sees everything - no filter needed
+    } else {
+      // Global visibility - everyone can see
+      visibilityConditions.push(eq(courseSnapshots.visibilityScope, "global"));
+      
+      // Club visibility - users in same club can see
+      if (userSailClubId) {
+        visibilityConditions.push(
+          and(
+            eq(courseSnapshots.visibilityScope, "club"),
+            eq(courseSnapshots.sailClubId, userSailClubId)
+          )
+        );
+      }
+      
+      // User visibility - only owner can see their own
+      visibilityConditions.push(
+        and(
+          eq(courseSnapshots.visibilityScope, "user"),
+          eq(courseSnapshots.ownerId, userId)
+        )
+      );
+    }
+    
+    // Build the where clause
+    const conditions = [];
+    
+    // Add visibility filter (only for non-super-admin)
+    if (visibilityConditions.length > 0) {
+      conditions.push(or(...visibilityConditions));
+    }
+    
+    // Add club filter if specified
+    if (clubId) {
+      conditions.push(eq(courseSnapshots.sailClubId, clubId));
+    }
+    
+    // Add search filter if specified
+    if (search) {
+      conditions.push(ilike(courseSnapshots.name, `%${search}%`));
+    }
+    
+    // Add cursor for pagination (get items after the cursor)
+    if (cursor) {
+      const [cursorSnapshot] = await db.select().from(courseSnapshots).where(eq(courseSnapshots.id, cursor));
+      if (cursorSnapshot?.createdAt) {
+        // Get items created before the cursor item (since we're ordering by createdAt desc)
+        conditions.push(sql`${courseSnapshots.createdAt} < ${cursorSnapshot.createdAt}`);
+      }
+    }
+    
+    // Get count (without pagination) - first build count query with visibility and filters
+    const countConditions = [];
+    if (visibilityConditions.length > 0) {
+      countConditions.push(or(...visibilityConditions));
+    }
+    if (clubId) {
+      countConditions.push(eq(courseSnapshots.sailClubId, clubId));
+    }
+    if (search) {
+      countConditions.push(ilike(courseSnapshots.name, `%${search}%`));
+    }
+    
+    const countQuery = countConditions.length > 0
+      ? db.select({ count: sql<number>`count(*)::int` }).from(courseSnapshots).where(and(...countConditions))
+      : db.select({ count: sql<number>`count(*)::int` }).from(courseSnapshots);
+    
+    const [countResult] = await countQuery;
+    const totalCount = countResult?.count ?? 0;
+    
+    // Get paginated results
+    const query = conditions.length > 0
+      ? db.select().from(courseSnapshots).where(and(...conditions)).orderBy(desc(courseSnapshots.createdAt)).limit(limit + 1)
+      : db.select().from(courseSnapshots).orderBy(desc(courseSnapshots.createdAt)).limit(limit + 1);
+    
+    const results = await query;
+    
+    // Determine if there are more results
+    const hasMore = results.length > limit;
+    const snapshots = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore && snapshots.length > 0 ? snapshots[snapshots.length - 1].id : null;
+    
+    return { snapshots, nextCursor, totalCount };
+  }
+
+  async createCourseSnapshot(snapshot: InsertCourseSnapshot): Promise<CourseSnapshot> {
+    const [newSnapshot] = await db.insert(courseSnapshots).values({
+      name: snapshot.name,
+      ownerId: snapshot.ownerId,
+      ownerUsername: snapshot.ownerUsername,
+      sailClubId: snapshot.sailClubId ?? null,
+      sailClubName: snapshot.sailClubName ?? null,
+      visibilityScope: snapshot.visibilityScope ?? "user",
+      shape: snapshot.shape,
+      centerLat: snapshot.centerLat,
+      centerLng: snapshot.centerLng,
+      rotation: snapshot.rotation ?? 0,
+      scale: snapshot.scale ?? 1,
+      roundingSequence: snapshot.roundingSequence ?? null,
+      snapshotMarks: snapshot.snapshotMarks,
+    }).returning();
+    return newSnapshot;
+  }
+
+  async deleteCourseSnapshot(id: string): Promise<boolean> {
+    const result = await db.delete(courseSnapshots).where(eq(courseSnapshots.id, id)).returning();
+    return result.length > 0;
   }
 }
 

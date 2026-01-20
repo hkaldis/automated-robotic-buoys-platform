@@ -7,6 +7,7 @@ import {
   type Buoy, type InsertBuoy,
   type UserSettings, type InsertUserSettings,
   type UserEventAccess, type InsertUserEventAccess,
+  type CourseSnapshot, type InsertCourseSnapshot,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -56,6 +57,34 @@ export interface IStorage {
   getUserSettings(userId: string): Promise<UserSettings | undefined>;
   createUserSettings(settings: InsertUserSettings): Promise<UserSettings>;
   updateUserSettings(userId: string, settings: Partial<InsertUserSettings>): Promise<UserSettings | undefined>;
+
+  // Course Snapshots - immutable saved courses
+  getCourseSnapshot(id: string): Promise<CourseSnapshot | undefined>;
+  listCourseSnapshots(params: CourseSnapshotListParams): Promise<CourseSnapshotListResult>;
+  createCourseSnapshot(snapshot: InsertCourseSnapshot): Promise<CourseSnapshot>;
+  deleteCourseSnapshot(id: string): Promise<boolean>;
+}
+
+// Pagination and filtering params for course snapshot listing
+export interface CourseSnapshotListParams {
+  // Visibility filtering based on user role
+  userId: string;
+  userRole: string;
+  userSailClubId: string | null;
+  
+  // Optional filters
+  clubId?: string;         // Filter by specific club
+  search?: string;         // Search by name
+  
+  // Pagination (cursor-based)
+  cursor?: string;         // ID of last item from previous page
+  limit?: number;          // Items per page (default 25)
+}
+
+export interface CourseSnapshotListResult {
+  snapshots: CourseSnapshot[];
+  nextCursor: string | null;  // ID to use for next page, null if no more
+  totalCount: number;         // Total available matching visibility rules
 }
 
 export class MemStorage implements IStorage {
@@ -67,6 +96,7 @@ export class MemStorage implements IStorage {
   private marks: Map<string, Mark> = new Map();
   private buoys: Map<string, Buoy> = new Map();
   private userSettings: Map<string, UserSettings> = new Map();
+  private courseSnapshots: Map<string, CourseSnapshot> = new Map();
 
   constructor() {
     this.seedData();
@@ -459,6 +489,95 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...settings };
     this.userSettings.set(existing.id, updated);
     return updated;
+  }
+
+  // Course Snapshot methods
+  async getCourseSnapshot(id: string): Promise<CourseSnapshot | undefined> {
+    return this.courseSnapshots.get(id);
+  }
+
+  async listCourseSnapshots(params: CourseSnapshotListParams): Promise<CourseSnapshotListResult> {
+    const { userId, userRole, userSailClubId, clubId, search, cursor, limit = 25 } = params;
+    
+    // Get all snapshots and filter by visibility
+    let snapshots = Array.from(this.courseSnapshots.values()).filter(s => {
+      // Super admin sees all
+      if (userRole === "super_admin") return true;
+      
+      // Global visibility - everyone sees
+      if (s.visibilityScope === "global") return true;
+      
+      // Club visibility - same club sees
+      if (s.visibilityScope === "club" && s.sailClubId === userSailClubId) return true;
+      
+      // User visibility - only owner sees
+      if (s.visibilityScope === "user" && s.ownerId === userId) return true;
+      
+      return false;
+    });
+    
+    // Apply club filter if specified
+    if (clubId) {
+      snapshots = snapshots.filter(s => s.sailClubId === clubId);
+    }
+    
+    // Apply search filter if specified
+    if (search) {
+      const searchLower = search.toLowerCase();
+      snapshots = snapshots.filter(s => s.name.toLowerCase().includes(searchLower));
+    }
+    
+    // Sort by creation date descending (newest first)
+    snapshots.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+    
+    const totalCount = snapshots.length;
+    
+    // Apply cursor pagination
+    let startIndex = 0;
+    if (cursor) {
+      const cursorIndex = snapshots.findIndex(s => s.id === cursor);
+      if (cursorIndex !== -1) {
+        startIndex = cursorIndex + 1;
+      }
+    }
+    
+    const paginatedSnapshots = snapshots.slice(startIndex, startIndex + limit);
+    const nextCursor = paginatedSnapshots.length === limit && startIndex + limit < totalCount
+      ? paginatedSnapshots[paginatedSnapshots.length - 1].id
+      : null;
+    
+    return { snapshots: paginatedSnapshots, nextCursor, totalCount };
+  }
+
+  async createCourseSnapshot(snapshot: InsertCourseSnapshot): Promise<CourseSnapshot> {
+    const id = randomUUID();
+    const newSnapshot: CourseSnapshot = {
+      id,
+      name: snapshot.name,
+      ownerId: snapshot.ownerId,
+      ownerUsername: snapshot.ownerUsername,
+      sailClubId: snapshot.sailClubId ?? null,
+      sailClubName: snapshot.sailClubName ?? null,
+      visibilityScope: snapshot.visibilityScope ?? "user",
+      shape: snapshot.shape,
+      centerLat: snapshot.centerLat,
+      centerLng: snapshot.centerLng,
+      rotation: snapshot.rotation ?? 0,
+      scale: snapshot.scale ?? 1,
+      roundingSequence: snapshot.roundingSequence ?? null,
+      snapshotMarks: snapshot.snapshotMarks,
+      createdAt: new Date(),
+    };
+    this.courseSnapshots.set(id, newSnapshot);
+    return newSnapshot;
+  }
+
+  async deleteCourseSnapshot(id: string): Promise<boolean> {
+    return this.courseSnapshots.delete(id);
   }
 }
 
