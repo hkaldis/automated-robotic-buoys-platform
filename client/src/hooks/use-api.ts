@@ -389,3 +389,123 @@ export function useUpdateUserSettings() {
     },
   });
 }
+
+// Course Snapshots hooks
+
+export interface CourseSnapshotListParams {
+  clubId?: string;
+  search?: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface CourseSnapshotListResult {
+  snapshots: CourseSnapshot[];
+  nextCursor: string | null;
+  totalCount: number;
+}
+
+export interface CourseSnapshot {
+  id: string;
+  name: string;
+  ownerId: string;
+  ownerUsername: string;
+  sailClubId: string | null;
+  sailClubName: string | null;
+  visibilityScope: string;
+  shape: string;
+  centerLat: number;
+  centerLng: number;
+  rotation: number;
+  scale: number;
+  roundingSequence: string[] | null;
+  snapshotMarks: SnapshotMark[];
+  createdAt: string | null;
+}
+
+export interface SnapshotMark {
+  name: string;
+  role: string;
+  order: number;
+  lat: number;
+  lng: number;
+  isStartLine: boolean | null;
+  isFinishLine: boolean | null;
+  isCourseMark: boolean | null;
+  isGate: boolean | null;
+  gateWidthBoatLengths: number | null;
+  boatLengthMeters: number | null;
+  gatePartnerId: string | null;
+  gateSide: string | null;
+}
+
+export function useCourseSnapshots(params: CourseSnapshotListParams = {}) {
+  const queryString = new URLSearchParams();
+  if (params.clubId) queryString.set("clubId", params.clubId);
+  if (params.search) queryString.set("search", params.search);
+  if (params.cursor) queryString.set("cursor", params.cursor);
+  if (params.limit) queryString.set("limit", params.limit.toString());
+  
+  const queryParam = queryString.toString() ? `?${queryString.toString()}` : "";
+  
+  return useQuery<CourseSnapshotListResult>({
+    queryKey: ["/api/course-snapshots", queryParam],
+  });
+}
+
+export function useSaveCourseSnapshot(onError?: (error: Error) => void) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (data: { courseId: string; name: string }) => {
+      const res = await apiRequest("POST", "/api/course-snapshots", data);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save course");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/course-snapshots"] });
+    },
+    onError: (error: Error) => {
+      onError?.(error);
+    },
+  });
+}
+
+export function useDeleteCourseSnapshot(onError?: (error: Error) => void) {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/course-snapshots/${id}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete course");
+      }
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/course-snapshots"] });
+    },
+    onError: (error: Error) => {
+      onError?.(error);
+    },
+  });
+}
+
+export function useLoadCourseSnapshot(snapshotId: string | null) {
+  return useQuery<CourseSnapshot>({
+    queryKey: ["/api/course-snapshots", snapshotId],
+    queryFn: async () => {
+      if (!snapshotId) throw new Error("No snapshot ID");
+      const res = await fetch(`/api/course-snapshots/${snapshotId}`, { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to load course snapshot");
+      }
+      return res.json();
+    },
+    enabled: !!snapshotId,
+  });
+}

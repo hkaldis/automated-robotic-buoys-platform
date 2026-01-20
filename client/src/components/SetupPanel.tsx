@@ -14,7 +14,7 @@ import { ChevronDown } from "lucide-react";
 import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { AutoAdjustWizard, OriginalPosition } from "./AutoAdjustWizard";
-import { useBoatClass, useBoatClasses } from "@/hooks/use-api";
+import { useBoatClass, useBoatClasses, useCourseSnapshots, type CourseSnapshot } from "@/hooks/use-api";
 import { estimateRaceTime, buildLegsFromRoundingSequence, estimateLineCrossingTime } from "@/lib/race-time-estimation";
 import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,7 +50,6 @@ interface SetupPanelProps {
   course?: Course | null;
   buoys: Buoy[];
   marks: Mark[];
-  savedCourses?: Course[];
   roundingSequence?: string[];
   windDirection?: number;
   windSpeed?: number;
@@ -61,7 +60,7 @@ interface SetupPanelProps {
   onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onPlaceMarkOnMap?: (data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onSaveCourse?: (name: string) => void;
-  onLoadCourse?: (courseId: string, mode: "exact" | "shape_only") => void;
+  onLoadCourse?: (snapshot: CourseSnapshot, mode: "exact" | "shape_only") => void;
   mapCenter?: { lat: number; lng: number };
   onTransformCourse?: (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => void;
   onFinishLinePreview?: (selectedMarkIds: Set<string>) => void;
@@ -76,14 +75,13 @@ interface SetupPanelProps {
   onUndoAutoAdjust?: () => void;
   moveCourseMode?: boolean;
   onSetMoveCourseMode?: (enabled: boolean) => void;
-  onDeleteCourse?: (courseId: string) => void;
+  onDeleteCourse?: (snapshotId: string) => void;
 }
 
 export function SetupPanel({
   event,
   marks,
   buoys,
-  savedCourses = [],
   roundingSequence = [],
   windDirection,
   windSpeed,
@@ -549,7 +547,15 @@ export function SetupPanel({
   };
 
   // State for load course selection
-  const [selectedLoadCourse, setSelectedLoadCourse] = useState<string | null>(null);
+  const [selectedLoadCourse, setSelectedLoadCourse] = useState<CourseSnapshot | null>(null);
+  const [snapshotSearch, setSnapshotSearch] = useState("");
+  
+  // Fetch course snapshots with search filter
+  const { data: snapshotsData, isLoading: isLoadingSnapshots } = useCourseSnapshots({
+    search: snapshotSearch || undefined,
+    limit: 50,
+  });
+  const snapshots = snapshotsData?.snapshots || [];
   
   const handleLoadCourse = (mode: "exact" | "shape_only") => {
     if (selectedLoadCourse) {
@@ -1656,7 +1662,6 @@ export function SetupPanel({
                         size="lg"
                         className="gap-2"
                         onClick={() => setShowLoadDialog(true)}
-                        disabled={savedCourses.length === 0}
                         data-testid="button-load-course"
                       >
                         <Upload className="w-4 h-4" />
@@ -2284,20 +2289,24 @@ export function SetupPanel({
       {/* Load Course Dialog */}
       <Dialog open={showLoadDialog} onOpenChange={(open) => {
         setShowLoadDialog(open);
-        if (!open) setSelectedLoadCourse(null);
+        if (!open) {
+          setSelectedLoadCourse(null);
+          setSnapshotSearch("");
+        }
       }}>
         <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Load Race Course</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-3 overflow-y-auto flex-1 min-h-0">
-            {savedCourses.length === 0 ? (
-              <p className="text-center text-muted-foreground">No saved courses</p>
-            ) : selectedLoadCourse ? (
+            {selectedLoadCourse ? (
               // Step 2: Choose load mode
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Loading: <span className="font-semibold text-foreground">{savedCourses.find(c => c.id === selectedLoadCourse)?.name}</span>
+                  Loading: <span className="font-semibold text-foreground">{selectedLoadCourse.name}</span>
+                  {selectedLoadCourse.visibilityScope === "global" && (
+                    <Badge variant="secondary" className="ml-2 text-xs">Template</Badge>
+                  )}
                 </p>
                 <div className="grid gap-2">
                   <Button
@@ -2338,42 +2347,72 @@ export function SetupPanel({
               </div>
             ) : (
               // Step 1: Select a course
-              <div className="space-y-2">
-                {savedCourses.map((course) => {
-                  const hasMarks = course.roundingSequence && course.roundingSequence.length > 0;
-                  return (
-                    <div 
-                      key={course.id}
-                      className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover-elevate"
-                    >
-                      <button
-                        onClick={() => setSelectedLoadCourse(course.id)}
-                        className="flex-1 text-left"
-                        data-testid={`button-select-course-${course.id}`}
-                      >
-                        <p className="font-semibold">{course.name}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">{course.shape}</span>
-                          {!hasMarks && (
-                            <span className="text-xs text-amber-600 dark:text-amber-500">(No points)</span>
-                          )}
+              <div className="space-y-3">
+                {/* Search input */}
+                <Input
+                  type="text"
+                  placeholder="Search courses..."
+                  value={snapshotSearch}
+                  onChange={(e) => setSnapshotSearch(e.target.value)}
+                  data-testid="input-search-courses"
+                />
+                
+                {isLoadingSnapshots ? (
+                  <p className="text-center text-muted-foreground py-4">Loading...</p>
+                ) : snapshots.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">
+                    {snapshotSearch ? "No courses match your search" : "No saved courses"}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {snapshots.map((snapshot) => {
+                      const hasMarks = snapshot.snapshotMarks && snapshot.snapshotMarks.length > 0;
+                      const isTemplate = snapshot.visibilityScope === "global";
+                      return (
+                        <div 
+                          key={snapshot.id}
+                          className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover-elevate"
+                        >
+                          <button
+                            onClick={() => setSelectedLoadCourse(snapshot)}
+                            className="flex-1 text-left"
+                            data-testid={`button-select-course-${snapshot.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold">{snapshot.name}</p>
+                              {isTemplate && (
+                                <Badge variant="secondary" className="text-xs">Template</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <span>{snapshot.shape}</span>
+                              {hasMarks ? (
+                                <span>({snapshot.snapshotMarks.length} points)</span>
+                              ) : (
+                                <span className="text-amber-600 dark:text-amber-500">(No points)</span>
+                              )}
+                              {snapshot.sailClubName && (
+                                <span className="text-xs">• {snapshot.sailClubName}</span>
+                              )}
+                            </div>
+                          </button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteCourse?.(snapshot.id);
+                            }}
+                            data-testid={`button-delete-course-${snapshot.id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                      </button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteCourse?.(course.id);
-                        }}
-                        data-testid={`button-delete-course-${course.id}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
