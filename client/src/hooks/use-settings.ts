@@ -1,8 +1,8 @@
 import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
-import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -75,6 +75,9 @@ export function useSettings() {
   const [showSeaMarks, setShowSeaMarksState] = useState<boolean>(
     settingsService.getShowSeaMarks()
   );
+  const [buoyDeployMode, setBuoyDeployModeState] = useState<BuoyDeployMode>(
+    settingsService.getBuoyDeployMode()
+  );
 
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
@@ -84,6 +87,7 @@ export function useSettings() {
       setBuoyFollowSettingsState(settingsService.getBuoyFollowSettings());
       setMapLayerState(settingsService.getMapLayer());
       setShowSeaMarksState(settingsService.getShowSeaMarks());
+      setBuoyDeployModeState(settingsService.getBuoyDeployMode());
     });
     return unsubscribe;
   }, []);
@@ -122,6 +126,10 @@ export function useSettings() {
 
   const setShowSeaMarks = useCallback((show: boolean) => {
     settingsService.setShowSeaMarks(show);
+  }, []);
+
+  const setBuoyDeployMode = useCallback((mode: BuoyDeployMode) => {
+    settingsService.setBuoyDeployMode(mode);
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -175,8 +183,10 @@ export function useSettings() {
     setMapLayer,
     showSeaMarks,
     setShowSeaMarks,
+    buoyDeployMode,
+    setBuoyDeployMode,
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER };
-export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE };
+export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode };

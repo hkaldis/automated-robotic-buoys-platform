@@ -41,6 +41,10 @@ export type MapLayerType = "osm" | "satellite" | "nautical" | "ocean";
 
 export const DEFAULT_MAP_LAYER: MapLayerType = "osm";
 
+export type BuoyDeployMode = "automatic" | "manual";
+
+export const DEFAULT_BUOY_DEPLOY_MODE: BuoyDeployMode = "automatic";
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
@@ -50,6 +54,7 @@ interface UserSettings {
   buoyFollow: BuoyFollowSettings;
   mapLayer: MapLayerType;
   showSeaMarks: boolean;
+  buoyDeployMode: BuoyDeployMode;
 }
 
 class SettingsService {
@@ -62,6 +67,7 @@ class SettingsService {
     buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
     mapLayer: DEFAULT_MAP_LAYER,
     showSeaMarks: true,
+    buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -173,6 +179,15 @@ class SettingsService {
 
   setShowSeaMarks(show: boolean): void {
     this.settings.showSeaMarks = show;
+    this.notify();
+  }
+
+  getBuoyDeployMode(): BuoyDeployMode {
+    return this.settings.buoyDeployMode;
+  }
+
+  setBuoyDeployMode(mode: BuoyDeployMode): void {
+    this.settings.buoyDeployMode = mode;
     this.notify();
   }
 
