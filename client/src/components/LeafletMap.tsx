@@ -883,6 +883,13 @@ export function LeafletMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         )}
+        {mapLayer === "ocean" && (
+          <TileLayer
+            attribution='Tiles &copy; Esri &mdash; GEBCO, NOAA, CHS, OSU, UNH, CSUMB'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={13}
+          />
+        )}
         {showSeaMarks && (
           <TileLayer
             attribution='Map data: &copy; <a href="https://www.openseamap.org">OpenSeaMap</a> contributors'
