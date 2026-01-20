@@ -166,7 +166,7 @@ export function useUpdateMark(courseId?: string, onError?: (error: Error) => voi
       const res = await apiRequest("PATCH", `/api/marks/${id}`, data);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to update mark");
+        throw new Error(errorData.error || "Failed to update point");
       }
       return res.json();
     },
@@ -223,7 +223,7 @@ export function useCreateMark(courseId?: string, onError?: (error: Error) => voi
       const res = await apiRequest("POST", "/api/marks", data);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to create mark");
+        throw new Error(errorData.error || "Failed to create point");
       }
       return res.json();
     },
@@ -245,7 +245,7 @@ export function useDeleteMark(courseId?: string, onError?: (error: Error) => voi
       const res = await apiRequest("DELETE", `/api/marks/${id}`);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to delete mark");
+        throw new Error(errorData.error || "Failed to delete point");
       }
       return id;
     },

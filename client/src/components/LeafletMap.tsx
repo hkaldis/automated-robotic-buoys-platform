@@ -1193,8 +1193,8 @@ export function LeafletMap({
           <Card className="px-4 py-2 bg-primary text-primary-foreground flex items-center gap-3">
             <span className="text-sm font-medium">
               {isContinuousPlacement 
-                ? "Click to add marks. Click 'Done' when finished."
-                : "Click on the map to place the mark"}
+                ? "Click to add points. Click 'Done' when finished."
+                : "Click on the map to place the point"}
             </span>
             {isContinuousPlacement && onStopPlacement && (
               <Button 
