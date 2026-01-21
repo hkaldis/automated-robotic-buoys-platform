@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -74,6 +75,9 @@ export default function ClubDashboard() {
   // State for managing buoys from the events list
   const [manageBuoysDialogOpen, setManageBuoysDialogOpen] = useState(false);
   const [selectedEventForBuoys, setSelectedEventForBuoys] = useState<Event | null>(null);
+  
+  // State for inline buoy assignment popover (controlled per event)
+  const [openPopoverEventId, setOpenPopoverEventId] = useState<string | null>(null);
 
   const createEventMutation = useMutation({
     mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string }) => {
@@ -233,6 +237,27 @@ export default function ClubDashboard() {
     if (!eventId) return "-";
     const event = events.find((e) => e.id === eventId);
     return event?.name || "-";
+  };
+
+  // Get buoys assigned to a specific event
+  const getBuoysForEvent = (eventId: string) => {
+    return clubBuoys.filter(
+      (b) => b.eventId === eventId && b.inventoryStatus === "assigned_event"
+    );
+  };
+
+  // Handle direct assign from events table (closes popover on success)
+  const handleDirectAssign = (buoyId: string, eventId: string) => {
+    assignBuoyToEventMutation.mutate({ buoyId, eventId }, {
+      onSuccess: () => {
+        setOpenPopoverEventId(null);
+      },
+    });
+  };
+
+  // Handle direct release from events table
+  const handleDirectRelease = (buoyId: string) => {
+    releaseBuoyFromEventMutation.mutate(buoyId);
   };
 
   const handleCreateEvent = () => {
@@ -445,60 +470,126 @@ export default function ClubDashboard() {
                         <TableHead>Name</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Boat Class</TableHead>
+                        <TableHead>Buoys</TableHead>
                         <TableHead className="w-36">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {clubEvents.map((event) => (
-                        <TableRow key={event.id} data-testid={`row-event-${event.id}`}>
-                          <TableCell className="font-medium">{event.name}</TableCell>
-                          <TableCell>
-                            <Badge variant={event.type === "race" ? "default" : "secondary"}>
-                              {event.type === "race" ? "Race" : "Training"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{event.boatClass}</TableCell>
-                          <TableCell className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenEvent(event.id)}
-                              title="Open Event"
-                              data-testid={`button-open-event-${event.id}`}
-                            >
-                              <Play className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleManageBuoys(event)}
-                              title="Manage Buoys"
-                              data-testid={`button-manage-buoys-${event.id}`}
-                            >
-                              <Anchor className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditEvent(event)}
-                              title="Edit Event"
-                              data-testid={`button-edit-event-${event.id}`}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteEventMutation.mutate(event.id)}
-                              disabled={deleteEventMutation.isPending}
-                              title="Delete Event"
-                              data-testid={`button-delete-event-${event.id}`}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {clubEvents.map((event) => {
+                        const eventBuoysForRow = getBuoysForEvent(event.id);
+                        return (
+                          <TableRow key={event.id} data-testid={`row-event-${event.id}`}>
+                            <TableCell className="font-medium">{event.name}</TableCell>
+                            <TableCell>
+                              <Badge variant={event.type === "race" ? "default" : "secondary"}>
+                                {event.type === "race" ? "Race" : "Training"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{event.boatClass}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap items-center gap-1">
+                                {eventBuoysForRow.map((buoy) => (
+                                  <Badge 
+                                    key={buoy.id} 
+                                    variant="outline" 
+                                    className="flex items-center gap-1"
+                                  >
+                                    <span>{buoy.name}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDirectRelease(buoy.id)}
+                                      disabled={releaseBuoyFromEventMutation.isPending || assignBuoyToEventMutation.isPending}
+                                      title="Return to Club"
+                                      data-testid={`button-release-${buoy.id}`}
+                                    >
+                                      <RotateCcw className="h-3 w-3" />
+                                    </Button>
+                                  </Badge>
+                                ))}
+                                {availableBuoys.length > 0 && (
+                                  <Popover 
+                                    open={openPopoverEventId === event.id} 
+                                    onOpenChange={(open) => setOpenPopoverEventId(open ? event.id : null)}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
+                                        data-testid={`button-add-buoy-${event.id}`}
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Add
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-48 p-2" align="start">
+                                      <div className="space-y-1">
+                                        <p className="text-sm font-medium mb-2">Assign Buoy</p>
+                                        {availableBuoys.map((buoy) => (
+                                          <Button
+                                            key={buoy.id}
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full justify-start"
+                                            onClick={() => handleDirectAssign(buoy.id, event.id)}
+                                            disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
+                                            data-testid={`button-assign-${buoy.id}-to-${event.id}`}
+                                          >
+                                            {buoy.name}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                )}
+                                {eventBuoysForRow.length === 0 && availableBuoys.length === 0 && (
+                                  <span className="text-muted-foreground text-sm">No buoys</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEvent(event.id)}
+                                title="Open Event"
+                                data-testid={`button-open-event-${event.id}`}
+                              >
+                                <Play className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleManageBuoys(event)}
+                                title="Manage Buoys"
+                                data-testid={`button-manage-buoys-${event.id}`}
+                              >
+                                <Anchor className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditEvent(event)}
+                                title="Edit Event"
+                                data-testid={`button-edit-event-${event.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteEventMutation.mutate(event.id)}
+                                disabled={deleteEventMutation.isPending}
+                                title="Delete Event"
+                                data-testid={`button-delete-event-${event.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 )}
