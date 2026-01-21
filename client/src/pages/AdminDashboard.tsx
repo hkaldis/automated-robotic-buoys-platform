@@ -56,7 +56,8 @@ export default function AdminDashboard() {
   const [newBuoyName, setNewBuoyName] = useState("");
   const [newBuoySerialNumber, setNewBuoySerialNumber] = useState("");
   const [newBuoyOwnership, setNewBuoyOwnership] = useState<"platform_owned" | "long_rental" | "event_rental">("platform_owned");
-  const [newBuoyWindSensor, setNewBuoyWindSensor] = useState("");
+  const [newBuoyWeatherSensor, setNewBuoyWeatherSensor] = useState("");
+  const [newBuoyMotor, setNewBuoyMotor] = useState("");
   const [newBuoyCamera, setNewBuoyCamera] = useState("");
   const [newBuoyBatteryInfo, setNewBuoyBatteryInfo] = useState("");
   const [newBuoyOtherEquipment, setNewBuoyOtherEquipment] = useState("");
@@ -68,7 +69,8 @@ export default function AdminDashboard() {
   const [editBuoyName, setEditBuoyName] = useState("");
   const [editBuoySerialNumber, setEditBuoySerialNumber] = useState("");
   const [editBuoyOwnership, setEditBuoyOwnership] = useState<"platform_owned" | "long_rental" | "event_rental">("platform_owned");
-  const [editBuoyWindSensor, setEditBuoyWindSensor] = useState("");
+  const [editBuoyWeatherSensor, setEditBuoyWeatherSensor] = useState("");
+  const [editBuoyMotor, setEditBuoyMotor] = useState("");
   const [editBuoyCamera, setEditBuoyCamera] = useState("");
   const [editBuoyBatteryInfo, setEditBuoyBatteryInfo] = useState("");
   const [editBuoyOtherEquipment, setEditBuoyOtherEquipment] = useState("");
@@ -234,7 +236,8 @@ export default function AdminDashboard() {
       name: string; 
       serialNumber?: string;
       ownershipType: string;
-      windSensorModel?: string;
+      weatherSensorModel?: string;
+      motorModel?: string;
       cameraModel?: string;
       batteryInfo?: string;
       otherEquipment?: string;
@@ -251,7 +254,8 @@ export default function AdminDashboard() {
       setNewBuoyName("");
       setNewBuoySerialNumber("");
       setNewBuoyOwnership("platform_owned");
-      setNewBuoyWindSensor("");
+      setNewBuoyWeatherSensor("");
+      setNewBuoyMotor("");
       setNewBuoyCamera("");
       setNewBuoyBatteryInfo("");
       setNewBuoyOtherEquipment("");
@@ -346,7 +350,8 @@ export default function AdminDashboard() {
       serialNumber?: string;
       ownershipType?: string;
       inventoryStatus?: string;
-      windSensorModel?: string;
+      weatherSensorModel?: string;
+      motorModel?: string;
       cameraModel?: string;
       batteryInfo?: string;
       otherEquipment?: string;
@@ -494,7 +499,8 @@ export default function AdminDashboard() {
         name: newBuoyName.trim(),
         serialNumber: newBuoySerialNumber.trim() || undefined,
         ownershipType: newBuoyOwnership,
-        windSensorModel: newBuoyWindSensor.trim() || undefined,
+        weatherSensorModel: newBuoyWeatherSensor.trim() || undefined,
+        motorModel: newBuoyMotor.trim() || undefined,
         cameraModel: newBuoyCamera.trim() || undefined,
         batteryInfo: newBuoyBatteryInfo.trim() || undefined,
         otherEquipment: newBuoyOtherEquipment.trim() || undefined,
@@ -537,7 +543,8 @@ export default function AdminDashboard() {
     setEditBuoyName(buoy.name);
     setEditBuoySerialNumber(buoy.serialNumber || "");
     setEditBuoyOwnership(buoy.ownershipType as "platform_owned" | "long_rental" | "event_rental");
-    setEditBuoyWindSensor(buoy.windSensorModel || "");
+    setEditBuoyWeatherSensor(buoy.weatherSensorModel || "");
+    setEditBuoyMotor(buoy.motorModel || "");
     setEditBuoyCamera(buoy.cameraModel || "");
     setEditBuoyBatteryInfo(buoy.batteryInfo || "");
     setEditBuoyOtherEquipment(buoy.otherEquipment || "");
@@ -553,7 +560,8 @@ export default function AdminDashboard() {
         serialNumber: editBuoySerialNumber.trim() || undefined,
         ownershipType: editBuoyOwnership,
         inventoryStatus: editBuoyStatus,
-        windSensorModel: editBuoyWindSensor.trim() || undefined,
+        weatherSensorModel: editBuoyWeatherSensor.trim() || undefined,
+        motorModel: editBuoyMotor.trim() || undefined,
         cameraModel: editBuoyCamera.trim() || undefined,
         batteryInfo: editBuoyBatteryInfo.trim() || undefined,
         otherEquipment: editBuoyOtherEquipment.trim() || undefined,
@@ -1136,13 +1144,23 @@ export default function AdminDashboard() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="buoy-wind-sensor">Wind Sensor Model</Label>
+                        <Label htmlFor="buoy-weather-sensor">Weather Sensor Model</Label>
                         <Input
-                          id="buoy-wind-sensor"
-                          value={newBuoyWindSensor}
-                          onChange={(e) => setNewBuoyWindSensor(e.target.value)}
+                          id="buoy-weather-sensor"
+                          value={newBuoyWeatherSensor}
+                          onChange={(e) => setNewBuoyWeatherSensor(e.target.value)}
                           placeholder="e.g., Ultrasonic WS-100"
-                          data-testid="input-buoy-wind-sensor"
+                          data-testid="input-buoy-weather-sensor"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-motor">Motor Model</Label>
+                        <Input
+                          id="buoy-motor"
+                          value={newBuoyMotor}
+                          onChange={(e) => setNewBuoyMotor(e.target.value)}
+                          placeholder="e.g., Torqeedo Travel 1103"
+                          data-testid="input-buoy-motor"
                         />
                       </div>
                       <div className="space-y-2">
@@ -1235,7 +1253,7 @@ export default function AdminDashboard() {
                           <TableCell>{getInventoryStatusBadge(buoy.inventoryStatus)}</TableCell>
                           <TableCell>{getClubName(buoy.sailClubId)}</TableCell>
                           <TableCell className="text-xs text-muted-foreground max-w-40 truncate">
-                            {[buoy.windSensorModel, buoy.cameraModel, buoy.batteryInfo].filter(Boolean).join(", ") || "-"}
+                            {[buoy.weatherSensorModel, buoy.motorModel, buoy.cameraModel].filter(Boolean).join(", ") || "-"}
                           </TableCell>
                           <TableCell className="flex gap-1">
                             <Button
@@ -1598,13 +1616,23 @@ export default function AdminDashboard() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-buoy-wind-sensor">Wind Sensor Model</Label>
+              <Label htmlFor="edit-buoy-weather-sensor">Weather Sensor Model</Label>
               <Input
-                id="edit-buoy-wind-sensor"
-                value={editBuoyWindSensor}
-                onChange={(e) => setEditBuoyWindSensor(e.target.value)}
+                id="edit-buoy-weather-sensor"
+                value={editBuoyWeatherSensor}
+                onChange={(e) => setEditBuoyWeatherSensor(e.target.value)}
                 placeholder="e.g., Calypso Ultrasonic"
-                data-testid="input-edit-buoy-wind-sensor"
+                data-testid="input-edit-buoy-weather-sensor"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-motor">Motor Model</Label>
+              <Input
+                id="edit-buoy-motor"
+                value={editBuoyMotor}
+                onChange={(e) => setEditBuoyMotor(e.target.value)}
+                placeholder="e.g., Torqeedo Travel 1103"
+                data-testid="input-edit-buoy-motor"
               />
             </div>
             <div className="space-y-2">
@@ -1679,8 +1707,12 @@ export default function AdminDashboard() {
                 <Label className="text-muted-foreground text-xs">Hardware Configuration</Label>
                 <div className="mt-2 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Wind Sensor:</span>
-                    <span>{editingBuoy.windSensorModel || "-"}</span>
+                    <span className="text-muted-foreground">Weather Sensor:</span>
+                    <span>{editingBuoy.weatherSensorModel || "-"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Motor:</span>
+                    <span>{editingBuoy.motorModel || "-"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Camera:</span>
