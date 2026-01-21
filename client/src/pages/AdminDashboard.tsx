@@ -78,6 +78,8 @@ export default function AdminDashboard() {
   const [assignEventDialogOpen, setAssignEventDialogOpen] = useState(false);
   const [assignToEventId, setAssignToEventId] = useState("");
   const [buoyClubFilter, setBuoyClubFilter] = useState<string>("all");
+  const [manageBuoysDialogOpen, setManageBuoysDialogOpen] = useState(false);
+  const [selectedEventForBuoys, setSelectedEventForBuoys] = useState<Event | null>(null);
   
   // State for inline buoy assignment popover in events table
   const [openPopoverEventId, setOpenPopoverEventId] = useState<string | null>(null);
@@ -862,67 +864,24 @@ export default function AdminDashboard() {
                           <TableCell>
                             {(() => {
                               const eventBuoys = getBuoysForEvent(event.id);
-                              const availableBuoys = getAvailableBuoysForEvent(event);
+                              const count = eventBuoys.length;
                               return (
-                                <div className="flex flex-wrap items-center gap-1">
-                                  {eventBuoys.map((buoy) => (
-                                    <Badge 
-                                      key={buoy.id} 
-                                      variant="outline" 
-                                      className="flex items-center gap-1"
-                                    >
-                                      <span>{buoy.name}</span>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDirectReleaseFromEvent(buoy.id, event.id)}
-                                        disabled={releaseBuoyFromEventMutation.isPending || assignBuoyToEventMutation.isPending}
-                                        title="Return to Club"
-                                        data-testid={`button-release-${buoy.id}`}
-                                      >
-                                        <RotateCcw className="h-3 w-3" />
-                                      </Button>
-                                    </Badge>
-                                  ))}
-                                  {availableBuoys.length > 0 && (
-                                    <Popover 
-                                      open={openPopoverEventId === event.id} 
-                                      onOpenChange={(open) => setOpenPopoverEventId(open ? event.id : null)}
-                                    >
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
-                                          data-testid={`button-add-buoy-${event.id}`}
-                                        >
-                                          <Plus className="h-3 w-3 mr-1" />
-                                          Add
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent className="w-48 p-2" align="start">
-                                        <div className="space-y-1">
-                                          <p className="text-sm font-medium mb-2">Assign Buoy</p>
-                                          {availableBuoys.map((buoy) => (
-                                            <Button
-                                              key={buoy.id}
-                                              variant="ghost"
-                                              size="sm"
-                                              className="w-full justify-start"
-                                              onClick={() => handleDirectAssignToEvent(buoy.id, event.id)}
-                                              disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
-                                              data-testid={`button-assign-${buoy.id}-to-${event.id}`}
-                                            >
-                                              {buoy.name}
-                                            </Button>
-                                          ))}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  )}
-                                  {eventBuoys.length === 0 && availableBuoys.length === 0 && (
-                                    <span className="text-muted-foreground text-sm">No buoys</span>
-                                  )}
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={count > 0 ? "default" : "secondary"}>
+                                    {count} {count === 1 ? "buoy" : "buoys"}
+                                  </Badge>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setSelectedEventForBuoys(event);
+                                      setManageBuoysDialogOpen(true);
+                                    }}
+                                    title="Manage Buoys"
+                                    data-testid={`button-manage-buoys-${event.id}`}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               );
                             })()}
@@ -1772,6 +1731,89 @@ export default function AdminDashboard() {
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Buoy
               </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageBuoysDialogOpen} onOpenChange={setManageBuoysDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Manage Buoys</DialogTitle>
+            <DialogDescription>
+              {selectedEventForBuoys ? `Assign and release buoys for "${selectedEventForBuoys.name}"` : "Manage event buoys"}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEventForBuoys && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-muted-foreground text-xs mb-2 block">Assigned Buoys</Label>
+                {(() => {
+                  const eventBuoys = getBuoysForEvent(selectedEventForBuoys.id);
+                  if (eventBuoys.length === 0) {
+                    return <p className="text-muted-foreground text-sm">No buoys assigned to this event</p>;
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {eventBuoys.map((buoy) => (
+                        <div key={buoy.id} className="flex items-center justify-between p-2 border rounded-md">
+                          <div className="flex items-center gap-2">
+                            <Anchor className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{buoy.name}</span>
+                            {buoy.serialNumber && (
+                              <span className="text-xs text-muted-foreground">({buoy.serialNumber})</span>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDirectReleaseFromEvent(buoy.id, selectedEventForBuoys.id)}
+                            disabled={releaseBuoyFromEventMutation.isPending || assignBuoyToEventMutation.isPending}
+                            data-testid={`button-release-buoy-${buoy.id}`}
+                          >
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                            Release
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="border-t pt-4">
+                <Label className="text-muted-foreground text-xs mb-2 block">Available Buoys</Label>
+                {(() => {
+                  const availableBuoys = getAvailableBuoysForEvent(selectedEventForBuoys);
+                  if (availableBuoys.length === 0) {
+                    return <p className="text-muted-foreground text-sm">No buoys available from this club</p>;
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {availableBuoys.map((buoy) => (
+                        <div key={buoy.id} className="flex items-center justify-between p-2 border rounded-md">
+                          <div className="flex items-center gap-2">
+                            <Anchor className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{buoy.name}</span>
+                            {buoy.serialNumber && (
+                              <span className="text-xs text-muted-foreground">({buoy.serialNumber})</span>
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDirectAssignToEvent(buoy.id, selectedEventForBuoys.id)}
+                            disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
+                            data-testid={`button-assign-buoy-${buoy.id}`}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Assign
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
         </DialogContent>
