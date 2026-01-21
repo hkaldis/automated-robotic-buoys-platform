@@ -203,6 +203,7 @@ interface DemoModeContextType {
   demoBuoys: Buoy[];
   sendCommand: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
   resetDemoBuoys: () => void;
+  repositionDemoBuoys: (centerLat: number, centerLng: number) => void;
   updateDemoWeather: (windSpeed: number, windDirection: number) => void;
 }
 
@@ -339,6 +340,29 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     setDemoBuoys(DEMO_BUOYS_INITIAL);
   }, []);
 
+  const repositionDemoBuoys = useCallback((centerLat: number, centerLng: number) => {
+    const offsets = [
+      { lat: 0.002, lng: 0.003 },
+      { lat: -0.001, lng: 0.004 },
+      { lat: 0.003, lng: -0.002 },
+      { lat: -0.002, lng: -0.003 },
+      { lat: -0.003, lng: 0.002 },
+      { lat: 0.001, lng: -0.004 },
+      { lat: 0.004, lng: 0.001 },
+    ];
+    
+    setDemoBuoys(prev => prev.map((buoy, index) => ({
+      ...buoy,
+      lat: centerLat + (offsets[index]?.lat ?? 0.001 * (index + 1)),
+      lng: centerLng + (offsets[index]?.lng ?? 0.001 * (index + 1)),
+      state: "idle" as const,
+      targetLat: null,
+      targetLng: null,
+      speed: 0,
+      eta: null,
+    })));
+  }, []);
+
   const updateDemoWeather = useCallback((windSpeed: number, windDirection: number) => {
     setDemoBuoys(prev => prev.map(buoy => ({
       ...buoy,
@@ -359,6 +383,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
       demoBuoys,
       sendCommand,
       resetDemoBuoys,
+      repositionDemoBuoys,
       updateDemoWeather,
     }}>
       {children}

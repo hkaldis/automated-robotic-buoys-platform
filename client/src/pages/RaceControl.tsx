@@ -355,7 +355,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const { toast } = useToast();
 
-  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather } = useDemoModeContext();
+  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
 
   const { data: apiBuoys = [], isLoading: buoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
@@ -1747,6 +1747,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
   // Auto-assign buoys to minimize maximum deployment time (bottleneck assignment)
   const handleAutoAssignBuoys = useCallback(() => {
+    // In demo mode, reposition buoys near the course center before assigning
+    if (demoMode && marks.length > 0) {
+      const avgLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+      const avgLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
+      repositionDemoBuoys(avgLat, avgLng);
+    }
+    
     // Build list of slots that need buoys
     interface Slot {
       markId: string;
@@ -1867,8 +1874,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       };
     });
     
-    // Calculate max ETA based on distance and estimated buoy speed (0.5 kts = ~0.93 km/h)
-    const BUOY_SPEED_KTS = 0.5;
+    // Calculate max ETA based on distance and estimated buoy speed (2.5 kts typical for robotic buoys)
+    const BUOY_SPEED_KTS = 2.5;
     const distances = assignments.map(a => a.distance);
     const maxDistNm = distances.length > 0 ? Math.max(...distances) : 0;
     // Time in seconds: distance (nm) / speed (kts) * 3600
@@ -1941,7 +1948,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         variant: "destructive",
       });
     });
-  }, [marks, buoys, activeWeatherData, courseId, demoMode, sendDemoCommand, toast]);
+  }, [marks, buoys, activeWeatherData, courseId, demoMode, sendDemoCommand, repositionDemoBuoys, toast]);
 
   const handleAutoAdjustMark = useCallback(async (markId: string, lat: number, lng: number) => {
     try {
