@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_COURSE_ADJUSTMENT, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode, type CourseAdjustmentSettings } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode, type CourseAdjustmentSettings } from "@/hooks/use-settings";
 import { useState } from "react";
 
 interface SettingsDialogProps {
@@ -104,6 +105,8 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
     courseAdjustmentSettings,
     setCourseAdjustmentSetting,
     resetCourseAdjustmentSettings,
+    windArrowsMinZoom,
+    setWindArrowsMinZoom,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -143,6 +146,29 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                   data-testid="switch-wind-arrows"
                 />
               </div>
+              {showWindArrows && (
+                <div className="space-y-2 pl-1">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm text-muted-foreground">
+                      Min Zoom Level
+                    </Label>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {windArrowsMinZoom}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[windArrowsMinZoom]}
+                    onValueChange={([v]) => setWindArrowsMinZoom(v)}
+                    min={8}
+                    max={18}
+                    step={1}
+                    data-testid="slider-wind-arrows-min-zoom"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Arrows hidden below this zoom to improve performance
+                  </p>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <Label htmlFor="sea-marks-toggle" className="text-sm">
                   Show Sea Marks Overlay

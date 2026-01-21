@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
 import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -81,6 +81,9 @@ export function useSettings() {
   const [courseAdjustmentSettings, setCourseAdjustmentSettingsState] = useState<CourseAdjustmentSettings>(
     settingsService.getCourseAdjustmentSettings()
   );
+  const [windArrowsMinZoom, setWindArrowsMinZoomState] = useState<number>(
+    settingsService.getWindArrowsMinZoom()
+  );
 
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
@@ -92,6 +95,7 @@ export function useSettings() {
       setShowSeaMarksState(settingsService.getShowSeaMarks());
       setBuoyDeployModeState(settingsService.getBuoyDeployMode());
       setCourseAdjustmentSettingsState(settingsService.getCourseAdjustmentSettings());
+      setWindArrowsMinZoomState(settingsService.getWindArrowsMinZoom());
     });
     return unsubscribe;
   }, []);
@@ -142,6 +146,10 @@ export function useSettings() {
 
   const resetCourseAdjustmentSettings = useCallback(() => {
     settingsService.resetCourseAdjustmentSettings();
+  }, []);
+
+  const setWindArrowsMinZoom = useCallback((zoom: number) => {
+    settingsService.setWindArrowsMinZoom(zoom);
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -200,8 +208,10 @@ export function useSettings() {
     courseAdjustmentSettings,
     setCourseAdjustmentSetting,
     resetCourseAdjustmentSettings,
+    windArrowsMinZoom,
+    setWindArrowsMinZoom,
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM };
 export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings };

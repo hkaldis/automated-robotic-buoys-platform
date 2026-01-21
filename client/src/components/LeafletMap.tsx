@@ -623,10 +623,15 @@ function LegLabels({
 function WindArrowsLayer({ windDirection, windSpeed }: { windDirection: number; windSpeed: number }) {
   const map = useMap();
   const [arrows, setArrows] = useState<Array<{ lat: number; lng: number; key: string }>>([]);
+  const [currentZoom, setCurrentZoom] = useState(map.getZoom());
+  const { windArrowsMinZoom } = useSettings();
 
   useMapEvents({
     moveend: () => updateArrows(),
-    zoomend: () => updateArrows(),
+    zoomend: () => {
+      setCurrentZoom(map.getZoom());
+      updateArrows();
+    },
   });
 
   const updateArrows = useCallback(() => {
@@ -658,6 +663,10 @@ function WindArrowsLayer({ windDirection, windSpeed }: { windDirection: number; 
   useEffect(() => {
     updateArrows();
   }, [updateArrows]);
+
+  if (currentZoom < windArrowsMinZoom) {
+    return null;
+  }
 
   const arrowSize = windSpeed >= 15 ? 28 : windSpeed >= 10 ? 24 : windSpeed >= 5 ? 20 : 16;
   const arrowColor = windSpeed >= 20 ? "#dc2626" : windSpeed >= 15 ? "#f97316" : windSpeed >= 10 ? "#3b82f6" : "#64748b";

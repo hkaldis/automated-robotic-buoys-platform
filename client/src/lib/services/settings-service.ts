@@ -55,6 +55,8 @@ export const DEFAULT_COURSE_ADJUSTMENT: CourseAdjustmentSettings = {
   resizePercent: 10,
 };
 
+export const DEFAULT_WIND_ARROWS_MIN_ZOOM = 13;
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
@@ -66,6 +68,7 @@ interface UserSettings {
   showSeaMarks: boolean;
   buoyDeployMode: BuoyDeployMode;
   courseAdjustment: CourseAdjustmentSettings;
+  windArrowsMinZoom: number;
 }
 
 class SettingsService {
@@ -80,6 +83,7 @@ class SettingsService {
     showSeaMarks: true,
     buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
     courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
+    windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
   };
   private listeners: Set<SettingsListener> = new Set();
 
@@ -214,6 +218,15 @@ class SettingsService {
 
   resetCourseAdjustmentSettings(): void {
     this.settings.courseAdjustment = { ...DEFAULT_COURSE_ADJUSTMENT };
+    this.notify();
+  }
+
+  getWindArrowsMinZoom(): number {
+    return this.settings.windArrowsMinZoom;
+  }
+
+  setWindArrowsMinZoom(zoom: number): void {
+    this.settings.windArrowsMinZoom = zoom;
     this.notify();
   }
 
