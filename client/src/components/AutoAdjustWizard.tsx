@@ -65,6 +65,60 @@ function isKnownRole(role: string): boolean {
   return KNOWN_ROLES.includes(role);
 }
 
+type DetectedRole = "windward" | "leeward" | "wing";
+
+interface RoleDetectionResult {
+  role: DetectedRole;
+  confidence: "high" | "medium";
+  angleDiff: number;
+}
+
+function detectMarkRole(
+  markLat: number,
+  markLng: number,
+  refLat: number,
+  refLng: number,
+  windDirection: number
+): RoleDetectionResult | null {
+  const bearingToMark = calculateBearing(refLat, refLng, markLat, markLng);
+  
+  // Wind direction is "from" - so sailing upwind means heading INTO the wind
+  // A mark upwind from reference has bearing ≈ windDirection
+  // A mark downwind from reference has bearing ≈ windDirection + 180
+  const upwindBearing = windDirection;
+  const downwindBearing = (windDirection + 180) % 360;
+  const portReachBearing = (windDirection + 90) % 360;
+  const starboardReachBearing = (windDirection - 90 + 360) % 360;
+  
+  const angleDiff = (a: number, b: number) => {
+    let diff = Math.abs(a - b) % 360;
+    return diff > 180 ? 360 - diff : diff;
+  };
+  
+  const upwindDiff = angleDiff(bearingToMark, upwindBearing);
+  const downwindDiff = angleDiff(bearingToMark, downwindBearing);
+  const portReachDiff = angleDiff(bearingToMark, portReachBearing);
+  const starboardReachDiff = angleDiff(bearingToMark, starboardReachBearing);
+  const wingDiff = Math.min(portReachDiff, starboardReachDiff);
+  
+  const results: { role: DetectedRole; diff: number }[] = [
+    { role: "windward", diff: upwindDiff },
+    { role: "leeward", diff: downwindDiff },
+    { role: "wing", diff: wingDiff },
+  ];
+  
+  results.sort((a, b) => a.diff - b.diff);
+  const best = results[0];
+  
+  if (best.diff <= 30) {
+    return { role: best.role, confidence: "high", angleDiff: best.diff };
+  } else if (best.diff <= 45) {
+    return { role: best.role, confidence: "medium", angleDiff: best.diff };
+  }
+  
+  return null;
+}
+
 export function AutoAdjustWizard({
   open,
   onOpenChange,
@@ -175,19 +229,44 @@ export function AutoAdjustWizard({
     return getLocalStartLineCenter();
   }, [currentStep, roundingSequence, marks, localPositions, getLocalStartLineCenter]);
 
+  const suggestedRole = useMemo((): RoleDetectionResult | null => {
+    if (!currentStep || currentStep.type !== "mark") return null;
+    
+    const role = currentStep.markRole || "";
+    if (isKnownRole(role) && role !== "turning_mark" && role !== "other") return null;
+    
+    const mark = getCurrentMark();
+    const ref = getPreviousReference();
+    if (!mark || !ref) return null;
+    
+    return detectMarkRole(mark.lat, mark.lng, ref.lat, ref.lng, windDirection);
+  }, [currentStep, getCurrentMark, getPreviousReference, windDirection]);
+
   useEffect(() => {
     if (!currentStep) return;
     
     if (currentStep.type === "mark") {
       const role = currentStep.markRole || "";
-      const defaultDegrees = getRoleDefault(role, windAngleDefaults);
-      if (defaultDegrees !== null) {
-        setDegreesInput(defaultDegrees.toString());
+      
+      if (isKnownRole(role) && role !== "turning_mark" && role !== "other") {
+        const defaultDegrees = getRoleDefault(role, windAngleDefaults);
+        if (defaultDegrees !== null) {
+          setDegreesInput(defaultDegrees.toString());
+        } else {
+          setDegreesInput("");
+        }
+      } else if (suggestedRole) {
+        const defaultDegrees = getRoleDefault(suggestedRole.role, windAngleDefaults);
+        if (defaultDegrees !== null) {
+          setDegreesInput(defaultDegrees.toString());
+        } else {
+          setDegreesInput("");
+        }
       } else {
         setDegreesInput("");
       }
     }
-  }, [currentStep, windAngleDefaults]);
+  }, [currentStep, windAngleDefaults, suggestedRole]);
 
   const handleApplyStartLine = useCallback(() => {
     if (!pinMark || !committeeMark) return;
@@ -304,7 +383,9 @@ export function AutoAdjustWizard({
 
   const currentMark = getCurrentMark();
   const currentRole = currentStep?.markRole || "";
-  const needsUserInput = currentStep?.type === "mark" && !isKnownRole(currentRole);
+  const hasKnownRole = isKnownRole(currentRole) && currentRole !== "turning_mark" && currentRole !== "other";
+  const hasSuggestion = !hasKnownRole && suggestedRole !== null;
+  const needsUserInput = currentStep?.type === "mark" && !hasKnownRole && !hasSuggestion;
   const adjustmentCount = adjustedMarkIds.size + (startLineAdjusted ? 1 : 0);
 
   if (steps.length === 0) {
@@ -391,9 +472,20 @@ export function AutoAdjustWizard({
                     <div className="w-3 h-3 rounded-full bg-primary" />
                     <span className="font-medium">{currentStep.markName || "Point"}</span>
                   </div>
-                  <span className="text-sm text-muted-foreground capitalize">
-                    {currentRole.replace(/_/g, " ")}
-                  </span>
+                  {hasKnownRole ? (
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {currentRole.replace(/_/g, " ")}
+                    </span>
+                  ) : hasSuggestion ? (
+                    <span className={`text-sm capitalize ${suggestedRole?.confidence === "high" ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                      {suggestedRole?.confidence === "high" ? "Detected: " : "Possibly: "}
+                      {suggestedRole?.role}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {currentRole.replace(/_/g, " ")}
+                    </span>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -412,14 +504,21 @@ export function AutoAdjustWizard({
                     />
                     <span className="text-muted-foreground">°</span>
                   </div>
-                  {!needsUserInput && (
+                  {hasKnownRole && (
                     <p className="text-xs text-muted-foreground">
                       Default for {currentRole.replace(/_/g, " ")}: {getRoleDefault(currentRole, windAngleDefaults)}°
                     </p>
                   )}
+                  {hasSuggestion && suggestedRole && (
+                    <p className={`text-xs ${suggestedRole.confidence === "high" ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+                      {suggestedRole.confidence === "high" 
+                        ? `Based on position relative to previous mark` 
+                        : `Position suggests ${suggestedRole.role} - verify angle`}
+                    </p>
+                  )}
                   {needsUserInput && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Unknown role - please specify the desired angle
+                      Could not detect role - please specify the desired angle
                     </p>
                   )}
                 </div>
