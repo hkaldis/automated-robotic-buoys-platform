@@ -201,6 +201,10 @@ export function MarkEditPanel({
       setBoatLengthMeters(mark.boatLengthMeters ?? 6);
       setGatePortBuoyId(mark.gatePortBuoyId || "");
       setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
+      setCoordLat(mark.lat.toString());
+      setCoordLng(mark.lng.toString());
+      setShowCoordinatesDialog(false);
+      setDegreesToWind(getWindAngleForRole(mark.role));
       setHasChanges(false);
       dirtyFieldsRef.current = new Set();
       prevMarkIdRef.current = mark.id;
@@ -221,7 +225,7 @@ export function MarkEditPanel({
     if (!dirty.has("boatLengthMeters")) setBoatLengthMeters(mark.boatLengthMeters ?? 6);
     if (!dirty.has("gatePortBuoyId")) setGatePortBuoyId(mark.gatePortBuoyId || "");
     if (!dirty.has("gateStarboardBuoyId")) setGateStarboardBuoyId(mark.gateStarboardBuoyId || "");
-  }, [mark]);
+  }, [mark, getWindAngleForRole]);
   
   // Wrapper functions to mark fields as dirty when user edits them
   const setNameDirty = useCallback((value: string) => {

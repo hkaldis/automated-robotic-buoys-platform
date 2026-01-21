@@ -306,9 +306,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       prevPropEventIdRef.current = propEventId;
       if (propEventId) {
         setActiveEventId(propEventId);
-        // Reset course when event changes to force proper re-initialization
+        // Reset course and selection state when event changes
         setActiveCourseId(null);
         setLocalRoundingSequence([]);
+        setSelectedMarkId(null);
+        setSelectedBuoyId(null);
+        setFinishLinePreviewIds(new Set());
       }
     }
   }, [propEventId]);
