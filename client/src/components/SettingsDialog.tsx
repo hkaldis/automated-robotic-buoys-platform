@@ -53,10 +53,16 @@ const fixBearingModeOptions: { value: StartLineFixBearingMode; label: string }[]
 
 const mapLayerOptions: { value: MapLayerType; label: string; description: string }[] = [
   { value: "osm", label: "Standard Map", description: "OpenStreetMap street and terrain view" },
-  { value: "osm_nolabels", label: "Light (No Labels)", description: "Clean map without street names - faster on slow devices" },
   { value: "satellite", label: "Satellite", description: "Aerial imagery view" },
   { value: "nautical", label: "Nautical Chart", description: "Marine chart styling" },
   { value: "ocean", label: "Ocean", description: "Lightweight marine basemap with bathymetry" },
+];
+
+const lightMapVariants: { value: MapLayerType; label: string; description: string }[] = [
+  { value: "osm_nolabels", label: "Grey Water", description: "Minimalist grey tones" },
+  { value: "light_voyager", label: "Blue Water", description: "Modern look with blue water" },
+  { value: "light_positron", label: "With Labels", description: "Light theme with street labels" },
+  { value: "light_toner", label: "Dark Mode", description: "Dark theme for night use" },
 ];
 
 const windAngleLabels: Record<keyof WindAngleDefaults, string> = {
@@ -178,6 +184,27 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                     </div>
                   </Label>
                 ))}
+                
+                {/* Clean Map Styles */}
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-muted-foreground pt-2">Clean Styles</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {lightMapVariants.map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`map-${opt.value}`}
+                        className="flex items-start gap-2 p-2 rounded-lg border cursor-pointer hover-elevate data-[state=checked]:ring-2 data-[state=checked]:ring-primary"
+                        data-state={mapLayer === opt.value ? "checked" : "unchecked"}
+                      >
+                        <RadioGroupItem value={opt.value} id={`map-${opt.value}`} className="mt-0.5" />
+                        <div>
+                          <span className="text-xs font-medium">{opt.label}</span>
+                          <p className="text-xs text-muted-foreground">{opt.description}</p>
+                        </div>
+                      </Label>
+                    ))}
+                  </div>
+                </div>
               </RadioGroup>
             </CardContent>
           </Card>

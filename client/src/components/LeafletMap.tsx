@@ -880,6 +880,24 @@ export function LeafletMap({
             url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png"
           />
         )}
+        {mapLayer === "light_voyager" && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png"
+          />
+        )}
+        {mapLayer === "light_positron" && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png"
+          />
+        )}
+        {mapLayer === "light_toner" && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png"
+          />
+        )}
         {mapLayer === "satellite" && (
           <TileLayer
             attribution='Tiles &copy; Esri'
