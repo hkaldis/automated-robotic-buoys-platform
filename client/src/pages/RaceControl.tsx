@@ -1266,6 +1266,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const handleStopPlacement = useCallback(() => {
     setPendingMarkData(null);
     setContinuousPlacement(false);
+    setAutoPlacementEnabled(false);
     setMarkCounter(1);
   }, []);
 
