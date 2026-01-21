@@ -37,7 +37,7 @@ export const DEFAULT_BUOY_FOLLOW: BuoyFollowSettings = {
   acceptableDistanceMeters: 1,
 };
 
-export type MapLayerType = "osm" | "satellite" | "nautical" | "ocean";
+export type MapLayerType = "osm" | "osm_nolabels" | "satellite" | "nautical" | "ocean";
 
 export const DEFAULT_MAP_LAYER: MapLayerType = "osm";
 

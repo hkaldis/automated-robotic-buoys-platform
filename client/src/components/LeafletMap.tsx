@@ -874,6 +874,12 @@ export function LeafletMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         )}
+        {mapLayer === "osm_nolabels" && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png"
+          />
+        )}
         {mapLayer === "satellite" && (
           <TileLayer
             attribution='Tiles &copy; Esri'

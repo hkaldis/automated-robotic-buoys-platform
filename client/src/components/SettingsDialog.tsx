@@ -53,6 +53,7 @@ const fixBearingModeOptions: { value: StartLineFixBearingMode; label: string }[]
 
 const mapLayerOptions: { value: MapLayerType; label: string; description: string }[] = [
   { value: "osm", label: "Standard Map", description: "OpenStreetMap street and terrain view" },
+  { value: "osm_nolabels", label: "Light (No Labels)", description: "Clean map without street names - faster on slow devices" },
   { value: "satellite", label: "Satellite", description: "Aerial imagery view" },
   { value: "nautical", label: "Nautical Chart", description: "Marine chart styling" },
   { value: "ocean", label: "Ocean", description: "Lightweight marine basemap with bathymetry" },
