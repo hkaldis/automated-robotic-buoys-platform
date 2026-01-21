@@ -1025,6 +1025,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
   }, [currentCourse, marks.length, createMark]);
 
+  const [continuousPlacement, setContinuousPlacement] = useState(false);
+  const [markCounter, setMarkCounter] = useState(1);
+
+  // Track if placement was auto-enabled by phase change (vs manual button click)
+  const [autoPlacementEnabled, setAutoPlacementEnabled] = useState(false);
+
   const handlePlaceMarkOnMap = useCallback((data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => {
     if (repositioningMarkId) {
       setRepositioningMarkId(null);
@@ -1037,12 +1043,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setMarkCounter(courseMarksCount + 1);
     }
   }, [repositioningMarkId, marks]);
-
-  const [continuousPlacement, setContinuousPlacement] = useState(false);
-  const [markCounter, setMarkCounter] = useState(1);
-
-  // Track if placement was auto-enabled by phase change (vs manual button click)
-  const [autoPlacementEnabled, setAutoPlacementEnabled] = useState(false);
 
   // Track if a transform is in progress to prevent race conditions
   const [isTransforming, setIsTransforming] = useState(false);
