@@ -1030,7 +1030,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setRepositioningMarkId(null);
     }
     setPendingMarkData(data);
-  }, [repositioningMarkId]);
+    // Enable continuous placement for course marks so Done button appears
+    if (data.isCourseMark) {
+      setContinuousPlacement(true);
+      const courseMarksCount = marks.filter(m => m.isCourseMark === true).length;
+      setMarkCounter(courseMarksCount + 1);
+    }
+  }, [repositioningMarkId, marks]);
 
   const [continuousPlacement, setContinuousPlacement] = useState(false);
   const [markCounter, setMarkCounter] = useState(1);
