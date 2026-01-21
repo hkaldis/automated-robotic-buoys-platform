@@ -1255,10 +1255,14 @@ export async function registerRoutes(
         await storage.endBuoyAssignment(activeAssignment.id);
       }
 
-      // Update buoy status back to club and clear eventId
+      // Update buoy status back to club, clear eventId, and reset state
       await storage.updateBuoy(buoyId, {
         inventoryStatus: "assigned_club",
         eventId: null,
+        state: "idle",
+        targetLat: null,
+        targetLng: null,
+        eta: null,
       });
 
       res.json({ message: "Buoy released from event" });
@@ -1285,11 +1289,15 @@ export async function registerRoutes(
         }
       }
 
-      // Update buoy status and clear eventId
+      // Update buoy status, clear eventId, and reset state
       await storage.updateBuoy(buoyId, {
         sailClubId: null,
         eventId: null,
         inventoryStatus: "in_inventory",
+        state: "idle",
+        targetLat: null,
+        targetLng: null,
+        eta: null,
       });
 
       res.json({ message: "Buoy returned to inventory" });

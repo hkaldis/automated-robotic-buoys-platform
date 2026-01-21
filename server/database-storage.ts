@@ -160,9 +160,32 @@ export class DatabaseStorage implements IStorage {
 
   async deleteEvent(id: string): Promise<boolean> {
     return await db.transaction(async (tx) => {
-      // Delete event access records first
+      // Release all buoys assigned to this event - reset state and clear eventId
+      await tx.update(buoys)
+        .set({ 
+          eventId: null, 
+          state: "idle",
+          targetLat: null,
+          targetLng: null,
+          eta: null
+        })
+        .where(eq(buoys.eventId, id));
+      
+      // Close all active buoy assignments for this event
+      await tx.update(buoyAssignments)
+        .set({ 
+          status: "completed",
+          endAt: new Date()
+        })
+        .where(and(
+          eq(buoyAssignments.eventId, id),
+          eq(buoyAssignments.status, "active")
+        ));
+      
+      // Delete event access records
       await tx.delete(userEventAccess).where(eq(userEventAccess.eventId, id));
-      // Then delete the event
+      
+      // Delete the event
       const result = await tx.delete(events).where(eq(events.id, id)).returning();
       return result.length > 0;
     });
@@ -237,8 +260,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMark(id: string): Promise<boolean> {
-    const result = await db.delete(marks).where(eq(marks.id, id)).returning();
-    return result.length > 0;
+    return await db.transaction(async (tx) => {
+      // Get the mark to find its gate partner
+      const [mark] = await tx.select().from(marks).where(eq(marks.id, id));
+      
+      if (mark?.gatePartnerId) {
+        // Clear gatePartnerId on the partner mark
+        await tx.update(marks)
+          .set({ gatePartnerId: null })
+          .where(eq(marks.id, mark.gatePartnerId));
+      }
+      
+      // Delete the mark
+      const result = await tx.delete(marks).where(eq(marks.id, id)).returning();
+      return result.length > 0;
+    });
   }
 
   async deleteMarksByCourse(courseId: string): Promise<number> {
@@ -298,8 +334,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBuoy(id: string): Promise<boolean> {
-    const result = await db.delete(buoys).where(eq(buoys.id, id)).returning();
-    return result.length > 0;
+    return await db.transaction(async (tx) => {
+      // Clear buoy references from all marks that reference this buoy
+      await tx.update(marks)
+        .set({ assignedBuoyId: null })
+        .where(eq(marks.assignedBuoyId, id));
+      await tx.update(marks)
+        .set({ gatePortBuoyId: null })
+        .where(eq(marks.gatePortBuoyId, id));
+      await tx.update(marks)
+        .set({ gateStarboardBuoyId: null })
+        .where(eq(marks.gateStarboardBuoyId, id));
+      
+      // Delete associated buoy assignments
+      await tx.delete(buoyAssignments).where(eq(buoyAssignments.buoyId, id));
+      
+      // Delete the buoy
+      const result = await tx.delete(buoys).where(eq(buoys.id, id)).returning();
+      return result.length > 0;
+    });
   }
 
   async getBuoysForEvent(eventId: string): Promise<Buoy[]> {

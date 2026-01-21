@@ -329,6 +329,32 @@ export class MemStorage implements IStorage {
   }
 
   async deleteEvent(id: string): Promise<boolean> {
+    // Release all buoys assigned to this event - reset state and clear eventId
+    for (const buoy of this.buoys.values()) {
+      if (buoy.eventId === id) {
+        this.buoys.set(buoy.id, {
+          ...buoy,
+          eventId: null,
+          state: "idle",
+          targetLat: null,
+          targetLng: null,
+          eta: null
+        });
+      }
+    }
+    
+    // Close all active buoy assignments for this event
+    for (const [assignmentId, assignment] of this.buoyAssignments.entries()) {
+      if (assignment.eventId === id && assignment.status === "active") {
+        this.buoyAssignments.set(assignmentId, {
+          ...assignment,
+          status: "completed",
+          endAt: new Date()
+        });
+      }
+    }
+    
+    // Delete event access records
     const entries = Array.from(this.userEventAccess.entries());
     for (const [accessId, access] of entries) {
       if (access.eventId === id) {
@@ -420,6 +446,17 @@ export class MemStorage implements IStorage {
   }
 
   async deleteMark(id: string): Promise<boolean> {
+    // Get the mark to find its gate partner
+    const mark = this.marks.get(id);
+    
+    if (mark?.gatePartnerId) {
+      // Clear gatePartnerId on the partner mark
+      const partner = this.marks.get(mark.gatePartnerId);
+      if (partner) {
+        this.marks.set(partner.id, { ...partner, gatePartnerId: null });
+      }
+    }
+    
     return this.marks.delete(id);
   }
 
@@ -490,6 +527,36 @@ export class MemStorage implements IStorage {
   }
 
   async deleteBuoy(id: string): Promise<boolean> {
+    // Clear buoy references from all marks that reference this buoy
+    for (const mark of this.marks.values()) {
+      let updated = false;
+      const updates: Partial<Mark> = {};
+      
+      if (mark.assignedBuoyId === id) {
+        updates.assignedBuoyId = null;
+        updated = true;
+      }
+      if (mark.gatePortBuoyId === id) {
+        updates.gatePortBuoyId = null;
+        updated = true;
+      }
+      if (mark.gateStarboardBuoyId === id) {
+        updates.gateStarboardBuoyId = null;
+        updated = true;
+      }
+      
+      if (updated) {
+        this.marks.set(mark.id, { ...mark, ...updates });
+      }
+    }
+    
+    // Delete associated buoy assignments
+    for (const [assignmentId, assignment] of this.buoyAssignments.entries()) {
+      if (assignment.buoyId === id) {
+        this.buoyAssignments.delete(assignmentId);
+      }
+    }
+    
     return this.buoys.delete(id);
   }
 
