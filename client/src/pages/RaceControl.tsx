@@ -28,11 +28,13 @@ import {
   useUpdateCourse,
   useCreateEvent,
   useCreateCourse,
+  useUpdateEvent,
   useSaveCourseSnapshot,
   useDeleteCourseSnapshot,
   type CourseSnapshot,
   type SnapshotMark,
 } from "@/hooks/use-api";
+import { NoCourseDialog } from "@/components/NoCourseDialog";
 import { queryClient, apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
 import { useDemoModeContext } from "@/contexts/DemoModeContext";
 import { useToast } from "@/hooks/use-toast";
@@ -391,9 +393,14 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const updateCourse = useUpdateCourse(courseId, mutationErrorHandler);
   const createEvent = useCreateEvent();
   const createCourse = useCreateCourse();
+  const updateEvent = useUpdateEvent(mutationErrorHandler);
   const saveCourseSnapshot = useSaveCourseSnapshot(mutationErrorHandler);
   const deleteCourseSnapshot = useDeleteCourseSnapshot(mutationErrorHandler);
   const deleteAllMarks = useDeleteAllMarks(mutationErrorHandler);
+  
+  // State for no-course dialog
+  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [isLoadingCourse, setIsLoadingCourse] = useState(false);
 
   const buoys = demoMode ? demoBuoys : apiBuoys;
 
@@ -451,33 +458,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [currentCourse?.id, currentCourse?.roundingSequence]);
 
-  // Auto-create a default course if none exists
-  const [courseCreationAttempted, setCourseCreationAttempted] = useState(false);
-  useEffect(() => {
-    if (!coursesLoading && courses.length === 0 && !courseCreationAttempted) {
-      setCourseCreationAttempted(true);
-      createCourse.mutate({
-        name: "Race Course",
-        shape: "custom",
-        centerLat: 37.8044,
-        centerLng: -122.4196,
-        rotation: 0,
-        scale: 1,
-      }, {
-        onSuccess: (newCourse) => {
-          setActiveCourseId(newCourse.id);
-          toast({
-            title: "Course Created",
-            description: "A new course has been created. You can now add points.",
-          });
-        },
-      });
-    }
-  }, [courses.length, coursesLoading, courseCreationAttempted, createCourse, toast]);
+  // NOTE: Auto-course creation was removed to prevent data contamination.
+  // Courses must now be created via the NoCourseDialog which properly links them to events.
 
   // Simple course initialization and validation:
   // 1. If activeCourseId is set but no longer valid (course deleted), clear it
-  // 2. If no activeCourseId, set from event or first available course
+  // 2. If no activeCourseId but event has a linked course, use it
+  // 3. If no course, show dialog (handled by showNoCourseDialog state)
   useEffect(() => {
     if (coursesLoading) return;
     
@@ -485,22 +472,159 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     if (activeCourseId) {
       const stillExists = courses.some(c => c.id === activeCourseId);
       if (!stillExists) {
-        // Course was deleted - reset to first available or empty
-        const nextCourse = courses[0];
-        setActiveCourseId(nextCourse?.id ?? null);
+        // Course was deleted - reset to null (will trigger no-course dialog)
+        setActiveCourseId(null);
         setLocalRoundingSequence([]);
         return;
       }
       return; // Valid course, nothing to do
     }
     
-    // No active course - try to set one
+    // No active course - only set from event's linked course, never fall back to random course
     if (currentEvent?.courseId) {
       setActiveCourseId(currentEvent.courseId);
-    } else if (courses.length > 0) {
-      setActiveCourseId(courses[0].id);
     }
+    // If event has no course, leave activeCourseId as null - dialog will show
   }, [coursesLoading, courses, activeCourseId, currentEvent?.courseId]);
+
+  // Determine if we should show the no-course dialog
+  const showNoCourseDialog = !coursesLoading && !eventsLoading && currentEvent && !currentEvent.courseId && !activeCourseId;
+
+  // Handler for creating a custom course from the no-course dialog
+  const handleCreateCustomCourse = useCallback(async () => {
+    if (!currentEvent) return;
+    
+    setIsCreatingCourse(true);
+    try {
+      const newCourse = await createCourse.mutateAsync({
+        name: `${currentEvent.name} Course`,
+        shape: "custom",
+        centerLat: mapCenter.lat,
+        centerLng: mapCenter.lng,
+        rotation: 0,
+        scale: 1,
+      });
+      
+      // Link the course to the event
+      await updateEvent.mutateAsync({
+        id: currentEvent.id,
+        data: { courseId: newCourse.id },
+      });
+      
+      setActiveCourseId(newCourse.id);
+      invalidateRelatedQueries("events");
+      
+      toast({
+        title: "Course Created",
+        description: "New course created. Start by setting up your start line.",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to Create Course",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingCourse(false);
+    }
+  }, [currentEvent, createCourse, updateEvent, mapCenter, toast]);
+
+  // Handler for loading a saved course from the no-course dialog
+  const handleLoadSavedCourse = useCallback(async (snapshot: CourseSnapshot) => {
+    if (!currentEvent) return;
+    
+    setIsLoadingCourse(true);
+    try {
+      // Create a new course from the snapshot
+      const newCourse = await createCourse.mutateAsync({
+        name: snapshot.name,
+        shape: snapshot.shape as CourseShape,
+        centerLat: mapCenter.lat,
+        centerLng: mapCenter.lng,
+        rotation: snapshot.rotation,
+        scale: snapshot.scale,
+      });
+      
+      // Link the course to the event
+      await updateEvent.mutateAsync({
+        id: currentEvent.id,
+        data: { courseId: newCourse.id },
+      });
+      
+      setActiveCourseId(newCourse.id);
+      
+      // Calculate offset to recenter marks to current map position
+      const sourceMarks = snapshot.snapshotMarks || [];
+      if (sourceMarks.length > 0) {
+        const sourceCenter = {
+          lat: sourceMarks.reduce((sum, m) => sum + m.lat, 0) / sourceMarks.length,
+          lng: sourceMarks.reduce((sum, m) => sum + m.lng, 0) / sourceMarks.length,
+        };
+        const offsetLat = mapCenter.lat - sourceCenter.lat;
+        const offsetLng = mapCenter.lng - sourceCenter.lng;
+        
+        // Create marks from snapshot
+        const newMarkIds: string[] = [];
+        for (const sourceMark of sourceMarks) {
+          const newMark = await createMark.mutateAsync({
+            courseId: newCourse.id,
+            name: sourceMark.name,
+            role: sourceMark.role as MarkRole,
+            order: sourceMark.order,
+            lat: sourceMark.lat + offsetLat,
+            lng: sourceMark.lng + offsetLng,
+            isStartLine: sourceMark.isStartLine ?? false,
+            isFinishLine: sourceMark.isFinishLine ?? false,
+            isCourseMark: sourceMark.isCourseMark ?? false,
+            isGate: sourceMark.isGate ?? false,
+            gateWidthBoatLengths: sourceMark.gateWidthBoatLengths,
+            boatLengthMeters: sourceMark.boatLengthMeters,
+            gateSide: sourceMark.gateSide,
+          });
+          newMarkIds.push(newMark.id);
+        }
+        
+        // Rebuild rounding sequence with new mark IDs
+        if (snapshot.roundingSequence && snapshot.roundingSequence.length > 0) {
+          const nameToNewId = new Map<string, string>();
+          sourceMarks.forEach((sourceMark, index) => {
+            if (newMarkIds[index]) {
+              nameToNewId.set(sourceMark.name, newMarkIds[index]);
+            }
+          });
+          
+          const newSequence = snapshot.roundingSequence
+            .map(name => nameToNewId.get(name))
+            .filter((id): id is string => id !== undefined);
+          
+          if (newSequence.length > 0) {
+            await updateCourse.mutateAsync({
+              id: newCourse.id,
+              data: { roundingSequence: newSequence },
+            });
+            setLocalRoundingSequence(newSequence);
+          }
+        }
+      }
+      
+      invalidateRelatedQueries("events");
+      invalidateRelatedQueries("courses", newCourse.id);
+      invalidateRelatedQueries("marks", newCourse.id);
+      
+      toast({
+        title: "Course Loaded",
+        description: `Loaded "${snapshot.name}" with ${sourceMarks.length} points.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to Load Course",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingCourse(false);
+    }
+  }, [currentEvent, createCourse, createMark, updateEvent, updateCourse, mapCenter, toast]);
 
   // Handler to update sequence (persists to course)
   const handleUpdateSequence = useCallback((newSequence: string[]) => {
@@ -2226,6 +2350,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         buoys={buoys}
         showWindArrows={showWindArrows}
         onToggleWindArrows={() => setShowWindArrows(!showWindArrows)}
+      />
+
+      {/* Dialog for events without a course */}
+      <NoCourseDialog
+        open={showNoCourseDialog}
+        eventName={currentEvent?.name}
+        onCreateCustom={handleCreateCustomCourse}
+        onLoadSaved={handleLoadSavedCourse}
+        isCreating={isCreatingCourse}
+        isLoading={isLoadingCourse}
       />
 
       {/* Confirmation dialog for moving marks with assigned buoys */}
