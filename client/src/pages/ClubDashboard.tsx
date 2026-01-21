@@ -70,6 +70,10 @@ export default function ClubDashboard() {
   const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
   const [selectedBuoyForEvent, setSelectedBuoyForEvent] = useState<Buoy | null>(null);
   const [assignToEventId, setAssignToEventId] = useState("");
+  
+  // State for managing buoys from the events list
+  const [manageBuoysDialogOpen, setManageBuoysDialogOpen] = useState(false);
+  const [selectedEventForBuoys, setSelectedEventForBuoys] = useState<Event | null>(null);
 
   const createEventMutation = useMutation({
     mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string }) => {
@@ -252,6 +256,40 @@ export default function ClubDashboard() {
     setEditEventDialogOpen(true);
   };
 
+  // Handle opening the manage buoys dialog from events list
+  const handleManageBuoys = (event: Event) => {
+    setSelectedEventForBuoys(event);
+    setManageBuoysDialogOpen(true);
+  };
+
+  // Get buoys available for assignment (at club, not at any event)
+  const availableBuoys = clubBuoys.filter(
+    (b) => b.inventoryStatus === "assigned_club" && !b.eventId
+  );
+
+  // Get buoys assigned to the selected event (only valid statuses)
+  const eventBuoys = selectedEventForBuoys
+    ? clubBuoys.filter((b) => 
+        b.eventId === selectedEventForBuoys.id && 
+        (b.inventoryStatus === "assigned_event" || b.inventoryStatus === "assigned_club")
+      )
+    : [];
+
+  // Quick assign from events tab
+  const handleQuickAssignBuoy = (buoyId: string) => {
+    if (selectedEventForBuoys) {
+      assignBuoyToEventMutation.mutate({
+        buoyId,
+        eventId: selectedEventForBuoys.id,
+      });
+    }
+  };
+
+  // Quick release from events tab
+  const handleQuickReleaseBuoy = (buoyId: string) => {
+    releaseBuoyFromEventMutation.mutate(buoyId);
+  };
+
   const handleUpdateEvent = () => {
     if (editingEvent && editEventName.trim()) {
       const selectedBoatClass = boatClasses.find(bc => bc.id === editEventBoatClassId);
@@ -425,6 +463,7 @@ export default function ClubDashboard() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleOpenEvent(event.id)}
+                              title="Open Event"
                               data-testid={`button-open-event-${event.id}`}
                             >
                               <Play className="h-4 w-4" />
@@ -432,7 +471,17 @@ export default function ClubDashboard() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => handleManageBuoys(event)}
+                              title="Manage Buoys"
+                              data-testid={`button-manage-buoys-${event.id}`}
+                            >
+                              <Anchor className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleEditEvent(event)}
+                              title="Edit Event"
                               data-testid={`button-edit-event-${event.id}`}
                             >
                               <Pencil className="h-4 w-4" />
@@ -442,6 +491,7 @@ export default function ClubDashboard() {
                               size="icon"
                               onClick={() => deleteEventMutation.mutate(event.id)}
                               disabled={deleteEventMutation.isPending}
+                              title="Delete Event"
                               data-testid={`button-delete-event-${event.id}`}
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -488,7 +538,7 @@ export default function ClubDashboard() {
                           <TableCell>{getInventoryStatusBadge(buoy.inventoryStatus)}</TableCell>
                           <TableCell>{getEventName(buoy.eventId)}</TableCell>
                           <TableCell className="flex gap-1">
-                            {buoy.inventoryStatus === "assigned_club" && (
+                            {buoy.inventoryStatus === "assigned_club" && !buoy.eventId && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -499,13 +549,13 @@ export default function ClubDashboard() {
                                 <ArrowRight className="h-4 w-4" />
                               </Button>
                             )}
-                            {buoy.inventoryStatus === "assigned_event" && (
+                            {buoy.eventId && (buoy.inventoryStatus === "assigned_event" || buoy.inventoryStatus === "assigned_club") && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => releaseBuoyFromEventMutation.mutate(buoy.id)}
                                 disabled={releaseBuoyFromEventMutation.isPending}
-                                title="Release from Event"
+                                title="Retrieve from Event"
                                 data-testid={`button-release-event-${buoy.id}`}
                               >
                                 <RotateCcw className="h-4 w-4" />
@@ -745,6 +795,78 @@ export default function ClubDashboard() {
             >
               {assignBuoyToEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign to Event"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={manageBuoysDialogOpen} onOpenChange={setManageBuoysDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Buoys - {selectedEventForBuoys?.name}</DialogTitle>
+            <DialogDescription>
+              Assign or retrieve buoys for this event
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            {eventBuoys.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Assigned to Event ({eventBuoys.length})</Label>
+                <div className="border rounded-md divide-y">
+                  {eventBuoys.map((buoy) => (
+                    <div key={buoy.id} className="flex items-center justify-between p-3">
+                      <div>
+                        <span className="font-medium">{buoy.name}</span>
+                        {buoy.serialNumber && (
+                          <span className="text-sm text-muted-foreground ml-2">({buoy.serialNumber})</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuickReleaseBuoy(buoy.id)}
+                        disabled={releaseBuoyFromEventMutation.isPending}
+                        data-testid={`button-retrieve-buoy-${buoy.id}`}
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Retrieve
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {availableBuoys.length > 0 ? (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Available Buoys ({availableBuoys.length})</Label>
+                <div className="border rounded-md divide-y">
+                  {availableBuoys.map((buoy) => (
+                    <div key={buoy.id} className="flex items-center justify-between p-3">
+                      <div>
+                        <span className="font-medium">{buoy.name}</span>
+                        {buoy.serialNumber && (
+                          <span className="text-sm text-muted-foreground ml-2">({buoy.serialNumber})</span>
+                        )}
+                      </div>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleQuickAssignBuoy(buoy.id)}
+                        disabled={assignBuoyToEventMutation.isPending}
+                        data-testid={`button-assign-buoy-${buoy.id}`}
+                      >
+                        <ArrowRight className="h-4 w-4 mr-2" />
+                        Assign
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-4">
+                No buoys available. All club buoys are assigned to events.
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
