@@ -1,8 +1,9 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
+import { useAuth } from "./useAuth";
 import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -51,12 +52,33 @@ function toBeaufort(knots: number): number {
 }
 
 export function useSettings() {
-  const { data: settings } = useUserSettings();
+  const { user } = useAuth();
+  const { data: settings, refetch: refetchSettings } = useUserSettings();
   const updateSettings = useUpdateUserSettings();
+  const lastUserIdRef = useRef<string | null>(null);
 
-  const distanceUnit = (settings?.distanceUnit ?? "nautical_miles") as DistanceUnit;
-  const speedUnit = (settings?.speedUnit ?? "knots") as SpeedUnit;
+  // Track user changes and reload settings when user changes
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    
+    if (lastUserIdRef.current !== currentUserId) {
+      // User has changed (login, logout, or switch)
+      settingsService.reset();
+      lastUserIdRef.current = currentUserId;
+      
+      if (currentUserId) {
+        // New user logged in - refetch their settings
+        refetchSettings();
+      }
+    }
+  }, [user?.id, refetchSettings]);
 
+  const [distanceUnit, setDistanceUnitState] = useState<DistanceUnit>(
+    settingsService.getDistanceUnit()
+  );
+  const [speedUnit, setSpeedUnitState] = useState<SpeedUnit>(
+    settingsService.getSpeedUnit()
+  );
   const [startLineResizeMode, setStartLineResizeModeState] = useState<StartLineResizeMode>(
     settingsService.getStartLineResizeMode()
   );
@@ -85,8 +107,49 @@ export function useSettings() {
     settingsService.getWindArrowsMinZoom()
   );
 
+  // Load settings from database when they arrive or change
+  useEffect(() => {
+    if (settings && user) {
+      settingsService.loadFromDatabase({
+        distanceUnit: (settings.distanceUnit as DistanceUnit) ?? "nautical_miles",
+        speedUnit: (settings.speedUnit as SpeedUnit) ?? "knots",
+        mapLayer: (settings.mapLayer as MapLayerType) ?? DEFAULT_MAP_LAYER,
+        showSeaMarks: settings.showSeaMarks ?? true,
+        windArrowsMinZoom: settings.windArrowsMinZoom ?? DEFAULT_WIND_ARROWS_MIN_ZOOM,
+        startLineResizeMode: (settings.startLineResizeMode as StartLineResizeMode) ?? DEFAULT_START_LINE_RESIZE_MODE,
+        startLineFixBearingMode: (settings.startLineFixBearingMode as StartLineFixBearingMode) ?? DEFAULT_START_LINE_FIX_BEARING_MODE,
+        buoyDeployMode: (settings.buoyDeployMode as BuoyDeployMode) ?? DEFAULT_BUOY_DEPLOY_MODE,
+        windAngleDefaults: (settings.windAngleDefaults as unknown as WindAngleDefaults) ?? { ...DEFAULT_WIND_ANGLES },
+        buoyFollow: (settings.buoyFollowSettings as unknown as BuoyFollowSettings) ?? { ...DEFAULT_BUOY_FOLLOW },
+        courseAdjustment: (settings.courseAdjustmentSettings as unknown as CourseAdjustmentSettings) ?? { ...DEFAULT_COURSE_ADJUSTMENT },
+      });
+    }
+  }, [settings, user]);
+
+  // Set up save callback to persist settings to database
+  useEffect(() => {
+    settingsService.setSaveCallback((payload) => {
+      updateSettings.mutate({
+        distanceUnit: payload.distanceUnit,
+        speedUnit: payload.speedUnit,
+        mapLayer: payload.mapLayer,
+        showSeaMarks: payload.showSeaMarks,
+        windArrowsMinZoom: payload.windArrowsMinZoom,
+        startLineResizeMode: payload.startLineResizeMode,
+        startLineFixBearingMode: payload.startLineFixBearingMode,
+        buoyDeployMode: payload.buoyDeployMode,
+        windAngleDefaults: payload.windAngleDefaults as unknown as Record<string, number>,
+        buoyFollowSettings: payload.buoyFollow as unknown as Record<string, number>,
+        courseAdjustmentSettings: payload.courseAdjustment as unknown as Record<string, number>,
+      });
+    });
+    return () => settingsService.setSaveCallback(null);
+  }, [updateSettings]);
+
   useEffect(() => {
     const unsubscribe = settingsService.subscribe(() => {
+      setDistanceUnitState(settingsService.getDistanceUnit());
+      setSpeedUnitState(settingsService.getSpeedUnit());
       setStartLineResizeModeState(settingsService.getStartLineResizeMode());
       setStartLineFixBearingModeState(settingsService.getStartLineFixBearingMode());
       setWindAngleDefaultsState(settingsService.getWindAngleDefaults());
@@ -153,12 +216,12 @@ export function useSettings() {
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
-    updateSettings.mutate({ distanceUnit: unit });
-  }, [updateSettings]);
+    settingsService.setDistanceUnit(unit);
+  }, []);
 
   const setSpeedUnit = useCallback((unit: SpeedUnit) => {
-    updateSettings.mutate({ speedUnit: unit });
-  }, [updateSettings]);
+    settingsService.setSpeedUnit(unit);
+  }, []);
 
   const formatDistance = useCallback((nm: number): string => {
     if (nm === 0) return `0 ${DISTANCE_LABELS[distanceUnit]}`;
@@ -213,5 +276,5 @@ export function useSettings() {
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE };
 export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings };

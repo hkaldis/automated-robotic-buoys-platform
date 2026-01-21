@@ -1371,53 +1371,98 @@ export async function registerRoutes(
     }
   });
 
-  const DEFAULT_USER_ID = "default-user";
-
   app.get("/api/settings", async (req, res) => {
-    let settings = await storage.getUserSettings(DEFAULT_USER_ID);
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    
+    const userId = req.session.userId;
+    let settings = await storage.getUserSettings(userId);
+    
     if (!settings) {
+      // Create default settings for this user
       settings = await storage.createUserSettings({
-        userId: DEFAULT_USER_ID,
+        userId,
         distanceUnit: "nautical_miles",
         speedUnit: "knots",
         windSource: "buoy",
         selectedWindBuoyId: null,
       });
     }
+    
     res.json({
       distanceUnit: settings.distanceUnit,
       speedUnit: settings.speedUnit,
       windSource: settings.windSource,
       selectedWindBuoyId: settings.selectedWindBuoyId,
+      mapLayer: settings.mapLayer,
+      showSeaMarks: settings.showSeaMarks,
+      windArrowsMinZoom: settings.windArrowsMinZoom,
+      startLineResizeMode: settings.startLineResizeMode,
+      startLineFixBearingMode: settings.startLineFixBearingMode,
+      buoyDeployMode: settings.buoyDeployMode,
+      windAngleDefaults: settings.windAngleDefaults,
+      buoyFollowSettings: settings.buoyFollowSettings,
+      courseAdjustmentSettings: settings.courseAdjustmentSettings,
     });
   });
 
   app.patch("/api/settings", async (req, res) => {
-    const { distanceUnit, speedUnit, windSource, selectedWindBuoyId } = req.body;
+    if (!req.session.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     
-    let settings = await storage.getUserSettings(DEFAULT_USER_ID);
+    const userId = req.session.userId;
+    const { 
+      distanceUnit, speedUnit, windSource, selectedWindBuoyId,
+      mapLayer, showSeaMarks, windArrowsMinZoom,
+      startLineResizeMode, startLineFixBearingMode, buoyDeployMode,
+      windAngleDefaults, buoyFollowSettings, courseAdjustmentSettings
+    } = req.body;
+    
+    let settings = await storage.getUserSettings(userId);
+    
     if (!settings) {
       settings = await storage.createUserSettings({
-        userId: DEFAULT_USER_ID,
+        userId,
         distanceUnit: distanceUnit ?? "nautical_miles",
         speedUnit: speedUnit ?? "knots",
         windSource: windSource ?? "buoy",
         selectedWindBuoyId: selectedWindBuoyId ?? null,
       });
-    } else {
-      settings = await storage.updateUserSettings(DEFAULT_USER_ID, {
-        ...(distanceUnit !== undefined && { distanceUnit }),
-        ...(speedUnit !== undefined && { speedUnit }),
-        ...(windSource !== undefined && { windSource }),
-        ...(selectedWindBuoyId !== undefined && { selectedWindBuoyId }),
-      });
     }
+    
+    // Update with any provided fields
+    settings = await storage.updateUserSettings(userId, {
+      ...(distanceUnit !== undefined && { distanceUnit }),
+      ...(speedUnit !== undefined && { speedUnit }),
+      ...(windSource !== undefined && { windSource }),
+      ...(selectedWindBuoyId !== undefined && { selectedWindBuoyId }),
+      ...(mapLayer !== undefined && { mapLayer }),
+      ...(showSeaMarks !== undefined && { showSeaMarks }),
+      ...(windArrowsMinZoom !== undefined && { windArrowsMinZoom }),
+      ...(startLineResizeMode !== undefined && { startLineResizeMode }),
+      ...(startLineFixBearingMode !== undefined && { startLineFixBearingMode }),
+      ...(buoyDeployMode !== undefined && { buoyDeployMode }),
+      ...(windAngleDefaults !== undefined && { windAngleDefaults }),
+      ...(buoyFollowSettings !== undefined && { buoyFollowSettings }),
+      ...(courseAdjustmentSettings !== undefined && { courseAdjustmentSettings }),
+    });
 
     res.json({
       distanceUnit: settings?.distanceUnit,
       speedUnit: settings?.speedUnit,
       windSource: settings?.windSource,
       selectedWindBuoyId: settings?.selectedWindBuoyId,
+      mapLayer: settings?.mapLayer,
+      showSeaMarks: settings?.showSeaMarks,
+      windArrowsMinZoom: settings?.windArrowsMinZoom,
+      startLineResizeMode: settings?.startLineResizeMode,
+      startLineFixBearingMode: settings?.startLineFixBearingMode,
+      buoyDeployMode: settings?.buoyDeployMode,
+      windAngleDefaults: settings?.windAngleDefaults,
+      buoyFollowSettings: settings?.buoyFollowSettings,
+      courseAdjustmentSettings: settings?.courseAdjustmentSettings,
     });
   });
 

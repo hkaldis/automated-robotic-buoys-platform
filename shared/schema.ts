@@ -216,6 +216,21 @@ export const userSettings = pgTable("user_settings", {
   speedUnit: text("speed_unit").notNull().default("knots"),
   windSource: text("wind_source").notNull().default("buoy"),
   selectedWindBuoyId: varchar("selected_wind_buoy_id"),
+  // Map settings
+  mapLayer: text("map_layer").notNull().default("ocean"),
+  showSeaMarks: boolean("show_sea_marks").notNull().default(true),
+  windArrowsMinZoom: integer("wind_arrows_min_zoom").notNull().default(13),
+  // Start line settings
+  startLineResizeMode: text("start_line_resize_mode").notNull().default("pin"),
+  startLineFixBearingMode: text("start_line_fix_bearing_mode").notNull().default("pin"),
+  // Buoy settings
+  buoyDeployMode: text("buoy_deploy_mode").notNull().default("manual"),
+  // Wind angle defaults (stored as JSON)
+  windAngleDefaults: jsonb("wind_angle_defaults"),
+  // Buoy follow settings (stored as JSON)
+  buoyFollowSettings: jsonb("buoy_follow_settings"),
+  // Course adjustment settings (stored as JSON)
+  courseAdjustmentSettings: jsonb("course_adjustment_settings"),
 });
 
 // Visibility scope for saved course snapshots
@@ -392,6 +407,15 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).pick({
   speedUnit: true,
   windSource: true,
   selectedWindBuoyId: true,
+  mapLayer: true,
+  showSeaMarks: true,
+  windArrowsMinZoom: true,
+  startLineResizeMode: true,
+  startLineFixBearingMode: true,
+  buoyDeployMode: true,
+  windAngleDefaults: true,
+  buoyFollowSettings: true,
+  courseAdjustmentSettings: true,
 });
 
 export const insertCourseSnapshotSchema = createInsertSchema(courseSnapshots).pick({

@@ -410,13 +410,24 @@ export function useUpdateCourse(courseId?: string, onError?: (error: Error) => v
   });
 }
 
+export interface UserSettingsData {
+  distanceUnit: string;
+  speedUnit: string;
+  windSource: string;
+  selectedWindBuoyId: string | null;
+  mapLayer: string;
+  showSeaMarks: boolean;
+  windArrowsMinZoom: number;
+  startLineResizeMode: string;
+  startLineFixBearingMode: string;
+  buoyDeployMode: string;
+  windAngleDefaults: Record<string, number> | null;
+  buoyFollowSettings: Record<string, number> | null;
+  courseAdjustmentSettings: Record<string, number> | null;
+}
+
 export function useUserSettings() {
-  return useQuery<{
-    distanceUnit: string;
-    speedUnit: string;
-    windSource: string;
-    selectedWindBuoyId: string | null;
-  }>({
+  return useQuery<UserSettingsData>({
     queryKey: ["/api/settings"],
   });
 }
@@ -425,12 +436,7 @@ export function useUpdateUserSettings() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: {
-      distanceUnit?: string;
-      speedUnit?: string;
-      windSource?: string;
-      selectedWindBuoyId?: string | null;
-    }) => {
+    mutationFn: async (data: Partial<UserSettingsData>) => {
       const res = await apiRequest("PATCH", "/api/settings", data);
       return res.json();
     },

@@ -39,11 +39,14 @@ export const DEFAULT_BUOY_FOLLOW: BuoyFollowSettings = {
 
 export type MapLayerType = "osm" | "osm_nolabels" | "light_voyager" | "light_positron" | "light_toner" | "satellite" | "nautical" | "ocean";
 
-export const DEFAULT_MAP_LAYER: MapLayerType = "osm";
+export const DEFAULT_MAP_LAYER: MapLayerType = "ocean";
 
 export type BuoyDeployMode = "automatic" | "manual";
 
-export const DEFAULT_BUOY_DEPLOY_MODE: BuoyDeployMode = "automatic";
+export const DEFAULT_BUOY_DEPLOY_MODE: BuoyDeployMode = "manual";
+
+export const DEFAULT_START_LINE_RESIZE_MODE: StartLineResizeMode = "pin";
+export const DEFAULT_START_LINE_FIX_BEARING_MODE: StartLineFixBearingMode = "pin";
 
 export interface CourseAdjustmentSettings {
   rotationDegrees: number;
@@ -75,8 +78,8 @@ class SettingsService {
   private settings: UserSettings = {
     distanceUnit: "nautical_miles",
     speedUnit: "knots",
-    startLineResizeMode: "both",
-    startLineFixBearingMode: "pin",
+    startLineResizeMode: DEFAULT_START_LINE_RESIZE_MODE,
+    startLineFixBearingMode: DEFAULT_START_LINE_FIX_BEARING_MODE,
     windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
     buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
     mapLayer: DEFAULT_MAP_LAYER,
@@ -86,26 +89,86 @@ class SettingsService {
     windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
   };
   private listeners: Set<SettingsListener> = new Set();
+  private userId: string | null = null;
+  private pendingSave: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
-    const saved = localStorage.getItem("user_settings");
-    if (saved) {
-      try {
-        this.settings = { ...this.settings, ...JSON.parse(saved) };
-      } catch (e) {
-        console.error("Failed to parse settings:", e);
-      }
+    // No longer load from localStorage - settings come from database via loadFromDatabase()
+  }
+
+  // Reset all settings to defaults (used on logout or user change)
+  reset(): void {
+    this.settings = {
+      distanceUnit: "nautical_miles",
+      speedUnit: "knots",
+      startLineResizeMode: DEFAULT_START_LINE_RESIZE_MODE,
+      startLineFixBearingMode: DEFAULT_START_LINE_FIX_BEARING_MODE,
+      windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
+      buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
+      mapLayer: DEFAULT_MAP_LAYER,
+      showSeaMarks: true,
+      buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
+      courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
+      windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
+    };
+    this.userId = null;
+    this.listeners.forEach(listener => listener());
+  }
+
+  // Load settings from database API response
+  loadFromDatabase(dbSettings: Partial<UserSettings> | null): void {
+    if (dbSettings) {
+      this.settings = { ...this.settings, ...dbSettings };
+      this.listeners.forEach(listener => listener());
     }
   }
+
+  // Set the current user ID for saving
+  setUserId(userId: string | null): void {
+    this.userId = userId;
+  }
+
+  // Get a save payload for the API
+  getSavePayload(): Partial<UserSettings> {
+    return {
+      distanceUnit: this.settings.distanceUnit,
+      speedUnit: this.settings.speedUnit,
+      startLineResizeMode: this.settings.startLineResizeMode,
+      startLineFixBearingMode: this.settings.startLineFixBearingMode,
+      windAngleDefaults: this.settings.windAngleDefaults,
+      buoyFollow: this.settings.buoyFollow,
+      mapLayer: this.settings.mapLayer,
+      showSeaMarks: this.settings.showSeaMarks,
+      buoyDeployMode: this.settings.buoyDeployMode,
+      courseAdjustment: this.settings.courseAdjustment,
+      windArrowsMinZoom: this.settings.windArrowsMinZoom,
+    };
+  }
+
+  private onSaveCallback: ((payload: Partial<UserSettings>) => void) | null = null;
 
   subscribe(listener: SettingsListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
+  // Set callback for saving to database
+  setSaveCallback(callback: ((payload: Partial<UserSettings>) => void) | null): void {
+    this.onSaveCallback = callback;
+  }
+
   private notify(): void {
     this.listeners.forEach(listener => listener());
-    localStorage.setItem("user_settings", JSON.stringify(this.settings));
+    // Debounce save to database
+    if (this.pendingSave) {
+      clearTimeout(this.pendingSave);
+    }
+    this.pendingSave = setTimeout(() => {
+      if (this.onSaveCallback) {
+        this.onSaveCallback(this.getSavePayload());
+      }
+      this.pendingSave = null;
+    }, 500);
   }
 
   getDistanceUnit(): DistanceUnit {
