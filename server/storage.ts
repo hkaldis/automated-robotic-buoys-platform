@@ -609,7 +609,7 @@ export class MemStorage implements IStorage {
     if (!existing) return undefined;
     const updated: BuoyAssignment = {
       ...existing,
-      status: "ended",
+      status: "completed",
       endAt: new Date(),
     };
     this.buoyAssignments.set(id, updated);

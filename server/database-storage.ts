@@ -409,7 +409,7 @@ export class DatabaseStorage implements IStorage {
 
   async endBuoyAssignment(id: string): Promise<BuoyAssignment | undefined> {
     const [updated] = await db.update(buoyAssignments)
-      .set({ status: "ended", endAt: new Date() })
+      .set({ status: "completed", endAt: new Date() })
       .where(eq(buoyAssignments.id, id))
       .returning();
     return updated;
