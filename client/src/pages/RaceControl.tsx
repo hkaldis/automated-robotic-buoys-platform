@@ -1719,9 +1719,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       }
       
       // Force refresh all queries to ensure UI shows new data
-      await queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/courses", course.id, "marks"] });
+      invalidateRelatedQueries("courses", course.id);
+      invalidateRelatedQueries("events");
 
       if (data.courseShape === "custom") {
         setPendingMarkData({ name: "Point 1", role: "turning_mark" });

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      invalidateRelatedQueries("events");
       setEventDialogOpen(false);
       setNewEventName("");
       setNewEventClubId("");
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      invalidateRelatedQueries("events");
       setEditEventDialogOpen(false);
       setEditingEvent(null);
       toast({ title: "Event updated successfully" });
@@ -183,7 +183,7 @@ export default function AdminDashboard() {
       await apiRequest("DELETE", `/api/events/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      invalidateRelatedQueries("events");
       toast({ title: "Event deleted successfully" });
     },
     onError: () => {
