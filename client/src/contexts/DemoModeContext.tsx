@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
-import type { Buoy } from "@shared/schema";
+import type { Buoy, BuoyState, BuoyInventoryStatus, BuoyOwnership } from "@shared/schema";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 
@@ -17,7 +17,7 @@ const createDemoBuoy = (
   name,
   sailClubId: "demo-club",
   eventId: "demo-event",
-  state: "idle",
+  state: "idle" satisfies BuoyState,
   lat: MIKROLIMANO_CENTER.lat + latOffset,
   lng: MIKROLIMANO_CENTER.lng + lngOffset,
   targetLat: null,
@@ -32,8 +32,8 @@ const createDemoBuoy = (
   eta: null,
   createdAt: null,
   serialNumber: null,
-  ownershipType: "platform_owned",
-  inventoryStatus: "assigned_event",
+  ownershipType: "platform_owned" satisfies BuoyOwnership,
+  inventoryStatus: "assigned_event" satisfies BuoyInventoryStatus,
   weatherSensorModel: null,
   motorModel: null,
   cameraModel: null,

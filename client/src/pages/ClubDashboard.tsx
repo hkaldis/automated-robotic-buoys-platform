@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus, Pencil, Anchor, ArrowRight, RotateCcw } from "lucide-react";
-import type { Event, SailClub, UserEventAccess, Buoy } from "@shared/schema";
+import type { Event, SailClub, UserEventAccess, Buoy, BuoyInventoryStatus } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -216,22 +216,23 @@ export default function ClubDashboard() {
     }
   };
 
-  const getInventoryStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  const getInventoryStatusBadge = (status: BuoyInventoryStatus | string) => {
+    const variants: Record<BuoyInventoryStatus, "default" | "secondary" | "outline" | "destructive"> = {
       in_inventory: "secondary",
       assigned_club: "default",
       assigned_event: "outline",
       maintenance: "destructive",
       retired: "destructive",
     };
-    const labels: Record<string, string> = {
+    const labels: Record<BuoyInventoryStatus, string> = {
       in_inventory: "In Inventory",
       assigned_club: "At Club",
       assigned_event: "At Event",
       maintenance: "Maintenance",
       retired: "Retired",
     };
-    return <Badge variant={variants[status] || "outline"}>{labels[status] || status}</Badge>;
+    const key = status as BuoyInventoryStatus;
+    return <Badge variant={variants[key] || "outline"}>{labels[key] || status}</Badge>;
   };
 
   const getEventName = (eventId: string | null) => {

@@ -27,6 +27,9 @@ export type BuoyOwnership = z.infer<typeof buoyOwnershipSchema>;
 export const buoyInventoryStatusSchema = z.enum(["in_inventory", "assigned_club", "assigned_event", "maintenance", "retired"]);
 export type BuoyInventoryStatus = z.infer<typeof buoyInventoryStatusSchema>;
 
+export const buoyAssignmentStatusSchema = z.enum(["active", "completed"]);
+export type BuoyAssignmentStatus = z.infer<typeof buoyAssignmentStatusSchema>;
+
 export const markRoleSchema = z.enum([
   "start_boat",    // Committee boat at starboard end of start line
   "pin",           // Pin mark at port end of start line

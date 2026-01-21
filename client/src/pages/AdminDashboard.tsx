@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw, Eye, X } from "lucide-react";
-import type { SailClub, UserRole, Event, Buoy, BuoyAssignment } from "@shared/schema";
+import type { SailClub, UserRole, Event, Buoy, BuoyAssignment, BuoyInventoryStatus } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
   const [editBuoyCamera, setEditBuoyCamera] = useState("");
   const [editBuoyBatteryInfo, setEditBuoyBatteryInfo] = useState("");
   const [editBuoyOtherEquipment, setEditBuoyOtherEquipment] = useState("");
-  const [editBuoyStatus, setEditBuoyStatus] = useState<"in_inventory" | "assigned_club" | "assigned_event" | "maintenance" | "retired">("in_inventory");
+  const [editBuoyStatus, setEditBuoyStatus] = useState<BuoyInventoryStatus>("in_inventory");
   const [assignEventDialogOpen, setAssignEventDialogOpen] = useState(false);
   const [assignToEventId, setAssignToEventId] = useState("");
   const [buoyClubFilter, setBuoyClubFilter] = useState<string>("all");
@@ -550,7 +550,7 @@ export default function AdminDashboard() {
     setEditBuoyCamera(buoy.cameraModel || "");
     setEditBuoyBatteryInfo(buoy.batteryInfo || "");
     setEditBuoyOtherEquipment(buoy.otherEquipment || "");
-    setEditBuoyStatus(buoy.inventoryStatus as "in_inventory" | "assigned_club" | "assigned_event" | "maintenance" | "retired");
+    setEditBuoyStatus(buoy.inventoryStatus as BuoyInventoryStatus);
     setEditBuoyDialogOpen(true);
   };
 
@@ -576,22 +576,23 @@ export default function AdminDashboard() {
     setViewBuoyDialogOpen(true);
   };
 
-  const getInventoryStatusBadge = (status: string) => {
-    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  const getInventoryStatusBadge = (status: BuoyInventoryStatus | string) => {
+    const variants: Record<BuoyInventoryStatus, "default" | "secondary" | "outline" | "destructive"> = {
       in_inventory: "secondary",
       assigned_club: "default",
       assigned_event: "outline",
       maintenance: "destructive",
       retired: "destructive",
     };
-    const labels: Record<string, string> = {
+    const labels: Record<BuoyInventoryStatus, string> = {
       in_inventory: "In Inventory",
       assigned_club: "At Club",
       assigned_event: "At Event",
       maintenance: "Maintenance",
       retired: "Retired",
     };
-    return <Badge variant={variants[status] || "outline"}>{labels[status] || status}</Badge>;
+    const key = status as BuoyInventoryStatus;
+    return <Badge variant={variants[key] || "outline"}>{labels[key] || status}</Badge>;
   };
 
   const filteredBuoys = buoys.filter((buoy) => {
