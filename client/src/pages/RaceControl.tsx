@@ -429,6 +429,47 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
   const activeWeatherData = demoMode ? demoWeatherData : weatherData;
 
+  // Calculate map bearing for nudge direction transformation
+  // When in head-to-wind mode, visual "up" on screen is not geographic north
+  const mapBearing = useMemo(() => {
+    if (mapOrientation === "head-to-wind" && activeWeatherData) {
+      // Wind direction is where wind comes FROM
+      // To put wind source at top of screen, we rotate by -windDirection
+      // Normalize to 0-360 range
+      const rawBearing = -activeWeatherData.windDirection;
+      return ((rawBearing % 360) + 360) % 360;
+    }
+    return 0;
+  }, [mapOrientation, activeWeatherData]);
+
+  // Transform visual nudge direction to geographic lat/lng delta based on map bearing
+  // When map is rotated, visual "up" is not geographic north
+  const getTransformedNudgeDelta = useCallback((
+    visualDirection: "north" | "south" | "east" | "west",
+    nudgeAmount: number
+  ): { latDelta: number; lngDelta: number } => {
+    // Convert visual direction to angle (0 = up/north on screen, clockwise)
+    let visualAngle = 0;
+    switch (visualDirection) {
+      case "north": visualAngle = 0; break;   // Up on screen
+      case "east": visualAngle = 90; break;   // Right on screen
+      case "south": visualAngle = 180; break; // Down on screen
+      case "west": visualAngle = 270; break;  // Left on screen
+    }
+    
+    // Geographic direction = visual direction + map bearing
+    // (because map is rotated by bearing degrees clockwise)
+    const geoAngle = (visualAngle + mapBearing) % 360;
+    const geoAngleRad = (geoAngle * Math.PI) / 180;
+    
+    // Convert angle to lat/lng delta
+    // 0° = North (+lat), 90° = East (+lng), 180° = South (-lat), 270° = West (-lng)
+    const latDelta = nudgeAmount * Math.cos(geoAngleRad);
+    const lngDelta = nudgeAmount * Math.sin(geoAngleRad);
+    
+    return { latDelta, lngDelta };
+  }, [mapBearing]);
+
   const { handleMarkMoved, getPendingDeployments, deployAllPending, buoyDeployMode } = useBuoyFollow({
     marks,
     buoys,
@@ -1289,15 +1330,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     if (!buoy) return;
     
     const NUDGE_AMOUNT = 0.0005; // Approx 55 meters - larger for buoy movement
-    let targetLat = buoy.targetLat ?? buoy.lat;
-    let targetLng = buoy.targetLng ?? buoy.lng;
+    const baseLat = buoy.targetLat ?? buoy.lat;
+    const baseLng = buoy.targetLng ?? buoy.lng;
     
-    switch (direction) {
-      case "north": targetLat += NUDGE_AMOUNT; break;
-      case "south": targetLat -= NUDGE_AMOUNT; break;
-      case "east": targetLng += NUDGE_AMOUNT; break;
-      case "west": targetLng -= NUDGE_AMOUNT; break;
-    }
+    // Transform visual direction to geographic based on map rotation
+    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, NUDGE_AMOUNT);
+    const targetLat = baseLat + latDelta;
+    const targetLng = baseLng + lngDelta;
     
     buoyCommand.mutate(
       { id: buoyId, command: "move_to_target", targetLat, targetLng },
@@ -1310,27 +1349,22 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         },
       }
     );
-  }, [marks, buoys, buoyCommand, toast]);
+  }, [marks, buoys, buoyCommand, toast, getTransformedNudgeDelta]);
 
   const handleNudgeMark = useCallback((markId: string, direction: "north" | "south" | "east" | "west") => {
     const mark = marks.find(m => m.id === markId);
     if (!mark) return;
     
     const NUDGE_AMOUNT = 0.0001; // Approx 11 meters
-    let newLat = mark.lat;
-    let newLng = mark.lng;
-    
-    switch (direction) {
-      case "north": newLat += NUDGE_AMOUNT; break;
-      case "south": newLat -= NUDGE_AMOUNT; break;
-      case "east": newLng += NUDGE_AMOUNT; break;
-      case "west": newLng -= NUDGE_AMOUNT; break;
-    }
+    // Transform visual direction to geographic based on map rotation
+    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, NUDGE_AMOUNT);
+    const newLat = mark.lat + latDelta;
+    const newLng = mark.lng + lngDelta;
     
     updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } }, {
       onSuccess: () => handleMarkMoved(markId, newLat, newLng),
     });
-  }, [marks, updateMark, handleMarkMoved]);
+  }, [marks, updateMark, handleMarkMoved, getTransformedNudgeDelta]);
 
   const handleAdjustMarkToWind = useCallback((markId: string, newLat: number, newLng: number) => {
     const mark = marks.find(m => m.id === markId);
@@ -1454,15 +1488,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     if (!buoy) return;
     
     const NUDGE_AMOUNT = 0.0005; // Approx 55 meters
-    let targetLat = buoy.targetLat ?? buoy.lat;
-    let targetLng = buoy.targetLng ?? buoy.lng;
+    const baseLat = buoy.targetLat ?? buoy.lat;
+    const baseLng = buoy.targetLng ?? buoy.lng;
     
-    switch (direction) {
-      case "north": targetLat += NUDGE_AMOUNT; break;
-      case "south": targetLat -= NUDGE_AMOUNT; break;
-      case "east": targetLng += NUDGE_AMOUNT; break;
-      case "west": targetLng -= NUDGE_AMOUNT; break;
-    }
+    // Transform visual direction to geographic based on map rotation
+    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, NUDGE_AMOUNT);
+    const targetLat = baseLat + latDelta;
+    const targetLng = baseLng + lngDelta;
     
     buoyCommand.mutate(
       { id: buoyId, command: "move_to_target", targetLat, targetLng },
@@ -1475,7 +1507,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         },
       }
     );
-  }, [buoys, buoyCommand, toast]);
+  }, [buoys, buoyCommand, toast, getTransformedNudgeDelta]);
 
   const handleUpdateCourse = useCallback((data: Partial<Course>) => {
     if (!currentCourse) return;
