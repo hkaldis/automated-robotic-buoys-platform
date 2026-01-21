@@ -261,8 +261,9 @@ export class DatabaseStorage implements IStorage {
   async createBuoy(buoy: InsertBuoy): Promise<Buoy> {
     const [newBuoy] = await db.insert(buoys).values({
       name: buoy.name,
-      lat: buoy.lat,
-      lng: buoy.lng,
+      serialNumber: buoy.serialNumber ?? null,
+      lat: buoy.lat ?? 0,
+      lng: buoy.lng ?? 0,
       sailClubId: buoy.sailClubId ?? null,
       state: buoy.state ?? "idle",
       speed: buoy.speed ?? 0,
@@ -277,6 +278,10 @@ export class DatabaseStorage implements IStorage {
       eta: buoy.eta ?? null,
       ownershipType: buoy.ownershipType ?? "platform_owned",
       inventoryStatus: buoy.inventoryStatus ?? "in_inventory",
+      windSensorModel: buoy.windSensorModel ?? null,
+      cameraModel: buoy.cameraModel ?? null,
+      batteryInfo: buoy.batteryInfo ?? null,
+      otherEquipment: buoy.otherEquipment ?? null,
       hardwareConfig: buoy.hardwareConfig as Buoy["hardwareConfig"] ?? null,
     }).returning();
     return newBuoy;

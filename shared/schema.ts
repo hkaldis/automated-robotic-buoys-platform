@@ -165,10 +165,11 @@ export const marks = pgTable("marks", {
 export const buoys = pgTable("buoys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  serialNumber: text("serial_number"),
   sailClubId: varchar("sail_club_id"),
   state: text("state").notNull().default("idle"),
-  lat: real("lat").notNull(),
-  lng: real("lng").notNull(),
+  lat: real("lat").default(0),
+  lng: real("lng").default(0),
   targetLat: real("target_lat"),
   targetLng: real("target_lng"),
   speed: real("speed").notNull().default(0),
@@ -181,6 +182,10 @@ export const buoys = pgTable("buoys", {
   eta: integer("eta"),
   ownershipType: text("ownership_type").notNull().default("platform_owned"),
   inventoryStatus: text("inventory_status").notNull().default("in_inventory"),
+  windSensorModel: text("wind_sensor_model"),
+  cameraModel: text("camera_model"),
+  batteryInfo: text("battery_info"),
+  otherEquipment: text("other_equipment"),
   hardwareConfig: jsonb("hardware_config").$type<{
     sensors?: string[];
     firmwareVersion?: string;
@@ -345,6 +350,7 @@ export const insertMarkSchema = createInsertSchema(marks).pick({
 
 export const insertBuoySchema = createInsertSchema(buoys).pick({
   name: true,
+  serialNumber: true,
   sailClubId: true,
   state: true,
   lat: true,
@@ -361,6 +367,10 @@ export const insertBuoySchema = createInsertSchema(buoys).pick({
   eta: true,
   ownershipType: true,
   inventoryStatus: true,
+  windSensorModel: true,
+  cameraModel: true,
+  batteryInfo: true,
+  otherEquipment: true,
   hardwareConfig: true,
 });
 

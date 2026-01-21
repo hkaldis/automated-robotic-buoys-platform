@@ -53,9 +53,12 @@ export default function AdminDashboard() {
   const [buoyDialogOpen, setBuoyDialogOpen] = useState(false);
   const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
   const [newBuoyName, setNewBuoyName] = useState("");
-  const [newBuoyLat, setNewBuoyLat] = useState("0");
-  const [newBuoyLng, setNewBuoyLng] = useState("0");
+  const [newBuoySerialNumber, setNewBuoySerialNumber] = useState("");
   const [newBuoyOwnership, setNewBuoyOwnership] = useState<"platform_owned" | "long_rental" | "event_rental">("platform_owned");
+  const [newBuoyWindSensor, setNewBuoyWindSensor] = useState("");
+  const [newBuoyCamera, setNewBuoyCamera] = useState("");
+  const [newBuoyBatteryInfo, setNewBuoyBatteryInfo] = useState("");
+  const [newBuoyOtherEquipment, setNewBuoyOtherEquipment] = useState("");
   const [selectedBuoyForAssign, setSelectedBuoyForAssign] = useState<Buoy | null>(null);
   const [assignToClubId, setAssignToClubId] = useState("");
 
@@ -204,7 +207,15 @@ export default function AdminDashboard() {
   });
 
   const createBuoyMutation = useMutation({
-    mutationFn: async (data: { name: string; lat: number; lng: number; ownershipType: string }) => {
+    mutationFn: async (data: { 
+      name: string; 
+      serialNumber?: string;
+      ownershipType: string;
+      windSensorModel?: string;
+      cameraModel?: string;
+      batteryInfo?: string;
+      otherEquipment?: string;
+    }) => {
       const res = await apiRequest("POST", "/api/buoys", {
         ...data,
         inventoryStatus: "in_inventory",
@@ -215,9 +226,12 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
       setBuoyDialogOpen(false);
       setNewBuoyName("");
-      setNewBuoyLat("0");
-      setNewBuoyLng("0");
+      setNewBuoySerialNumber("");
       setNewBuoyOwnership("platform_owned");
+      setNewBuoyWindSensor("");
+      setNewBuoyCamera("");
+      setNewBuoyBatteryInfo("");
+      setNewBuoyOtherEquipment("");
       toast({ title: "Buoy created successfully" });
     },
     onError: () => {
@@ -360,9 +374,12 @@ export default function AdminDashboard() {
     if (newBuoyName.trim()) {
       createBuoyMutation.mutate({
         name: newBuoyName.trim(),
-        lat: parseFloat(newBuoyLat) || 0,
-        lng: parseFloat(newBuoyLng) || 0,
+        serialNumber: newBuoySerialNumber.trim() || undefined,
         ownershipType: newBuoyOwnership,
+        windSensorModel: newBuoyWindSensor.trim() || undefined,
+        cameraModel: newBuoyCamera.trim() || undefined,
+        batteryInfo: newBuoyBatteryInfo.trim() || undefined,
+        otherEquipment: newBuoyOtherEquipment.trim() || undefined,
       });
     }
   };
@@ -841,37 +858,25 @@ export default function AdminDashboard() {
                       <DialogDescription>Register a new robotic buoy to the inventory</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="buoy-name">Buoy Name</Label>
-                        <Input
-                          id="buoy-name"
-                          value={newBuoyName}
-                          onChange={(e) => setNewBuoyName(e.target.value)}
-                          placeholder="e.g., Buoy-001"
-                          data-testid="input-buoy-name"
-                        />
-                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="buoy-lat">Latitude</Label>
+                          <Label htmlFor="buoy-name">Buoy Name</Label>
                           <Input
-                            id="buoy-lat"
-                            type="number"
-                            step="0.000001"
-                            value={newBuoyLat}
-                            onChange={(e) => setNewBuoyLat(e.target.value)}
-                            data-testid="input-buoy-lat"
+                            id="buoy-name"
+                            value={newBuoyName}
+                            onChange={(e) => setNewBuoyName(e.target.value)}
+                            placeholder="e.g., Buoy-001"
+                            data-testid="input-buoy-name"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="buoy-lng">Longitude</Label>
+                          <Label htmlFor="buoy-serial">Serial Number</Label>
                           <Input
-                            id="buoy-lng"
-                            type="number"
-                            step="0.000001"
-                            value={newBuoyLng}
-                            onChange={(e) => setNewBuoyLng(e.target.value)}
-                            data-testid="input-buoy-lng"
+                            id="buoy-serial"
+                            value={newBuoySerialNumber}
+                            onChange={(e) => setNewBuoySerialNumber(e.target.value)}
+                            placeholder="e.g., SN-2024-001"
+                            data-testid="input-buoy-serial"
                           />
                         </div>
                       </div>
@@ -887,6 +892,46 @@ export default function AdminDashboard() {
                             <SelectItem value="event_rental">Event Rental</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-wind-sensor">Wind Sensor Model</Label>
+                        <Input
+                          id="buoy-wind-sensor"
+                          value={newBuoyWindSensor}
+                          onChange={(e) => setNewBuoyWindSensor(e.target.value)}
+                          placeholder="e.g., Ultrasonic WS-100"
+                          data-testid="input-buoy-wind-sensor"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-camera">Camera Model</Label>
+                        <Input
+                          id="buoy-camera"
+                          value={newBuoyCamera}
+                          onChange={(e) => setNewBuoyCamera(e.target.value)}
+                          placeholder="e.g., HD Webcam 720p"
+                          data-testid="input-buoy-camera"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-battery">Battery Info</Label>
+                        <Input
+                          id="buoy-battery"
+                          value={newBuoyBatteryInfo}
+                          onChange={(e) => setNewBuoyBatteryInfo(e.target.value)}
+                          placeholder="e.g., 12V 100Ah LiFePO4"
+                          data-testid="input-buoy-battery"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-other">Other Equipment</Label>
+                        <Input
+                          id="buoy-other"
+                          value={newBuoyOtherEquipment}
+                          onChange={(e) => setNewBuoyOtherEquipment(e.target.value)}
+                          placeholder="e.g., GPS, Solar panel 50W"
+                          data-testid="input-buoy-other"
+                        />
                       </div>
                       <Button
                         onClick={handleCreateBuoy}
@@ -912,10 +957,11 @@ export default function AdminDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>Serial Number</TableHead>
                         <TableHead>Ownership</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Club</TableHead>
-                        <TableHead>Battery</TableHead>
+                        <TableHead>Equipment</TableHead>
                         <TableHead className="w-36">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -923,13 +969,12 @@ export default function AdminDashboard() {
                       {buoys.map((buoy) => (
                         <TableRow key={buoy.id} data-testid={`row-buoy-${buoy.id}`}>
                           <TableCell className="font-medium">{buoy.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{buoy.serialNumber || "-"}</TableCell>
                           <TableCell>{getOwnershipBadge(buoy.ownershipType)}</TableCell>
                           <TableCell>{getInventoryStatusBadge(buoy.inventoryStatus)}</TableCell>
                           <TableCell>{getClubName(buoy.sailClubId)}</TableCell>
-                          <TableCell>
-                            <Badge variant={buoy.battery > 20 ? "secondary" : "destructive"}>
-                              {buoy.battery}%
-                            </Badge>
+                          <TableCell className="text-xs text-muted-foreground max-w-40 truncate">
+                            {[buoy.windSensorModel, buoy.cameraModel, buoy.batteryInfo].filter(Boolean).join(", ") || "-"}
                           </TableCell>
                           <TableCell className="flex gap-1">
                             {buoy.inventoryStatus === "in_inventory" && (
