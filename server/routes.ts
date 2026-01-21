@@ -42,6 +42,44 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// Simple in-memory rate limiter for auth endpoints
+const loginAttempts = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_LOGIN_ATTEMPTS = 5;
+
+function checkLoginRateLimit(ip: string): { allowed: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  const record = loginAttempts.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    loginAttempts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+  
+  if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    const retryAfterSeconds = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, retryAfterSeconds };
+  }
+  
+  record.count++;
+  return { allowed: true };
+}
+
+function resetLoginAttempts(ip: string): void {
+  loginAttempts.delete(ip);
+}
+
+// Cleanup old entries periodically
+setInterval(() => {
+  const now = Date.now();
+  const entries = Array.from(loginAttempts.entries());
+  for (const [ip, record] of entries) {
+    if (now > record.resetTime) {
+      loginAttempts.delete(ip);
+    }
+  }
+}, 60 * 1000); // Cleanup every minute
+
 const createUserSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(4),
@@ -60,6 +98,17 @@ export async function registerRoutes(
 
   app.post("/api/auth/login", async (req, res) => {
     try {
+      // Rate limiting check
+      const clientIp = req.ip || req.socket.remoteAddress || "unknown";
+      const rateLimit = checkLoginRateLimit(clientIp);
+      if (!rateLimit.allowed) {
+        res.set("Retry-After", String(rateLimit.retryAfterSeconds));
+        return res.status(429).json({ 
+          error: "Too many login attempts. Please try again later.",
+          retryAfterSeconds: rateLimit.retryAfterSeconds 
+        });
+      }
+      
       const { username, password } = loginSchema.parse(req.body);
       const user = await storage.getUserByUsername(username);
       
@@ -71,6 +120,9 @@ export async function registerRoutes(
       if (!isValid) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      
+      // Successful login - reset rate limit for this IP
+      resetLoginAttempts(clientIp);
       
       req.session.userId = user.id;
       req.session.role = user.role as UserRole;
@@ -352,7 +404,7 @@ export async function registerRoutes(
   });
 
   // Boat Classes (stored in database, not storage interface)
-  app.get("/api/boat-classes", async (req, res) => {
+  app.get("/api/boat-classes", requireAuth, async (req, res) => {
     try {
       const allBoatClasses = await db.select().from(boatClasses).orderBy(boatClasses.name);
       res.json(allBoatClasses);
@@ -362,10 +414,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/boat-classes/:id", async (req, res) => {
+  app.get("/api/boat-classes/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
-      const [boatClass] = await db.select().from(boatClasses).where(eq(boatClasses.id, id));
+      const boatClassId = req.params.id as string;
+      const [boatClass] = await db.select().from(boatClasses).where(eq(boatClasses.id, boatClassId));
       if (!boatClass) {
         return res.status(404).json({ error: "Boat class not found" });
       }
@@ -467,7 +519,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/courses", async (req, res) => {
+  app.get("/api/courses", requireAuth, async (req, res) => {
     try {
       const courses = await storage.getCourses();
       res.json(courses);
@@ -476,9 +528,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/courses/:id", async (req, res) => {
+  app.get("/api/courses/:id", requireAuth, async (req, res) => {
     try {
-      const course = await storage.getCourse(req.params.id);
+      const courseId = req.params.id as string;
+      const course = await storage.getCourse(courseId);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
@@ -761,9 +814,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/courses/:courseId/marks", async (req, res) => {
+  app.get("/api/courses/:courseId/marks", requireAuth, async (req, res) => {
     try {
-      const marks = await storage.getMarksByCourse(req.params.courseId);
+      const courseId = req.params.courseId as string;
+      const marks = await storage.getMarksByCourse(courseId);
       res.json(marks);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch marks" });
@@ -936,7 +990,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/buoys", async (req, res) => {
+  app.get("/api/buoys", requireAuth, async (req, res) => {
     try {
       const sailClubId = req.query.sailClubId as string | undefined;
       const buoys = await storage.getBuoys(sailClubId);
@@ -946,9 +1000,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/buoys/:id", async (req, res) => {
+  app.get("/api/buoys/:id", requireAuth, async (req, res) => {
     try {
-      const buoy = await storage.getBuoy(req.params.id);
+      const buoyId = req.params.id as string;
+      const buoy = await storage.getBuoy(buoyId);
       if (!buoy) {
         return res.status(404).json({ error: "Buoy not found" });
       }

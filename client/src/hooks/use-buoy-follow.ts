@@ -291,12 +291,20 @@ export function useBuoyFollow({
     return () => clearInterval(interval);
   }, [enabled, marks, buoys, buoyFollowSettings, sendBuoyToMark, windDirection, buoyDeployMode]);
 
+  // Clear all timers on unmount
   useEffect(() => {
     return () => {
       debounceTimers.current.forEach(timer => clearTimeout(timer));
       debounceTimers.current.clear();
     };
   }, []);
+
+  // Clear timers when courseId changes to prevent ghost commands to wrong course
+  useEffect(() => {
+    debounceTimers.current.forEach(timer => clearTimeout(timer));
+    debounceTimers.current.clear();
+    lastCommandTime.current.clear();
+  }, [courseId]);
 
   return {
     handleMarkMoved,

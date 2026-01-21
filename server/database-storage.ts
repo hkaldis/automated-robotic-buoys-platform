@@ -187,11 +187,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCourse(id: string): Promise<boolean> {
-    // First delete all marks for this course
-    await db.delete(marks).where(eq(marks.courseId, id));
-    // Then delete the course
-    const result = await db.delete(courses).where(eq(courses.id, id)).returning();
-    return result.length > 0;
+    // Use transaction to ensure marks and course are deleted atomically
+    return await db.transaction(async (tx) => {
+      // First delete all marks for this course
+      await tx.delete(marks).where(eq(marks.courseId, id));
+      // Then delete the course
+      const result = await tx.delete(courses).where(eq(courses.id, id)).returning();
+      return result.length > 0;
+    });
   }
 
   async getMark(id: string): Promise<Mark | undefined> {
