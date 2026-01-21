@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -75,6 +76,9 @@ export default function AdminDashboard() {
   const [assignEventDialogOpen, setAssignEventDialogOpen] = useState(false);
   const [assignToEventId, setAssignToEventId] = useState("");
   const [buoyClubFilter, setBuoyClubFilter] = useState<string>("all");
+  
+  // State for inline buoy assignment popover in events table
+  const [openPopoverEventId, setOpenPopoverEventId] = useState<string | null>(null);
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -306,6 +310,21 @@ export default function AdminDashboard() {
     },
   });
 
+  const releaseBuoyFromEventMutation = useMutation({
+    mutationFn: async ({ buoyId, eventId }: { buoyId: string; eventId: string }) => {
+      const res = await apiRequest("POST", `/api/buoys/${buoyId}/release-event`);
+      return { response: await res.json(), eventId };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${data.eventId}/buoys`] });
+      toast({ title: "Buoy returned to club" });
+    },
+    onError: () => {
+      toast({ title: "Failed to release buoy", variant: "destructive" });
+    },
+  });
+
   const releaseBuoyToInventoryMutation = useMutation({
     mutationFn: async (buoyId: string) => {
       const res = await apiRequest("POST", `/api/buoys/${buoyId}/release-inventory`);
@@ -431,6 +450,34 @@ export default function AdminDashboard() {
       event_manager: "Event Manager",
     };
     return <Badge variant={variants[role] || "outline"}>{labels[role] || role}</Badge>;
+  };
+
+  // Get buoys assigned to a specific event
+  const getBuoysForEvent = (eventId: string) => {
+    return buoys.filter(
+      (b) => b.eventId === eventId && b.inventoryStatus === "assigned_event"
+    );
+  };
+
+  // Get buoys available for assignment to an event (assigned to the event's club but not to any event)
+  const getAvailableBuoysForEvent = (event: Event) => {
+    return buoys.filter(
+      (b) => b.sailClubId === event.sailClubId && b.inventoryStatus === "assigned_club"
+    );
+  };
+
+  // Handle direct assign from events table (closes popover on success)
+  const handleDirectAssignToEvent = (buoyId: string, eventId: string) => {
+    assignBuoyToEventMutation.mutate({ buoyId, eventId }, {
+      onSuccess: () => {
+        setOpenPopoverEventId(null);
+      },
+    });
+  };
+
+  // Handle direct release from events table
+  const handleDirectReleaseFromEvent = (buoyId: string, eventId: string) => {
+    releaseBuoyFromEventMutation.mutate({ buoyId, eventId });
   };
 
   const handleCreateBuoy = () => {
@@ -781,6 +828,7 @@ export default function AdminDashboard() {
                         <TableHead>Club</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Boat Class</TableHead>
+                        <TableHead>Buoys</TableHead>
                         <TableHead className="w-36">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -795,6 +843,74 @@ export default function AdminDashboard() {
                             </Badge>
                           </TableCell>
                           <TableCell>{event.boatClass}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              const eventBuoys = getBuoysForEvent(event.id);
+                              const availableBuoys = getAvailableBuoysForEvent(event);
+                              return (
+                                <div className="flex flex-wrap items-center gap-1">
+                                  {eventBuoys.map((buoy) => (
+                                    <Badge 
+                                      key={buoy.id} 
+                                      variant="outline" 
+                                      className="flex items-center gap-1"
+                                    >
+                                      <span>{buoy.name}</span>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDirectReleaseFromEvent(buoy.id, event.id)}
+                                        disabled={releaseBuoyFromEventMutation.isPending || assignBuoyToEventMutation.isPending}
+                                        title="Return to Club"
+                                        data-testid={`button-release-${buoy.id}`}
+                                      >
+                                        <RotateCcw className="h-3 w-3" />
+                                      </Button>
+                                    </Badge>
+                                  ))}
+                                  {availableBuoys.length > 0 && (
+                                    <Popover 
+                                      open={openPopoverEventId === event.id} 
+                                      onOpenChange={(open) => setOpenPopoverEventId(open ? event.id : null)}
+                                    >
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
+                                          data-testid={`button-add-buoy-${event.id}`}
+                                        >
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Add
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-48 p-2" align="start">
+                                        <div className="space-y-1">
+                                          <p className="text-sm font-medium mb-2">Assign Buoy</p>
+                                          {availableBuoys.map((buoy) => (
+                                            <Button
+                                              key={buoy.id}
+                                              variant="ghost"
+                                              size="sm"
+                                              className="w-full justify-start"
+                                              onClick={() => handleDirectAssignToEvent(buoy.id, event.id)}
+                                              disabled={assignBuoyToEventMutation.isPending || releaseBuoyFromEventMutation.isPending}
+                                              data-testid={`button-assign-${buoy.id}-to-${event.id}`}
+                                            >
+                                              {buoy.name}
+                                            </Button>
+                                          ))}
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
+                                  {eventBuoys.length === 0 && availableBuoys.length === 0 && (
+                                    <span className="text-muted-foreground text-sm">No buoys</span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
                           <TableCell className="flex gap-1">
                             <Button
                               variant="ghost"

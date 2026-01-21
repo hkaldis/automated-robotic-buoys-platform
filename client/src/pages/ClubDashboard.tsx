@@ -187,12 +187,13 @@ export default function ClubDashboard() {
   });
 
   const releaseBuoyFromEventMutation = useMutation({
-    mutationFn: async (buoyId: string) => {
+    mutationFn: async ({ buoyId, eventId }: { buoyId: string; eventId: string }) => {
       const res = await apiRequest("POST", `/api/buoys/${buoyId}/release-event`);
-      return res.json();
+      return { response: await res.json(), eventId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${data.eventId}/buoys`] });
       toast({ title: "Buoy returned to club" });
     },
     onError: () => {
@@ -256,8 +257,8 @@ export default function ClubDashboard() {
   };
 
   // Handle direct release from events table
-  const handleDirectRelease = (buoyId: string) => {
-    releaseBuoyFromEventMutation.mutate(buoyId);
+  const handleDirectRelease = (buoyId: string, eventId: string) => {
+    releaseBuoyFromEventMutation.mutate({ buoyId, eventId });
   };
 
   const handleCreateEvent = () => {
@@ -310,9 +311,11 @@ export default function ClubDashboard() {
     }
   };
 
-  // Quick release from events tab
+  // Quick release from events tab (from manage buoys dialog)
   const handleQuickReleaseBuoy = (buoyId: string) => {
-    releaseBuoyFromEventMutation.mutate(buoyId);
+    if (selectedEventForBuoys) {
+      releaseBuoyFromEventMutation.mutate({ buoyId, eventId: selectedEventForBuoys.id });
+    }
   };
 
   const handleUpdateEvent = () => {
@@ -498,7 +501,7 @@ export default function ClubDashboard() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      onClick={() => handleDirectRelease(buoy.id)}
+                                      onClick={() => handleDirectRelease(buoy.id, event.id)}
                                       disabled={releaseBuoyFromEventMutation.isPending || assignBuoyToEventMutation.isPending}
                                       title="Return to Club"
                                       data-testid={`button-release-${buoy.id}`}
@@ -644,7 +647,7 @@ export default function ClubDashboard() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => releaseBuoyFromEventMutation.mutate(buoy.id)}
+                                onClick={() => buoy.eventId && releaseBuoyFromEventMutation.mutate({ buoyId: buoy.id, eventId: buoy.eventId })}
                                 disabled={releaseBuoyFromEventMutation.isPending}
                                 title="Return to Club"
                                 data-testid={`button-release-event-${buoy.id}`}
