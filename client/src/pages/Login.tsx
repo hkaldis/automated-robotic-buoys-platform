@@ -39,8 +39,8 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className="fixed inset-0 flex items-start justify-center bg-background p-4 pt-[15vh] overflow-auto">
+      <Card className="w-full max-w-md mb-8">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <img src={alconmarksLogo} alt="Alconmarks" className="h-12 rounded" />
