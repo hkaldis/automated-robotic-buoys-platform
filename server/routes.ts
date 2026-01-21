@@ -8,6 +8,7 @@ import {
   insertCourseSchema, 
   insertMarkSchema, 
   insertBuoySchema,
+  insertBuoyAssignmentSchema,
   insertUserSettingsSchema,
   insertSailClubSchema,
   insertCourseSnapshotSchema,
@@ -1000,6 +1001,16 @@ export async function registerRoutes(
     }
   });
 
+  // Get buoys available in inventory (must be before /api/buoys/:id to avoid route conflict)
+  app.get("/api/buoys/inventory", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const buoys = await storage.getAvailableBuoys();
+      res.json(buoys);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch inventory buoys" });
+    }
+  });
+
   app.get("/api/buoys/:id", requireAuth, async (req, res) => {
     try {
       const buoyId = req.params.id as string;
@@ -1089,6 +1100,198 @@ export async function registerRoutes(
       res.json(updated);
     } catch (error) {
       res.status(500).json({ error: "Failed to execute command" });
+    }
+  });
+
+  // Delete buoy (super admin only)
+  app.delete("/api/buoys/:id", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const buoyId = req.params.id as string;
+      const deleted = await storage.deleteBuoy(buoyId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Buoy not found" });
+      }
+      res.json({ message: "Buoy deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete buoy" });
+    }
+  });
+
+  // Get buoys assigned to an event
+  app.get("/api/events/:id/buoys", requireAuth, requireEventAccess, async (req, res) => {
+    try {
+      const eventId = req.params.id as string;
+      const buoys = await storage.getBuoysForEvent(eventId);
+      res.json(buoys);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch event buoys" });
+    }
+  });
+
+  // Get buoy assignment history
+  app.get("/api/buoys/:id/assignments", requireAuth, async (req, res) => {
+    try {
+      const buoyId = req.params.id as string;
+      const assignments = await storage.getBuoyAssignments(buoyId);
+      res.json(assignments);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch buoy assignments" });
+    }
+  });
+
+  // Assign buoy to club (super admin only)
+  app.post("/api/buoys/:id/assign-club", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const buoyId = req.params.id as string;
+      const { sailClubId, notes } = req.body;
+      
+      if (!sailClubId) {
+        return res.status(400).json({ error: "sailClubId is required" });
+      }
+
+      const buoy = await storage.getBuoy(buoyId);
+      if (!buoy) {
+        return res.status(404).json({ error: "Buoy not found" });
+      }
+
+      if (buoy.inventoryStatus !== "in_inventory") {
+        return res.status(400).json({ error: "Buoy must be in inventory to assign to club" });
+      }
+
+      // Create assignment record
+      const assignment = await storage.createBuoyAssignment({
+        buoyId,
+        sailClubId,
+        assignmentType: "club",
+        assignedBy: req.session.userId,
+        notes,
+      });
+
+      // Update buoy status
+      await storage.updateBuoy(buoyId, {
+        sailClubId,
+        inventoryStatus: "assigned_club",
+      });
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to assign buoy to club" });
+    }
+  });
+
+  // Assign buoy to event (super admin or club manager of that club)
+  app.post("/api/buoys/:id/assign-event", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
+    try {
+      const buoyId = req.params.id as string;
+      const { eventId, notes } = req.body;
+      
+      if (!eventId) {
+        return res.status(400).json({ error: "eventId is required" });
+      }
+
+      const buoy = await storage.getBuoy(buoyId);
+      if (!buoy) {
+        return res.status(404).json({ error: "Buoy not found" });
+      }
+
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      // Club manager can only assign buoys from their club
+      if (req.session.role === "club_manager" && buoy.sailClubId !== req.session.sailClubId) {
+        return res.status(403).json({ error: "Can only assign buoys from your club" });
+      }
+
+      if (buoy.inventoryStatus !== "assigned_club") {
+        return res.status(400).json({ error: "Buoy must be assigned to a club first" });
+      }
+
+      // Create assignment record
+      const assignment = await storage.createBuoyAssignment({
+        buoyId,
+        sailClubId: buoy.sailClubId,
+        eventId,
+        assignmentType: "event",
+        assignedBy: req.session.userId,
+        notes,
+      });
+
+      // Update buoy status
+      await storage.updateBuoy(buoyId, {
+        inventoryStatus: "assigned_event",
+      });
+
+      res.status(201).json(assignment);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to assign buoy to event" });
+    }
+  });
+
+  // Release buoy from event (returns to club pool)
+  app.post("/api/buoys/:id/release-event", requireAuth, async (req, res) => {
+    try {
+      const buoyId = req.params.id as string;
+
+      const buoy = await storage.getBuoy(buoyId);
+      if (!buoy) {
+        return res.status(404).json({ error: "Buoy not found" });
+      }
+
+      if (buoy.inventoryStatus !== "assigned_event") {
+        return res.status(400).json({ error: "Buoy is not assigned to an event" });
+      }
+
+      // Check permissions - super admin, club manager of that club, or event manager
+      if (req.session.role === "club_manager" && buoy.sailClubId !== req.session.sailClubId) {
+        return res.status(403).json({ error: "Can only release buoys from your club" });
+      }
+
+      // End the active assignment
+      const activeAssignment = await storage.getActiveAssignmentForBuoy(buoyId);
+      if (activeAssignment) {
+        await storage.endBuoyAssignment(activeAssignment.id);
+      }
+
+      // Update buoy status back to club
+      await storage.updateBuoy(buoyId, {
+        inventoryStatus: "assigned_club",
+      });
+
+      res.json({ message: "Buoy released from event" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to release buoy from event" });
+    }
+  });
+
+  // Release buoy to inventory (super admin only)
+  app.post("/api/buoys/:id/release-inventory", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const buoyId = req.params.id as string;
+
+      const buoy = await storage.getBuoy(buoyId);
+      if (!buoy) {
+        return res.status(404).json({ error: "Buoy not found" });
+      }
+
+      // End all active assignments for this buoy
+      const assignments = await storage.getBuoyAssignments(buoyId);
+      for (const assignment of assignments) {
+        if (assignment.status === "active") {
+          await storage.endBuoyAssignment(assignment.id);
+        }
+      }
+
+      // Update buoy status
+      await storage.updateBuoy(buoyId, {
+        sailClubId: null,
+        inventoryStatus: "in_inventory",
+      });
+
+      res.json({ message: "Buoy returned to inventory" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to return buoy to inventory" });
     }
   });
 

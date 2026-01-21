@@ -8,6 +8,7 @@ import {
   courses,
   marks,
   buoys,
+  buoyAssignments,
   userSettings,
   courseSnapshots,
   type User,
@@ -22,6 +23,8 @@ import {
   type InsertMark,
   type Buoy,
   type InsertBuoy,
+  type BuoyAssignment,
+  type InsertBuoyAssignment,
   type UserSettings,
   type InsertUserSettings,
   type UserEventAccess,
@@ -257,7 +260,10 @@ export class DatabaseStorage implements IStorage {
 
   async createBuoy(buoy: InsertBuoy): Promise<Buoy> {
     const [newBuoy] = await db.insert(buoys).values({
-      ...buoy,
+      name: buoy.name,
+      lat: buoy.lat,
+      lng: buoy.lng,
+      sailClubId: buoy.sailClubId ?? null,
       state: buoy.state ?? "idle",
       speed: buoy.speed ?? 0,
       battery: buoy.battery ?? 100,
@@ -269,12 +275,84 @@ export class DatabaseStorage implements IStorage {
       currentSpeed: buoy.currentSpeed ?? null,
       currentDirection: buoy.currentDirection ?? null,
       eta: buoy.eta ?? null,
+      ownershipType: buoy.ownershipType ?? "platform_owned",
+      inventoryStatus: buoy.inventoryStatus ?? "in_inventory",
+      hardwareConfig: buoy.hardwareConfig as Buoy["hardwareConfig"] ?? null,
     }).returning();
     return newBuoy;
   }
 
   async updateBuoy(id: string, buoy: Partial<InsertBuoy>): Promise<Buoy | undefined> {
-    const [updated] = await db.update(buoys).set(buoy).where(eq(buoys.id, id)).returning();
+    const updateData: Record<string, unknown> = { ...buoy };
+    if (buoy.hardwareConfig !== undefined) {
+      updateData.hardwareConfig = buoy.hardwareConfig as Buoy["hardwareConfig"];
+    }
+    const [updated] = await db.update(buoys).set(updateData).where(eq(buoys.id, id)).returning();
+    return updated;
+  }
+
+  async deleteBuoy(id: string): Promise<boolean> {
+    const result = await db.delete(buoys).where(eq(buoys.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getBuoysForEvent(eventId: string): Promise<Buoy[]> {
+    const activeAssignments = await db.select()
+      .from(buoyAssignments)
+      .where(and(
+        eq(buoyAssignments.eventId, eventId),
+        eq(buoyAssignments.status, "active")
+      ));
+    
+    if (activeAssignments.length === 0) return [];
+    
+    const buoyIds = activeAssignments.map(a => a.buoyId);
+    return db.select().from(buoys).where(
+      sql`${buoys.id} IN (${sql.join(buoyIds.map(id => sql`${id}`), sql`, `)})`
+    );
+  }
+
+  async getAvailableBuoys(): Promise<Buoy[]> {
+    return db.select().from(buoys).where(eq(buoys.inventoryStatus, "in_inventory"));
+  }
+
+  async getBuoyAssignment(id: string): Promise<BuoyAssignment | undefined> {
+    const [assignment] = await db.select().from(buoyAssignments).where(eq(buoyAssignments.id, id));
+    return assignment;
+  }
+
+  async getBuoyAssignments(buoyId: string): Promise<BuoyAssignment[]> {
+    return db.select().from(buoyAssignments).where(eq(buoyAssignments.buoyId, buoyId));
+  }
+
+  async getActiveAssignmentForBuoy(buoyId: string): Promise<BuoyAssignment | undefined> {
+    const [assignment] = await db.select()
+      .from(buoyAssignments)
+      .where(and(
+        eq(buoyAssignments.buoyId, buoyId),
+        eq(buoyAssignments.status, "active")
+      ));
+    return assignment;
+  }
+
+  async createBuoyAssignment(assignment: InsertBuoyAssignment): Promise<BuoyAssignment> {
+    const [newAssignment] = await db.insert(buoyAssignments).values({
+      buoyId: assignment.buoyId,
+      sailClubId: assignment.sailClubId ?? null,
+      eventId: assignment.eventId ?? null,
+      assignmentType: assignment.assignmentType,
+      status: assignment.status ?? "active",
+      assignedBy: assignment.assignedBy ?? null,
+      notes: assignment.notes ?? null,
+    }).returning();
+    return newAssignment;
+  }
+
+  async endBuoyAssignment(id: string): Promise<BuoyAssignment | undefined> {
+    const [updated] = await db.update(buoyAssignments)
+      .set({ status: "ended", endAt: new Date() })
+      .where(eq(buoyAssignments.id, id))
+      .returning();
     return updated;
   }
 

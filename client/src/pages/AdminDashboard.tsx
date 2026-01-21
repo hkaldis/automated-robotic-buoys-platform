@@ -13,8 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil } from "lucide-react";
-import type { SailClub, UserRole, Event } from "@shared/schema";
+import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw } from "lucide-react";
+import type { SailClub, UserRole, Event, Buoy } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -50,6 +50,14 @@ export default function AdminDashboard() {
   const [editEventName, setEditEventName] = useState("");
   const [editEventType, setEditEventType] = useState<"race" | "training">("race");
   const [editEventBoatClassId, setEditEventBoatClassId] = useState<string>("");
+  const [buoyDialogOpen, setBuoyDialogOpen] = useState(false);
+  const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
+  const [newBuoyName, setNewBuoyName] = useState("");
+  const [newBuoyLat, setNewBuoyLat] = useState("0");
+  const [newBuoyLng, setNewBuoyLng] = useState("0");
+  const [newBuoyOwnership, setNewBuoyOwnership] = useState<"platform_owned" | "long_rental" | "event_rental">("platform_owned");
+  const [selectedBuoyForAssign, setSelectedBuoyForAssign] = useState<Buoy | null>(null);
+  const [assignToClubId, setAssignToClubId] = useState("");
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -65,6 +73,10 @@ export default function AdminDashboard() {
 
   const { data: boatClassesData, isLoading: boatClassesLoading } = useBoatClasses();
   const boatClasses = boatClassesData || [];
+
+  const { data: buoys = [], isLoading: buoysLoading } = useQuery<Buoy[]>({
+    queryKey: ["/api/buoys"],
+  });
 
   const createClubMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -191,6 +203,72 @@ export default function AdminDashboard() {
     },
   });
 
+  const createBuoyMutation = useMutation({
+    mutationFn: async (data: { name: string; lat: number; lng: number; ownershipType: string }) => {
+      const res = await apiRequest("POST", "/api/buoys", {
+        ...data,
+        inventoryStatus: "in_inventory",
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      setBuoyDialogOpen(false);
+      setNewBuoyName("");
+      setNewBuoyLat("0");
+      setNewBuoyLng("0");
+      setNewBuoyOwnership("platform_owned");
+      toast({ title: "Buoy created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create buoy", variant: "destructive" });
+    },
+  });
+
+  const deleteBuoyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/buoys/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      toast({ title: "Buoy deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete buoy", variant: "destructive" });
+    },
+  });
+
+  const assignBuoyToClubMutation = useMutation({
+    mutationFn: async ({ buoyId, sailClubId }: { buoyId: string; sailClubId: string }) => {
+      const res = await apiRequest("POST", `/api/buoys/${buoyId}/assign-club`, { sailClubId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      setAssignBuoyDialogOpen(false);
+      setSelectedBuoyForAssign(null);
+      setAssignToClubId("");
+      toast({ title: "Buoy assigned to club" });
+    },
+    onError: () => {
+      toast({ title: "Failed to assign buoy", variant: "destructive" });
+    },
+  });
+
+  const releaseBuoyToInventoryMutation = useMutation({
+    mutationFn: async (buoyId: string) => {
+      const res = await apiRequest("POST", `/api/buoys/${buoyId}/release-inventory`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      toast({ title: "Buoy returned to inventory" });
+    },
+    onError: () => {
+      toast({ title: "Failed to release buoy", variant: "destructive" });
+    },
+  });
+
   const handleCreateClub = () => {
     if (newClubName.trim()) {
       createClubMutation.mutate(newClubName.trim());
@@ -278,6 +356,59 @@ export default function AdminDashboard() {
     return <Badge variant={variants[role] || "outline"}>{labels[role] || role}</Badge>;
   };
 
+  const handleCreateBuoy = () => {
+    if (newBuoyName.trim()) {
+      createBuoyMutation.mutate({
+        name: newBuoyName.trim(),
+        lat: parseFloat(newBuoyLat) || 0,
+        lng: parseFloat(newBuoyLng) || 0,
+        ownershipType: newBuoyOwnership,
+      });
+    }
+  };
+
+  const handleOpenAssignDialog = (buoy: Buoy) => {
+    setSelectedBuoyForAssign(buoy);
+    setAssignToClubId("");
+    setAssignBuoyDialogOpen(true);
+  };
+
+  const handleAssignBuoyToClub = () => {
+    if (selectedBuoyForAssign && assignToClubId) {
+      assignBuoyToClubMutation.mutate({
+        buoyId: selectedBuoyForAssign.id,
+        sailClubId: assignToClubId,
+      });
+    }
+  };
+
+  const getInventoryStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+      in_inventory: "secondary",
+      assigned_club: "default",
+      assigned_event: "outline",
+      maintenance: "destructive",
+      retired: "destructive",
+    };
+    const labels: Record<string, string> = {
+      in_inventory: "In Inventory",
+      assigned_club: "At Club",
+      assigned_event: "At Event",
+      maintenance: "Maintenance",
+      retired: "Retired",
+    };
+    return <Badge variant={variants[status] || "outline"}>{labels[status] || status}</Badge>;
+  };
+
+  const getOwnershipBadge = (ownership: string) => {
+    const labels: Record<string, string> = {
+      platform_owned: "Platform Owned",
+      long_rental: "Long Rental",
+      event_rental: "Event Rental",
+    };
+    return <Badge variant="outline">{labels[ownership] || ownership}</Badge>;
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card px-4 py-3 flex items-center justify-between gap-4">
@@ -316,6 +447,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="users" className="gap-2" data-testid="tab-users">
               <Users className="h-4 w-4" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="buoys" className="gap-2" data-testid="tab-buoys">
+              <Anchor className="h-4 w-4" />
+              Buoys
             </TabsTrigger>
           </TabsList>
 
@@ -685,8 +820,197 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="buoys">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Buoy Inventory</CardTitle>
+                  <CardDescription>Manage robotic buoys across the platform</CardDescription>
+                </div>
+                <Dialog open={buoyDialogOpen} onOpenChange={setBuoyDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-buoy">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Buoy
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Buoy</DialogTitle>
+                      <DialogDescription>Register a new robotic buoy to the inventory</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-name">Buoy Name</Label>
+                        <Input
+                          id="buoy-name"
+                          value={newBuoyName}
+                          onChange={(e) => setNewBuoyName(e.target.value)}
+                          placeholder="e.g., Buoy-001"
+                          data-testid="input-buoy-name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="buoy-lat">Latitude</Label>
+                          <Input
+                            id="buoy-lat"
+                            type="number"
+                            step="0.000001"
+                            value={newBuoyLat}
+                            onChange={(e) => setNewBuoyLat(e.target.value)}
+                            data-testid="input-buoy-lat"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="buoy-lng">Longitude</Label>
+                          <Input
+                            id="buoy-lng"
+                            type="number"
+                            step="0.000001"
+                            value={newBuoyLng}
+                            onChange={(e) => setNewBuoyLng(e.target.value)}
+                            data-testid="input-buoy-lng"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="buoy-ownership">Ownership Type</Label>
+                        <Select value={newBuoyOwnership} onValueChange={(v) => setNewBuoyOwnership(v as "platform_owned" | "long_rental" | "event_rental")}>
+                          <SelectTrigger data-testid="select-buoy-ownership">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="platform_owned">Platform Owned</SelectItem>
+                            <SelectItem value="long_rental">Long Rental</SelectItem>
+                            <SelectItem value="event_rental">Event Rental</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        onClick={handleCreateBuoy}
+                        disabled={createBuoyMutation.isPending || !newBuoyName.trim()}
+                        className="w-full"
+                        data-testid="button-create-buoy"
+                      >
+                        {createBuoyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add Buoy"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {buoysLoading ? (
+                  <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : buoys.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No buoys in inventory. Add your first buoy.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Ownership</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Club</TableHead>
+                        <TableHead>Battery</TableHead>
+                        <TableHead className="w-36">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {buoys.map((buoy) => (
+                        <TableRow key={buoy.id} data-testid={`row-buoy-${buoy.id}`}>
+                          <TableCell className="font-medium">{buoy.name}</TableCell>
+                          <TableCell>{getOwnershipBadge(buoy.ownershipType)}</TableCell>
+                          <TableCell>{getInventoryStatusBadge(buoy.inventoryStatus)}</TableCell>
+                          <TableCell>{getClubName(buoy.sailClubId)}</TableCell>
+                          <TableCell>
+                            <Badge variant={buoy.battery > 20 ? "secondary" : "destructive"}>
+                              {buoy.battery}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="flex gap-1">
+                            {buoy.inventoryStatus === "in_inventory" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenAssignDialog(buoy)}
+                                title="Assign to Club"
+                                data-testid={`button-assign-buoy-${buoy.id}`}
+                              >
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(buoy.inventoryStatus === "assigned_club" || buoy.inventoryStatus === "assigned_event") && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => releaseBuoyToInventoryMutation.mutate(buoy.id)}
+                                disabled={releaseBuoyToInventoryMutation.isPending}
+                                title="Return to Inventory"
+                                data-testid={`button-release-buoy-${buoy.id}`}
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteBuoyMutation.mutate(buoy.id)}
+                              disabled={deleteBuoyMutation.isPending}
+                              data-testid={`button-delete-buoy-${buoy.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={assignBuoyDialogOpen} onOpenChange={setAssignBuoyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Buoy to Club</DialogTitle>
+            <DialogDescription>
+              Assign {selectedBuoyForAssign?.name} to a sailing club
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="assign-club">Select Club</Label>
+              <Select value={assignToClubId} onValueChange={setAssignToClubId}>
+                <SelectTrigger data-testid="select-assign-club">
+                  <SelectValue placeholder="Select a club" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clubs.map((club) => (
+                    <SelectItem key={club.id} value={club.id}>
+                      {club.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleAssignBuoyToClub}
+              disabled={assignBuoyToClubMutation.isPending || !assignToClubId}
+              className="w-full"
+              data-testid="button-confirm-assign-buoy"
+            >
+              {assignBuoyToClubMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign to Club"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editClubDialogOpen} onOpenChange={setEditClubDialogOpen}>
         <DialogContent>

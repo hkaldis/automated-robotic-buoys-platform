@@ -5,6 +5,7 @@ import {
   type Course, type InsertCourse,
   type Mark, type InsertMark,
   type Buoy, type InsertBuoy,
+  type BuoyAssignment, type InsertBuoyAssignment,
   type UserSettings, type InsertUserSettings,
   type UserEventAccess, type InsertUserEventAccess,
   type CourseSnapshot, type InsertCourseSnapshot,
@@ -51,8 +52,17 @@ export interface IStorage {
 
   getBuoy(id: string): Promise<Buoy | undefined>;
   getBuoys(sailClubId?: string): Promise<Buoy[]>;
+  getBuoysForEvent(eventId: string): Promise<Buoy[]>;
+  getAvailableBuoys(): Promise<Buoy[]>;
   createBuoy(buoy: InsertBuoy): Promise<Buoy>;
   updateBuoy(id: string, buoy: Partial<InsertBuoy>): Promise<Buoy | undefined>;
+  deleteBuoy(id: string): Promise<boolean>;
+
+  getBuoyAssignment(id: string): Promise<BuoyAssignment | undefined>;
+  getBuoyAssignments(buoyId: string): Promise<BuoyAssignment[]>;
+  getActiveAssignmentForBuoy(buoyId: string): Promise<BuoyAssignment | undefined>;
+  createBuoyAssignment(assignment: InsertBuoyAssignment): Promise<BuoyAssignment>;
+  endBuoyAssignment(id: string): Promise<BuoyAssignment | undefined>;
 
   getUserSettings(userId: string): Promise<UserSettings | undefined>;
   createUserSettings(settings: InsertUserSettings): Promise<UserSettings>;
@@ -95,6 +105,7 @@ export class MemStorage implements IStorage {
   private courses: Map<string, Course> = new Map();
   private marks: Map<string, Mark> = new Map();
   private buoys: Map<string, Buoy> = new Map();
+  private buoyAssignments: Map<string, BuoyAssignment> = new Map();
   private userSettings: Map<string, UserSettings> = new Map();
   private courseSnapshots: Map<string, CourseSnapshot> = new Map();
 
@@ -440,8 +451,11 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const newBuoy: Buoy = { 
       id, 
-      ...buoy,
+      name: buoy.name,
+      sailClubId: buoy.sailClubId ?? null,
       state: buoy.state ?? "idle",
+      lat: buoy.lat,
+      lng: buoy.lng,
       speed: buoy.speed ?? 0,
       battery: buoy.battery ?? 100,
       signalStrength: buoy.signalStrength ?? 100,
@@ -452,6 +466,10 @@ export class MemStorage implements IStorage {
       currentSpeed: buoy.currentSpeed ?? null,
       currentDirection: buoy.currentDirection ?? null,
       eta: buoy.eta ?? null,
+      ownershipType: buoy.ownershipType ?? "platform_owned",
+      inventoryStatus: buoy.inventoryStatus ?? "in_inventory",
+      hardwareConfig: buoy.hardwareConfig as Buoy["hardwareConfig"] ?? null,
+      createdAt: new Date(),
     };
     this.buoys.set(id, newBuoy);
     return newBuoy;
@@ -460,8 +478,74 @@ export class MemStorage implements IStorage {
   async updateBuoy(id: string, buoy: Partial<InsertBuoy>): Promise<Buoy | undefined> {
     const existing = this.buoys.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...buoy };
+    const updated: Buoy = { 
+      ...existing, 
+      ...buoy,
+      hardwareConfig: buoy.hardwareConfig !== undefined 
+        ? buoy.hardwareConfig as Buoy["hardwareConfig"]
+        : existing.hardwareConfig,
+    };
     this.buoys.set(id, updated);
+    return updated;
+  }
+
+  async deleteBuoy(id: string): Promise<boolean> {
+    return this.buoys.delete(id);
+  }
+
+  async getBuoysForEvent(eventId: string): Promise<Buoy[]> {
+    const activeAssignments = Array.from(this.buoyAssignments.values())
+      .filter(a => a.eventId === eventId && a.status === "active");
+    const buoyIds = new Set(activeAssignments.map(a => a.buoyId));
+    return Array.from(this.buoys.values()).filter(b => buoyIds.has(b.id));
+  }
+
+  async getAvailableBuoys(): Promise<Buoy[]> {
+    return Array.from(this.buoys.values())
+      .filter(b => b.inventoryStatus === "in_inventory");
+  }
+
+  async getBuoyAssignment(id: string): Promise<BuoyAssignment | undefined> {
+    return this.buoyAssignments.get(id);
+  }
+
+  async getBuoyAssignments(buoyId: string): Promise<BuoyAssignment[]> {
+    return Array.from(this.buoyAssignments.values())
+      .filter(a => a.buoyId === buoyId);
+  }
+
+  async getActiveAssignmentForBuoy(buoyId: string): Promise<BuoyAssignment | undefined> {
+    return Array.from(this.buoyAssignments.values())
+      .find(a => a.buoyId === buoyId && a.status === "active");
+  }
+
+  async createBuoyAssignment(assignment: InsertBuoyAssignment): Promise<BuoyAssignment> {
+    const id = randomUUID();
+    const newAssignment: BuoyAssignment = {
+      id,
+      buoyId: assignment.buoyId,
+      sailClubId: assignment.sailClubId ?? null,
+      eventId: assignment.eventId ?? null,
+      assignmentType: assignment.assignmentType,
+      status: assignment.status ?? "active",
+      startAt: new Date(),
+      endAt: null,
+      assignedBy: assignment.assignedBy ?? null,
+      notes: assignment.notes ?? null,
+    };
+    this.buoyAssignments.set(id, newAssignment);
+    return newAssignment;
+  }
+
+  async endBuoyAssignment(id: string): Promise<BuoyAssignment | undefined> {
+    const existing = this.buoyAssignments.get(id);
+    if (!existing) return undefined;
+    const updated: BuoyAssignment = {
+      ...existing,
+      status: "ended",
+      endAt: new Date(),
+    };
+    this.buoyAssignments.set(id, updated);
     return updated;
   }
 
