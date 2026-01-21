@@ -457,9 +457,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       case "west": visualAngle = 270; break;  // Left on screen
     }
     
-    // Geographic direction = visual direction + map bearing
-    // (because map is rotated by bearing degrees clockwise)
-    const geoAngle = (visualAngle + mapBearing) % 360;
+    // Geographic direction = visual direction - map bearing
+    // When map is rotated clockwise by B degrees, visual "up" points to geographic (360-B)
+    const geoAngle = ((visualAngle - mapBearing) % 360 + 360) % 360;
     const geoAngleRad = (geoAngle * Math.PI) / 180;
     
     // Convert angle to lat/lng delta
@@ -2359,6 +2359,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               roundingSequence={roundingSequence}
               windDirection={activeWeatherData?.windDirection}
               windSpeed={activeWeatherData?.windSpeed}
+              mapBearing={mapBearing}
               onMarkSelect={handleMarkSelectFromPanel}
               onBuoySelect={setSelectedBuoyId}
               onDeployCourse={handleDeployCourse}

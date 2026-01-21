@@ -53,6 +53,7 @@ interface SetupPanelProps {
   roundingSequence?: string[];
   windDirection?: number;
   windSpeed?: number;
+  mapBearing?: number; // Current map rotation in degrees (0 = north up)
   onMarkSelect?: (markId: string | null) => void;
   onBuoySelect?: (buoyId: string | null) => void;
   onDeployCourse?: () => void;
@@ -85,6 +86,7 @@ export function SetupPanel({
   roundingSequence = [],
   windDirection,
   windSpeed,
+  mapBearing = 0,
   onMarkSelect,
   onBuoySelect,
   onDeployCourse,
@@ -115,6 +117,34 @@ export function SetupPanel({
   
   // Start line adjustment settings
   const { startLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings } = useSettings();
+  
+  // Transform visual direction to geographic lat/lng delta based on map bearing
+  // When map is rotated, visual "up" is not geographic north
+  const getTransformedCourseMove = useCallback((
+    visualDirection: "north" | "south" | "east" | "west",
+    moveAmount: number
+  ): { translateLat: number; translateLng: number } => {
+    // Convert visual direction to angle (0 = up/north on screen, clockwise)
+    let visualAngle = 0;
+    switch (visualDirection) {
+      case "north": visualAngle = 0; break;   // Up on screen
+      case "east": visualAngle = 90; break;   // Right on screen
+      case "south": visualAngle = 180; break; // Down on screen
+      case "west": visualAngle = 270; break;  // Left on screen
+    }
+    
+    // Geographic direction = visual direction - map bearing
+    // When map is rotated clockwise by B degrees, visual "up" points to geographic (360-B)
+    const geoAngle = ((visualAngle - mapBearing) % 360 + 360) % 360;
+    const geoAngleRad = (geoAngle * Math.PI) / 180;
+    
+    // Convert angle to lat/lng delta
+    // 0° = North (+lat), 90° = East (+lng), 180° = South (-lat), 270° = West (-lng)
+    const translateLat = moveAmount * Math.cos(geoAngleRad);
+    const translateLng = moveAmount * Math.sin(geoAngleRad);
+    
+    return { translateLat, translateLng };
+  }, [mapBearing]);
   
   // Allow override of boat class in Review phase for quick at-sea comparisons
   // Initialize to event's boat class ID so dropdown shows event's selection by default
@@ -1567,7 +1597,7 @@ export function SetupPanel({
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => onTransformCourse?.({ translateLat: 0.001 })}
+                        onClick={() => onTransformCourse?.(getTransformedCourseMove("north", 0.001))}
                         data-testid="button-move-north"
                       >
                         <ChevronLeft className="w-4 h-4 rotate-90" />
@@ -1576,7 +1606,7 @@ export function SetupPanel({
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => onTransformCourse?.({ translateLng: -0.001 })}
+                          onClick={() => onTransformCourse?.(getTransformedCourseMove("west", 0.001))}
                           data-testid="button-move-west"
                         >
                           <ChevronLeft className="w-4 h-4" />
@@ -1587,7 +1617,7 @@ export function SetupPanel({
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => onTransformCourse?.({ translateLng: 0.001 })}
+                          onClick={() => onTransformCourse?.(getTransformedCourseMove("east", 0.001))}
                           data-testid="button-move-east"
                         >
                           <ChevronRight className="w-4 h-4" />
@@ -1596,7 +1626,7 @@ export function SetupPanel({
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => onTransformCourse?.({ translateLat: -0.001 })}
+                        onClick={() => onTransformCourse?.(getTransformedCourseMove("south", 0.001))}
                         data-testid="button-move-south"
                       >
                         <ChevronRight className="w-4 h-4 rotate-90" />
