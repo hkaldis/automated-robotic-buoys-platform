@@ -21,6 +21,12 @@ export const buoyStateSchema = z.enum([
 ]);
 export type BuoyState = z.infer<typeof buoyStateSchema>;
 
+export const buoyOwnershipSchema = z.enum(["platform_owned", "long_rental", "event_rental"]);
+export type BuoyOwnership = z.infer<typeof buoyOwnershipSchema>;
+
+export const buoyInventoryStatusSchema = z.enum(["in_inventory", "assigned_club", "assigned_event", "maintenance", "retired"]);
+export type BuoyInventoryStatus = z.infer<typeof buoyInventoryStatusSchema>;
+
 export const markRoleSchema = z.enum([
   "start_boat",    // Committee boat at starboard end of start line
   "pin",           // Pin mark at port end of start line
@@ -159,7 +165,7 @@ export const marks = pgTable("marks", {
 export const buoys = pgTable("buoys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  sailClubId: varchar("sail_club_id").notNull(),
+  sailClubId: varchar("sail_club_id"),
   state: text("state").notNull().default("idle"),
   lat: real("lat").notNull(),
   lng: real("lng").notNull(),
@@ -173,6 +179,28 @@ export const buoys = pgTable("buoys", {
   currentSpeed: real("current_speed"),
   currentDirection: real("current_direction"),
   eta: integer("eta"),
+  ownershipType: text("ownership_type").notNull().default("platform_owned"),
+  inventoryStatus: text("inventory_status").notNull().default("in_inventory"),
+  hardwareConfig: jsonb("hardware_config").$type<{
+    sensors?: string[];
+    firmwareVersion?: string;
+    hardwareRevision?: string;
+    notes?: string;
+  }>(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const buoyAssignments = pgTable("buoy_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buoyId: varchar("buoy_id").notNull(),
+  sailClubId: varchar("sail_club_id"),
+  eventId: varchar("event_id"),
+  assignmentType: text("assignment_type").notNull(),
+  status: text("status").notNull().default("active"),
+  startAt: timestamp("start_at").defaultNow(),
+  endAt: timestamp("end_at"),
+  assignedBy: varchar("assigned_by"),
+  notes: text("notes"),
 });
 
 export const userSettings = pgTable("user_settings", {
@@ -331,6 +359,19 @@ export const insertBuoySchema = createInsertSchema(buoys).pick({
   currentSpeed: true,
   currentDirection: true,
   eta: true,
+  ownershipType: true,
+  inventoryStatus: true,
+  hardwareConfig: true,
+});
+
+export const insertBuoyAssignmentSchema = createInsertSchema(buoyAssignments).pick({
+  buoyId: true,
+  sailClubId: true,
+  eventId: true,
+  assignmentType: true,
+  status: true,
+  assignedBy: true,
+  notes: true,
 });
 
 export const insertUserSettingsSchema = createInsertSchema(userSettings).pick({
@@ -382,6 +423,9 @@ export type Mark = typeof marks.$inferSelect;
 
 export type InsertBuoy = z.infer<typeof insertBuoySchema>;
 export type Buoy = typeof buoys.$inferSelect;
+
+export type InsertBuoyAssignment = z.infer<typeof insertBuoyAssignmentSchema>;
+export type BuoyAssignment = typeof buoyAssignments.$inferSelect;
 
 export type InsertUserSettings = z.infer<typeof insertUserSettingsSchema>;
 export type UserSettings = typeof userSettings.$inferSelect;
