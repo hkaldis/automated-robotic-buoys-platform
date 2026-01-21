@@ -163,7 +163,9 @@ export function SetupPanel({
   // Categorize marks
   const startLineMarks = useMemo(() => marks.filter(m => m.isStartLine), [marks]);
   const finishLineMarks = useMemo(() => marks.filter(m => m.isFinishLine), [marks]);
-  const courseMarks = useMemo(() => marks.filter(m => m.isCourseMark === true), [marks]);
+  const courseMarks = useMemo(() => 
+    marks.filter(m => m.isCourseMark === true).sort((a, b) => a.order - b.order), 
+  [marks]);
   
   // Phase completion checks - NEW ORDER: start_line → marks → finish_line → assign_buoys
   const hasStartLine = startLineMarks.length >= 2;
