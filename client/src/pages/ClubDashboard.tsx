@@ -189,10 +189,10 @@ export default function ClubDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
-      toast({ title: "Buoy released from event" });
+      toast({ title: "Buoy returned to club" });
     },
     onError: () => {
-      toast({ title: "Failed to release buoy from event", variant: "destructive" });
+      toast({ title: "Failed to return buoy to club", variant: "destructive" });
     },
   });
 
@@ -267,11 +267,11 @@ export default function ClubDashboard() {
     (b) => b.inventoryStatus === "assigned_club" && !b.eventId
   );
 
-  // Get buoys assigned to the selected event (only valid statuses)
+  // Get buoys assigned to the selected event
   const eventBuoys = selectedEventForBuoys
     ? clubBuoys.filter((b) => 
         b.eventId === selectedEventForBuoys.id && 
-        (b.inventoryStatus === "assigned_event" || b.inventoryStatus === "assigned_club")
+        b.inventoryStatus === "assigned_event"
       )
     : [];
 
@@ -549,13 +549,13 @@ export default function ClubDashboard() {
                                 <ArrowRight className="h-4 w-4" />
                               </Button>
                             )}
-                            {buoy.eventId && (buoy.inventoryStatus === "assigned_event" || buoy.inventoryStatus === "assigned_club") && (
+                            {buoy.inventoryStatus === "assigned_event" && buoy.eventId && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => releaseBuoyFromEventMutation.mutate(buoy.id)}
                                 disabled={releaseBuoyFromEventMutation.isPending}
-                                title="Retrieve from Event"
+                                title="Return to Club"
                                 data-testid={`button-release-event-${buoy.id}`}
                               >
                                 <RotateCcw className="h-4 w-4" />
@@ -828,7 +828,7 @@ export default function ClubDashboard() {
                         data-testid={`button-retrieve-buoy-${buoy.id}`}
                       >
                         <RotateCcw className="h-4 w-4 mr-2" />
-                        Retrieve
+                        Return to Club
                       </Button>
                     </div>
                   ))}
