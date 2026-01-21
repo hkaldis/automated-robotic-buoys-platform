@@ -1,4 +1,4 @@
-import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,8 @@ interface TopBarProps {
   onToggleDemoMode?: () => void;
   onBackClick?: () => void;
   onClearCourse?: () => void;
+  pendingDeployments?: number;
+  onDeployBuoys?: () => void;
 }
 
 export function TopBar({ 
@@ -35,6 +37,8 @@ export function TopBar({
   onToggleDemoMode,
   onBackClick,
   onClearCourse,
+  pendingDeployments = 0,
+  onDeployBuoys,
 }: TopBarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { formatSpeed, formatBearing } = useSettings();
@@ -148,6 +152,24 @@ export function TopBar({
           <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-600 border-yellow-500/30 text-xs">
             DEMO
           </Badge>
+        )}
+
+        {pendingDeployments > 0 && onDeployBuoys && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                onClick={onDeployBuoys}
+                className="gap-2"
+                data-testid="button-deploy-buoys"
+              >
+                <Rocket className="w-4 h-4" />
+                Deploy ({pendingDeployments})
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Deploy {pendingDeployments} buoy{pendingDeployments !== 1 ? 's' : ''} to target positions
+            </TooltipContent>
+          </Tooltip>
         )}
 
         {onClearCourse && (

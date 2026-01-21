@@ -2061,6 +2061,14 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           }
         }}
         onClearCourse={() => setShowClearCourseConfirm(true)}
+        pendingDeployments={buoyDeployMode === "manual" ? pendingDeployments.length : 0}
+        onDeployBuoys={() => {
+          const count = deployAllPending();
+          toast({
+            title: "Deploying Buoys",
+            description: `Sending ${count} buoy${count !== 1 ? 's' : ''} to their target positions`,
+          });
+        }}
       />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -2116,14 +2124,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             mapLayer={mapLayer}
             showSeaMarks={showSeaMarks}
             pendingDeployments={pendingDeployments}
-            buoyDeployMode={buoyDeployMode}
-            onDeployBuoys={() => {
-              const count = deployAllPending();
-              toast({
-                title: "Deploying Buoys",
-                description: `Sending ${count} buoy${count !== 1 ? 's' : ''} to their target positions`,
-              });
-            }}
           />
         </main>
 

@@ -2,10 +2,10 @@ import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2, Rocket } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import type { MapLayerType, BuoyDeployMode } from "@/lib/services/settings-service";
+import type { MapLayerType } from "@/lib/services/settings-service";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
@@ -55,8 +55,6 @@ interface LeafletMapProps {
   mapLayer?: MapLayerType;
   showSeaMarks?: boolean;
   pendingDeployments?: PendingDeployment[];
-  buoyDeployMode?: BuoyDeployMode;
-  onDeployBuoys?: () => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -730,8 +728,6 @@ export function LeafletMap({
   mapLayer = "osm",
   showSeaMarks = true,
   pendingDeployments = [],
-  buoyDeployMode,
-  onDeployBuoys,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -1058,28 +1054,6 @@ export function LeafletMap({
             <LocateFixed className="w-4 h-4" />
           </Button>
         </Card>
-        
-        {buoyDeployMode === "manual" && pendingDeployments.length > 0 && (
-          <>
-            <div className="h-2" />
-            <UITooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="default"
-                  className="gap-2 shadow-lg"
-                  onClick={onDeployBuoys}
-                  data-testid="button-deploy-buoys"
-                >
-                  <Rocket className="w-4 h-4" />
-                  <span>{pendingDeployments.length}</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                Deploy {pendingDeployments.length} buoy{pendingDeployments.length !== 1 ? 's' : ''} to target positions
-              </TooltipContent>
-            </UITooltip>
-          </>
-        )}
         
         <div className="h-2" />
         
