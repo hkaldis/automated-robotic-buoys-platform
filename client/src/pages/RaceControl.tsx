@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { TopBar } from "@/components/TopBar";
 import { LeafletMap } from "@/components/LeafletMap";
 import { SetupPanel } from "@/components/SetupPanel";
@@ -359,9 +360,17 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
 
-  const { data: apiBuoys = [], isLoading: buoysLoading } = useBuoys();
+  const { data: allBuoys = [], isLoading: allBuoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: courses = [], isLoading: coursesLoading } = useCourses();
+  
+  const { data: eventBuoys = [], isLoading: eventBuoysLoading } = useQuery<Buoy[]>({
+    queryKey: [`/api/events/${activeEventId}/buoys`],
+    enabled: !!activeEventId && !demoMode,
+  });
+  
+  const buoysLoading = activeEventId ? eventBuoysLoading : allBuoysLoading;
+  const apiBuoys = activeEventId ? eventBuoys : allBuoys;
   const { data: weatherData, isLoading: weatherLoading } = useWeatherData();
   const weatherByLocation = useWeatherByLocation();
   

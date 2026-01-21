@@ -3,187 +3,55 @@ import type { Buoy } from "@shared/schema";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 
+const createDemoBuoy = (
+  id: string,
+  name: string,
+  latOffset: number,
+  lngOffset: number,
+  battery: number,
+  signalStrength: number,
+  windSpeed: number,
+  windDirection: number
+): Buoy => ({
+  id,
+  name,
+  sailClubId: "demo-club",
+  eventId: "demo-event",
+  state: "idle",
+  lat: MIKROLIMANO_CENTER.lat + latOffset,
+  lng: MIKROLIMANO_CENTER.lng + lngOffset,
+  targetLat: null,
+  targetLng: null,
+  speed: 0,
+  battery,
+  signalStrength,
+  windSpeed,
+  windDirection,
+  currentSpeed: 0.8,
+  currentDirection: 180,
+  eta: null,
+  createdAt: null,
+  serialNumber: null,
+  ownershipType: "platform_owned",
+  inventoryStatus: "assigned_event",
+  windSensorModel: null,
+  cameraModel: null,
+  batteryInfo: null,
+  otherEquipment: null,
+  hardwareConfig: null,
+});
+
 const DEMO_BUOYS_INITIAL: Buoy[] = [
-  {
-    id: "demo-1",
-    name: "Alpha",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat + 0.001,
-    lng: MIKROLIMANO_CENTER.lng + 0.002,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 95,
-    signalStrength: 98,
-    windSpeed: 12.5,
-    windDirection: 225,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-2",
-    name: "Bravo",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat - 0.001,
-    lng: MIKROLIMANO_CENTER.lng + 0.001,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 87,
-    signalStrength: 95,
-    windSpeed: 12.2,
-    windDirection: 223,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-3",
-    name: "Charlie",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat + 0.002,
-    lng: MIKROLIMANO_CENTER.lng - 0.001,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 72,
-    signalStrength: 92,
-    windSpeed: 13.1,
-    windDirection: 227,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-4",
-    name: "Delta",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat - 0.002,
-    lng: MIKROLIMANO_CENTER.lng - 0.002,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 65,
-    signalStrength: 88,
-    windSpeed: 12.8,
-    windDirection: 224,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-5",
-    name: "Echo",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat - 0.003,
-    lng: MIKROLIMANO_CENTER.lng + 0.003,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 91,
-    signalStrength: 97,
-    windSpeed: 12.4,
-    windDirection: 226,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-6",
-    name: "Foxtrot",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat + 0.001,
-    lng: MIKROLIMANO_CENTER.lng + 0.004,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 78,
-    signalStrength: 90,
-    windSpeed: 12.6,
-    windDirection: 228,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-7",
-    name: "Golf",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat + 0.003,
-    lng: MIKROLIMANO_CENTER.lng - 0.002,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 83,
-    signalStrength: 93,
-    windSpeed: 12.9,
-    windDirection: 222,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-8",
-    name: "Hotel",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat - 0.0015,
-    lng: MIKROLIMANO_CENTER.lng + 0.0035,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 89,
-    signalStrength: 94,
-    windSpeed: 12.3,
-    windDirection: 225,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-9",
-    name: "India",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat + 0.0025,
-    lng: MIKROLIMANO_CENTER.lng + 0.0015,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 76,
-    signalStrength: 91,
-    windSpeed: 12.7,
-    windDirection: 223,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
-  {
-    id: "demo-10",
-    name: "Juliet",
-    sailClubId: "demo-club",
-    state: "idle",
-    lat: MIKROLIMANO_CENTER.lat - 0.0025,
-    lng: MIKROLIMANO_CENTER.lng - 0.0015,
-    targetLat: null,
-    targetLng: null,
-    speed: 0,
-    battery: 82,
-    signalStrength: 96,
-    windSpeed: 12.5,
-    windDirection: 226,
-    currentSpeed: 0.8,
-    currentDirection: 180,
-    eta: null,
-  },
+  createDemoBuoy("demo-1", "Alpha", 0.001, 0.002, 95, 98, 12.5, 225),
+  createDemoBuoy("demo-2", "Bravo", -0.001, 0.001, 87, 95, 12.2, 223),
+  createDemoBuoy("demo-3", "Charlie", 0.002, -0.001, 72, 92, 13.1, 227),
+  createDemoBuoy("demo-4", "Delta", -0.002, -0.002, 65, 88, 12.8, 224),
+  createDemoBuoy("demo-5", "Echo", -0.003, 0.003, 91, 97, 12.4, 226),
+  createDemoBuoy("demo-6", "Foxtrot", 0.001, 0.004, 78, 90, 12.6, 228),
+  createDemoBuoy("demo-7", "Golf", 0.003, -0.002, 83, 93, 12.9, 222),
+  createDemoBuoy("demo-8", "Hotel", -0.0015, 0.0035, 89, 94, 12.3, 225),
+  createDemoBuoy("demo-9", "India", 0.0025, 0.0015, 76, 91, 12.7, 223),
+  createDemoBuoy("demo-10", "Juliet", -0.0025, -0.0015, 82, 96, 12.5, 226),
 ];
 
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -248,12 +116,12 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
 
     intervalRef.current = setInterval(() => {
       setDemoBuoys(prev => prev.map(buoy => {
-        if (buoy.state !== "moving_to_target" || !buoy.targetLat || !buoy.targetLng) {
+        if (buoy.state !== "moving_to_target" || !buoy.targetLat || !buoy.targetLng || buoy.lat === null || buoy.lng === null) {
           return buoy;
         }
 
         const speed = 20 + Math.random() * 20;
-        const distanceNm = calculateDistance(buoy.lat, buoy.lng, buoy.targetLat, buoy.targetLng);
+        const distanceNm = calculateDistance(buoy.lat!, buoy.lng!, buoy.targetLat, buoy.targetLng);
         
         if (distanceNm < 0.01) {
           return {
@@ -272,8 +140,8 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
         const moveDistanceNm = (speed / 3600) * deltaTime;
         const fraction = Math.min(moveDistanceNm / distanceNm, 1);
         
-        const newLat = buoy.lat + (buoy.targetLat - buoy.lat) * fraction;
-        const newLng = buoy.lng + (buoy.targetLng - buoy.lng) * fraction;
+        const newLat = buoy.lat! + (buoy.targetLat - buoy.lat!) * fraction;
+        const newLng = buoy.lng! + (buoy.targetLng - buoy.lng!) * fraction;
         const remainingDistanceNm = calculateDistance(newLat, newLng, buoy.targetLat, buoy.targetLng);
         const etaSeconds = Math.round((remainingDistanceNm / speed) * 3600);
 
@@ -301,9 +169,11 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
 
       switch (command) {
         case "move_to_target":
-          const finalTargetLat = targetLat ?? buoy.targetLat ?? buoy.lat + 0.002;
-          const finalTargetLng = targetLng ?? buoy.targetLng ?? buoy.lng + 0.002;
-          const distanceNm = calculateDistance(buoy.lat, buoy.lng, finalTargetLat, finalTargetLng);
+          const currentLat = buoy.lat ?? 0;
+          const currentLng = buoy.lng ?? 0;
+          const finalTargetLat = targetLat ?? buoy.targetLat ?? currentLat + 0.002;
+          const finalTargetLng = targetLng ?? buoy.targetLng ?? currentLng + 0.002;
+          const distanceNm = calculateDistance(currentLat, currentLng, finalTargetLat, finalTargetLng);
           const speed = 30;
           const eta = Math.round((distanceNm / speed) * 3600);
           return {
