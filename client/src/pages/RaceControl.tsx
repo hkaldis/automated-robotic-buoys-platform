@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { TopBar } from "@/components/TopBar";
 import { LeafletMap } from "@/components/LeafletMap";
@@ -297,6 +297,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [gotoMapClickBuoyId, setGotoMapClickBuoyId] = useState<string | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeEventId, setActiveEventId] = useState<string | null>(propEventId || null);
+  
+  // Sync activeEventId with URL parameter when it changes (navigation or refresh)
+  // Using ref to track previous propEventId to avoid infinite loops
+  const prevPropEventIdRef = useRef(propEventId);
+  useEffect(() => {
+    if (propEventId !== prevPropEventIdRef.current) {
+      prevPropEventIdRef.current = propEventId;
+      if (propEventId) {
+        setActiveEventId(propEventId);
+        // Reset course when event changes to force proper re-initialization
+        setActiveCourseId(null);
+        setLocalRoundingSequence([]);
+      }
+    }
+  }, [propEventId]);
   const [finishLinePreviewIds, setFinishLinePreviewIds] = useState<Set<string>>(new Set());
   const [mapOrientation, setMapOrientation] = useState<"north" | "head-to-wind">("north");
   const [localRoundingSequence, setLocalRoundingSequence] = useState<string[]>([]);
