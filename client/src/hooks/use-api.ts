@@ -22,11 +22,18 @@ export function useBoatClass(id: string | null | undefined) {
 }
 
 export function useEvents(sailClubId?: string) {
-  const queryKey = sailClubId 
-    ? ["/api/events", `?sailClubId=${sailClubId}`]
-    : ["/api/events"];
   return useQuery<Event[]>({
-    queryKey,
+    queryKey: ["/api/events", { sailClubId }],
+    queryFn: async () => {
+      const url = sailClubId 
+        ? `/api/events?sailClubId=${sailClubId}`
+        : "/api/events";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text()}`);
+      }
+      return res.json();
+    },
   });
 }
 
@@ -60,11 +67,18 @@ export function useMarks(courseId: string) {
 }
 
 export function useBuoys(sailClubId?: string) {
-  const queryKey = sailClubId 
-    ? ["/api/buoys", `?sailClubId=${sailClubId}`]
-    : ["/api/buoys"];
   return useQuery<Buoy[]>({
-    queryKey,
+    queryKey: ["/api/buoys", { sailClubId }],
+    queryFn: async () => {
+      const url = sailClubId 
+        ? `/api/buoys?sailClubId=${sailClubId}`
+        : "/api/buoys";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text()}`);
+      }
+      return res.json();
+    },
     refetchInterval: 5000,
   });
 }
@@ -280,8 +294,6 @@ export function useDeleteAllMarks(onError?: (error: Error) => void) {
 }
 
 export function useCreateEvent() {
-  const queryClient = useQueryClient();
-  
   return useMutation({
     mutationFn: async (data: {
       name: string;
@@ -295,7 +307,45 @@ export function useCreateEvent() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      invalidateRelatedQueries("events");
+    },
+  });
+}
+
+export function useDeleteEvent(onError?: (error: Error) => void) {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/events/${id}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete event");
+      }
+      return id;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries("events");
+    },
+    onError: (error: Error) => {
+      onError?.(error);
+    },
+  });
+}
+
+export function useUpdateEvent(onError?: (error: Error) => void) {
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Event> }) => {
+      const res = await apiRequest("PATCH", `/api/events/${id}`, data);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update event");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries("events");
+    },
+    onError: (error: Error) => {
+      onError?.(error);
     },
   });
 }
@@ -440,16 +490,22 @@ export interface SnapshotMark {
 }
 
 export function useCourseSnapshots(params: CourseSnapshotListParams = {}) {
-  const queryString = new URLSearchParams();
-  if (params.clubId) queryString.set("clubId", params.clubId);
-  if (params.search) queryString.set("search", params.search);
-  if (params.cursor) queryString.set("cursor", params.cursor);
-  if (params.limit) queryString.set("limit", params.limit.toString());
-  
-  const queryParam = queryString.toString() ? `?${queryString.toString()}` : "";
-  
   return useQuery<CourseSnapshotListResult>({
-    queryKey: ["/api/course-snapshots", queryParam],
+    queryKey: ["/api/course-snapshots", params],
+    queryFn: async () => {
+      const queryString = new URLSearchParams();
+      if (params.clubId) queryString.set("clubId", params.clubId);
+      if (params.search) queryString.set("search", params.search);
+      if (params.cursor) queryString.set("cursor", params.cursor);
+      if (params.limit) queryString.set("limit", params.limit.toString());
+      
+      const queryParam = queryString.toString() ? `?${queryString.toString()}` : "";
+      const res = await fetch(`/api/course-snapshots${queryParam}`, { credentials: "include" });
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${await res.text()}`);
+      }
+      return res.json();
+    },
   });
 }
 

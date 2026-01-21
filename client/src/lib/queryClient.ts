@@ -58,14 +58,16 @@ export const queryClient = new QueryClient({
   },
 });
 
-export function invalidateRelatedQueries(type: "buoys" | "marks" | "courses", courseId?: string) {
+export function invalidateRelatedQueries(type: "buoys" | "marks" | "courses" | "events", courseId?: string) {
   if (type === "buoys") {
+    // Invalidate all buoy queries (with any params)
     queryClient.invalidateQueries({ 
       predicate: (query) => {
         const key = query.queryKey;
-        return Array.isArray(key) && typeof key[0] === "string" && key[0].startsWith("/api/buoys");
+        return Array.isArray(key) && typeof key[0] === "string" && key[0] === "/api/buoys";
       }
     });
+    // Also invalidate marks since they reference buoys
     if (courseId) {
       queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
     }
@@ -87,5 +89,13 @@ export function invalidateRelatedQueries(type: "buoys" | "marks" | "courses", co
       queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
       queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
     }
+  } else if (type === "events") {
+    // Invalidate all event queries (with any params)
+    queryClient.invalidateQueries({ 
+      predicate: (query) => {
+        const key = query.queryKey;
+        return Array.isArray(key) && typeof key[0] === "string" && key[0] === "/api/events";
+      }
+    });
   }
 }

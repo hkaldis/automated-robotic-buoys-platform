@@ -156,9 +156,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(id: string): Promise<boolean> {
-    await db.delete(userEventAccess).where(eq(userEventAccess.eventId, id));
-    const result = await db.delete(events).where(eq(events.id, id)).returning();
-    return result.length > 0;
+    return await db.transaction(async (tx) => {
+      // Delete event access records first
+      await tx.delete(userEventAccess).where(eq(userEventAccess.eventId, id));
+      // Then delete the event
+      const result = await tx.delete(events).where(eq(events.id, id)).returning();
+      return result.length > 0;
+    });
   }
 
   async getCourse(id: string): Promise<Course | undefined> {
