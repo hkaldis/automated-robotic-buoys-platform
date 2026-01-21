@@ -39,7 +39,7 @@ export const DEFAULT_BUOY_FOLLOW: BuoyFollowSettings = {
 
 export type MapLayerType = "osm" | "osm_nolabels" | "light_voyager" | "light_positron" | "light_toner" | "satellite" | "nautical" | "ocean";
 
-export const DEFAULT_MAP_LAYER: MapLayerType = "ocean";
+export const DEFAULT_MAP_LAYER: MapLayerType = "light_voyager";
 
 export type BuoyDeployMode = "automatic" | "manual";
 

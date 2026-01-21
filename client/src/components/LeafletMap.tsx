@@ -1161,17 +1161,21 @@ export function LeafletMap({
 
 
       {isPlacingMark && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]">
-          <Card className="px-4 py-2 bg-primary text-primary-foreground flex items-center gap-3">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
+          <Card className="px-4 py-2 bg-primary text-primary-foreground flex items-center gap-3 pointer-events-auto">
             <span className="text-sm font-medium">
               {isContinuousPlacement 
-                ? "Click to add points. Click 'Done' when finished."
-                : "Click on the map to place the point"}
+                ? "Tap to add points. Tap 'Done' when finished."
+                : "Tap on the map to place the point"}
             </span>
             {isContinuousPlacement && onStopPlacement && (
               <Button 
                 variant="secondary" 
                 size="sm" 
+                className="pointer-events-auto"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   e.preventDefault();

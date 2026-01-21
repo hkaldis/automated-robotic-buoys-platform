@@ -85,9 +85,6 @@ export function validateMarkRoleConsistency(data: Partial<InsertMark>): Validati
     if (isStartLine === true || isFinishLine === true) {
       return { valid: false, error: "Gates cannot be start or finish line marks" };
     }
-    if (role !== "gate" && role !== "leeward" && role !== "windward") {
-      return { valid: false, error: "Gate marks must have role 'gate', 'leeward', or 'windward'" };
-    }
     if (isCourseMark === false) {
       return { valid: false, error: "Gate marks must have isCourseMark=true" };
     }
