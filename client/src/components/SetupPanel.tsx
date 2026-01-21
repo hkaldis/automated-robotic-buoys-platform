@@ -2027,9 +2027,10 @@ export function SetupPanel({
             <div
               key={buoy.id}
               className={cn(
-                "p-2.5 rounded-lg",
+                "p-2.5 rounded-lg cursor-pointer hover-elevate",
                 stateInfo.bgColor
               )}
+              onClick={() => onBuoySelect?.(buoy.id)}
               data-testid={`buoy-status-${buoy.id}`}
             >
               <div className="flex items-center gap-2">
