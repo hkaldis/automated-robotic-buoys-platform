@@ -12,12 +12,19 @@ import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
 import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode, type CourseAdjustmentSettings } from "@/hooks/use-settings";
 import { useState } from "react";
 
+type MapOrientation = "north" | "head-to-wind";
+
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   buoys: Buoy[];
   showWindArrows?: boolean;
   onToggleWindArrows?: () => void;
+  mapOrientation?: MapOrientation;
+  onOrientationChange?: (orientation: MapOrientation) => void;
+  onAlignCourseToWind?: () => void;
+  hasMarks?: boolean;
+  hasWeatherData?: boolean;
 }
 
 const distanceOptions: { value: DistanceUnit; label: string }[] = [
@@ -80,7 +87,18 @@ const buoyDeployModeOptions: { value: BuoyDeployMode; label: string; description
   { value: "manual", label: "Manual Deploy", description: "Move points freely, then deploy all buoys at once" },
 ];
 
-export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = true, onToggleWindArrows }: SettingsDialogProps) {
+export function SettingsDialog({ 
+  open, 
+  onOpenChange, 
+  buoys, 
+  showWindArrows = true, 
+  onToggleWindArrows,
+  mapOrientation = "north",
+  onOrientationChange,
+  onAlignCourseToWind,
+  hasMarks = false,
+  hasWeatherData = false,
+}: SettingsDialogProps) {
   const { 
     distanceUnit, 
     speedUnit, 
@@ -180,6 +198,33 @@ export function SettingsDialog({ open, onOpenChange, buoys, showWindArrows = tru
                   data-testid="switch-sea-marks"
                 />
               </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="orientation-toggle" className="text-sm">
+                  Head to Wind View
+                </Label>
+                <Switch
+                  id="orientation-toggle"
+                  checked={mapOrientation === "head-to-wind"}
+                  onCheckedChange={(checked) => onOrientationChange?.(checked ? "head-to-wind" : "north")}
+                  disabled={!hasWeatherData}
+                  data-testid="switch-head-to-wind"
+                />
+              </div>
+              {hasMarks && onAlignCourseToWind && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    onAlignCourseToWind();
+                    onOpenChange(false);
+                  }}
+                  disabled={!hasWeatherData}
+                  data-testid="button-align-course-wind"
+                >
+                  <Wind className="w-4 h-4" />
+                  Align Course to Wind
+                </Button>
+              )}
             </CardContent>
           </Card>
 

@@ -1,4 +1,4 @@
-import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket, CloudSun, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,8 @@ interface TopBarProps {
   onClearCourse?: () => void;
   pendingDeployments?: number;
   onDeployBuoys?: () => void;
+  onFetchWeather?: () => void;
+  isWeatherLoading?: boolean;
 }
 
 export function TopBar({ 
@@ -39,6 +41,8 @@ export function TopBar({
   onClearCourse,
   pendingDeployments = 0,
   onDeployBuoys,
+  onFetchWeather,
+  isWeatherLoading,
 }: TopBarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const { formatSpeed, formatBearing } = useSettings();
@@ -188,27 +192,50 @@ export function TopBar({
           </Tooltip>
         )}
 
-        {weatherData && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted/50" data-testid="wind-display">
-                <Wind className="w-4 h-4 text-chart-1" />
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-mono font-medium" data-testid="text-wind-speed">
-                    {formatSpeed(weatherData.windSpeed)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">from</span>
-                  <span className="text-sm font-mono" data-testid="text-wind-direction">
-                    {formatBearing(weatherData.windDirection)}
-                  </span>
+        <div className="flex items-center gap-1">
+          {onFetchWeather && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={onFetchWeather}
+                  disabled={isWeatherLoading}
+                  data-testid="button-fetch-weather"
+                >
+                  {isWeatherLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CloudSun className="w-4 h-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Fetch Weather at Map Center</TooltipContent>
+            </Tooltip>
+          )}
+
+          {weatherData && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted/50" data-testid="wind-display">
+                  <Wind className="w-4 h-4 text-chart-1" />
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-mono font-medium" data-testid="text-wind-speed">
+                      {formatSpeed(weatherData.windSpeed)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">from</span>
+                    <span className="text-sm font-mono" data-testid="text-wind-direction">
+                      {formatBearing(weatherData.windDirection)}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              Wind: {formatSpeed(weatherData.windSpeed)} from {formatBearing(weatherData.windDirection)} ({weatherData.source})
-            </TooltipContent>
-          </Tooltip>
-        )}
+              </TooltipTrigger>
+              <TooltipContent>
+                Wind: {formatSpeed(weatherData.windSpeed)} from {formatBearing(weatherData.windDirection)} ({weatherData.source})
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
 
         <Tooltip>
           <TooltipTrigger asChild>

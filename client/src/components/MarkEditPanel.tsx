@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair } from "lucide-react";
+import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -613,22 +613,34 @@ export function MarkEditPanel({
                   A gate consists of two buoys. Boats sail between them and may round either.
                 </p>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
                   <div className="space-y-1">
-                    <Label htmlFor="gate-width" className="text-xs text-muted-foreground">
+                    <Label className="text-xs text-muted-foreground">
                       Width (boat lengths)
                     </Label>
-                    <Input
-                      id="gate-width"
-                      type="number"
-                      min="4"
-                      max="20"
-                      step="1"
-                      value={gateWidthBoatLengths}
-                      onChange={(e) => setGateWidthBoatLengthsDirty(parseFloat(e.target.value) || 8)}
-                      className="text-sm"
-                      data-testid="input-gate-width"
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setGateWidthBoatLengthsDirty(Math.max(4, gateWidthBoatLengths - 1))}
+                        disabled={gateWidthBoatLengths <= 4}
+                        data-testid="button-gate-width-minus"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <span className="text-lg font-semibold min-w-[3rem] text-center" data-testid="text-gate-width">
+                        {gateWidthBoatLengths}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setGateWidthBoatLengthsDirty(Math.min(20, gateWidthBoatLengths + 1))}
+                        disabled={gateWidthBoatLengths >= 20}
+                        data-testid="button-gate-width-plus"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="boat-length" className="text-xs text-muted-foreground">

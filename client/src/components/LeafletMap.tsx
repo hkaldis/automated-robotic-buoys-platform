@@ -1094,76 +1094,6 @@ export function LeafletMap({
           <TooltipTrigger asChild>
             <Card className="p-1">
               <Button 
-                variant={mapOrientation === "head-to-wind" ? "default" : "ghost"} 
-                size="icon" 
-                onClick={() => onOrientationChange?.(mapOrientation === "north" ? "head-to-wind" : "north")}
-                disabled={!weatherData}
-                data-testid="button-orient-toggle"
-              >
-                {mapOrientation === "head-to-wind" ? (
-                  <Navigation className="w-4 h-4" />
-                ) : (
-                  <Compass className="w-4 h-4" />
-                )}
-              </Button>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {mapOrientation === "head-to-wind" ? "Switch to North Up" : "Switch to Head to Wind"}
-          </TooltipContent>
-        </UITooltip>
-        
-        <div className="h-2" />
-        
-        <UITooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => {
-                  const center = mapRef.current?.getCenter();
-                  if (center && onFetchWeatherAtLocation) {
-                    onFetchWeatherAtLocation(center.lat, center.lng);
-                  }
-                }}
-                disabled={isWeatherLoading}
-                data-testid="button-fetch-weather"
-              >
-                {isWeatherLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CloudSun className="w-4 h-4" />
-                )}
-              </Button>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent side="right">Fetch Weather at Map Center</TooltipContent>
-        </UITooltip>
-        
-        {marks.length > 0 && onAlignCourseToWind && (
-          <UITooltip>
-            <TooltipTrigger asChild>
-              <Card className="p-1">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={onAlignCourseToWind}
-                  disabled={!weatherData}
-                  data-testid="button-align-course-wind"
-                >
-                  <Wind className="w-4 h-4" />
-                </Button>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent side="right">Align Course to Wind</TooltipContent>
-          </UITooltip>
-        )}
-        
-        <UITooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-1">
-              <Button 
                 variant={showWindRelative ? "default" : "ghost"} 
                 size="icon" 
                 onClick={() => setShowWindRelative(!showWindRelative)}
@@ -1233,7 +1163,11 @@ export function LeafletMap({
               <Button 
                 variant="secondary" 
                 size="sm" 
-                onClick={onStopPlacement}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onStopPlacement();
+                }}
                 data-testid="button-stop-placement"
               >
                 Done

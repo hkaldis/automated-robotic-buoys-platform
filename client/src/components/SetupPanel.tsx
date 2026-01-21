@@ -86,6 +86,7 @@ export function SetupPanel({
   windDirection,
   windSpeed,
   onMarkSelect,
+  onBuoySelect,
   onDeployCourse,
   onSaveMark,
   onPlaceMarkOnMap,
@@ -221,12 +222,21 @@ export function SetupPanel({
   // Track all current mark IDs for reconciliation
   const currentMarkIds = useMemo(() => new Set(marks.map(m => m.id)), [marks]);
   
-  // Reset finishConfirmed when finish marks are lost
+  // Clear pendingFinishUpdate when marks actually reflect the finish line (data-driven, not timeout-driven)
   useEffect(() => {
-    if (finishConfirmed && !hasFinishLine && !pendingFinishUpdate) {
+    if (pendingFinishUpdate && finishConfirmed && hasFinishLine) {
+      // React Query has caught up - finish line marks are now reflected in data
+      setPendingFinishUpdate(false);
+    }
+  }, [pendingFinishUpdate, finishConfirmed, hasFinishLine]);
+  
+  // Reset finishConfirmed when finish marks are lost - but only if we're back in finish_line phase
+  // This prevents race condition where React Query refetch is slower than the pendingFinishUpdate timeout
+  useEffect(() => {
+    if (finishConfirmed && !hasFinishLine && !pendingFinishUpdate && phase === "finish_line") {
       setFinishConfirmed(false);
     }
-  }, [finishConfirmed, hasFinishLine, pendingFinishUpdate]);
+  }, [finishConfirmed, hasFinishLine, pendingFinishUpdate, phase]);
   
   // Reconcile selectedLineMarkIds with current marks - prune deleted mark IDs
   useEffect(() => {
@@ -353,9 +363,11 @@ export function SetupPanel({
       
       setFinishConfirmed(true);
       setPhase("sequence");
-    } finally {
-      // Clear pending flag after a short delay to allow React Query to update
-      setTimeout(() => setPendingFinishUpdate(false), 100);
+      // pendingFinishUpdate will be cleared data-driven when hasFinishLine becomes true
+      // See the useEffect that monitors hasFinishLine state
+    } catch (error) {
+      // On error, reset pending flag immediately
+      setPendingFinishUpdate(false);
     }
   };
   
@@ -384,7 +396,7 @@ export function SetupPanel({
   const autoGenerateSequence = () => {
     // Auto-generate a simple sequential course: Start → M1 → M2 → ... → Finish
     const sortedCourseMarkIds = [...courseMarks]
-      .sort((a, b) => a.order - b.order)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       .map(m => m.id);
     const startMarkId = startLineMarks.length > 0 ? "start" : null;
     const finishMarkId = finishLineMarks.length > 0 ? "finish" : null;
@@ -737,27 +749,6 @@ export function SetupPanel({
 
             <div className="space-y-2">
               <Button
-                variant={hasPinEnd ? "secondary" : "default"}
-                className={cn(
-                  "w-full gap-2 justify-start",
-                  hasPinEnd && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                )}
-                onClick={() => handleAddStartLineMark("pin")}
-                disabled={hasPinEnd}
-                data-testid="button-add-pin-end"
-              >
-                {hasPinEnd ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Plus className="w-4 h-4" />
-                )}
-                Pin End (Port)
-                {hasPinEnd && (
-                  <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
-                )}
-              </Button>
-
-              <Button
                 variant={hasCommitteeBoat ? "secondary" : "default"}
                 className={cn(
                   "w-full gap-2 justify-start",
@@ -774,6 +765,27 @@ export function SetupPanel({
                 )}
                 Committee Boat (Starboard)
                 {hasCommitteeBoat && (
+                  <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
+                )}
+              </Button>
+
+              <Button
+                variant={hasPinEnd ? "secondary" : "default"}
+                className={cn(
+                  "w-full gap-2 justify-start",
+                  hasPinEnd && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                )}
+                onClick={() => handleAddStartLineMark("pin")}
+                disabled={hasPinEnd}
+                data-testid="button-add-pin-end"
+              >
+                {hasPinEnd ? (
+                  <Check className="w-4 h-4 text-green-600" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                Pin End (Port)
+                {hasPinEnd && (
                   <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
                 )}
               </Button>
@@ -996,7 +1008,7 @@ export function SetupPanel({
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
                   Select any 2 marks for the finish line:
                 </p>
-                {marks.map((mark) => {
+                {[...marks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((mark) => {
                   const isSelected = selectedLineMarkIds.has(mark.id);
                   const isStartLineMark = mark.isStartLine;
                   return (

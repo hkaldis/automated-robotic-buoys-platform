@@ -2226,6 +2226,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             description: `Sending ${count} buoy${count !== 1 ? 's' : ''} to their target positions`,
           });
         }}
+        onFetchWeather={() => handleFetchWeatherAtLocation(mapCenter.lat, mapCenter.lng)}
+        isWeatherLoading={weatherByLocation.isPending}
       />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -2359,6 +2361,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         buoys={buoys}
         showWindArrows={showWindArrows}
         onToggleWindArrows={() => setShowWindArrows(!showWindArrows)}
+        mapOrientation={mapOrientation}
+        onOrientationChange={setMapOrientation}
+        onAlignCourseToWind={handleAlignCourseToWind}
+        hasMarks={marks.length > 0}
+        hasWeatherData={!!activeWeatherData}
       />
 
       {/* Dialog for events without a course */}
