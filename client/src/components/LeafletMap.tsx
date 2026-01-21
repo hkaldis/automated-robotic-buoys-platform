@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet-rotate";
 import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -452,6 +453,20 @@ function MapResizeHandler({ showSidebar }: { showSidebar?: boolean }) {
   return null;
 }
 
+function MapRotationHandler({ bearing }: { bearing: number }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    // Use leaflet-rotate's setBearing method
+    const rotateMap = map as L.Map & { setBearing?: (bearing: number) => void };
+    if (rotateMap.setBearing) {
+      rotateMap.setBearing(bearing);
+    }
+  }, [map, bearing]);
+  
+  return null;
+}
+
 function formatWindRelativeBearing(bearing: number, windDirection: number): string {
   const { signedRelative } = calculateWindAngle(bearing, windDirection);
   return formatWindRelative(signedRelative);
@@ -844,38 +859,32 @@ export function LeafletMap({
     );
   };
 
-  const mapRotation = useMemo(() => {
+  const mapBearing = useMemo(() => {
     if (mapOrientation === "head-to-wind" && weatherData) {
       // Wind direction is where wind comes FROM (meteorological convention)
       // Head-to-wind: we want to look TOWARD where wind comes from (upwind)
-      // To put the wind source direction at screen top, rotate by -windDirection
-      // Example: Wind from 225° (SW) → rotate -225° → 225° now at top (facing SW)
-      return -weatherData.windDirection;
+      // leaflet-rotate bearing: positive = clockwise rotation of the map
+      // To put wind source at top of screen, we rotate the map by -windDirection
+      // Example: Wind from 225° (SW) → bearing = -225 → normalized to 135° → 225° now at top
+      // Normalize to 0-360 range for leaflet-rotate compatibility
+      const rawBearing = -weatherData.windDirection;
+      return ((rawBearing % 360) + 360) % 360;
     }
     return 0;
   }, [mapOrientation, weatherData]);
 
-  const controlsRotation = -mapRotation;
-
   return (
     <div className={cn("relative w-full h-full overflow-hidden", className)} data-testid="leaflet-map">
-      <div 
-        className="w-full h-full transition-transform duration-500 ease-out"
-        style={{ 
-          transform: `rotate(${mapRotation}deg)`,
-          transformOrigin: "center center",
-          width: mapRotation !== 0 ? "141.4%" : "100%",
-          height: mapRotation !== 0 ? "141.4%" : "100%",
-          marginLeft: mapRotation !== 0 ? "-20.7%" : "0",
-          marginTop: mapRotation !== 0 ? "-20.7%" : "0",
-        }}
-      >
         <MapContainer
           center={DEFAULT_CENTER}
           zoom={DEFAULT_ZOOM}
           className="w-full h-full"
           ref={mapRef}
           zoomControl={false}
+          rotate={true}
+          bearing={0}
+          touchRotate={false}
+          shiftKeyRotate={false}
         >
         {mapLayer === "osm" && (
           <TileLayer
@@ -938,6 +947,7 @@ export function LeafletMap({
         <MapMoveHandler onMapMoveEnd={onMapMoveEnd} />
         <TouchConfig />
         <MapResizeHandler showSidebar={showSidebar} />
+        <MapRotationHandler bearing={mapBearing} />
         
         {/* Start line (solid green line between Pin End and Committee Boat) */}
         {startLinePositions.length >= 2 && (
@@ -1064,7 +1074,6 @@ export function LeafletMap({
           />
         ))}
       </MapContainer>
-      </div>
 
       <div className="absolute top-4 left-4 flex flex-col gap-2 z-[1000]">
         <Card className="p-1">
