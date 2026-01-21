@@ -13,8 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus, Pencil } from "lucide-react";
-import type { Event, SailClub, UserEventAccess } from "@shared/schema";
+import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus, Pencil, Anchor, ArrowRight, RotateCcw } from "lucide-react";
+import type { Event, SailClub, UserEventAccess, Buoy } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -59,9 +59,17 @@ export default function ClubDashboard() {
 
   const { data: boatClassesData, isLoading: boatClassesLoading } = useBoatClasses();
   const boatClasses = boatClassesData || [];
+
+  const { data: buoys = [], isLoading: buoysLoading } = useQuery<Buoy[]>({
+    queryKey: ["/api/buoys"],
+  });
   
   const clubEvents = events.filter((e) => e.sailClubId === user?.sailClubId);
   const eventManagers = users.filter((u) => u.role === "event_manager" && u.sailClubId === user?.sailClubId);
+  const clubBuoys = buoys.filter((b) => b.sailClubId === user?.sailClubId);
+  const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
+  const [selectedBuoyForEvent, setSelectedBuoyForEvent] = useState<Buoy | null>(null);
+  const [assignToEventId, setAssignToEventId] = useState("");
 
   const createEventMutation = useMutation({
     mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string }) => {
@@ -153,6 +161,76 @@ export default function ClubDashboard() {
     },
   });
 
+  const assignBuoyToEventMutation = useMutation({
+    mutationFn: async ({ buoyId, eventId }: { buoyId: string; eventId: string }) => {
+      const res = await apiRequest("POST", `/api/buoys/${buoyId}/assign-event`, { eventId });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      setAssignBuoyDialogOpen(false);
+      setSelectedBuoyForEvent(null);
+      setAssignToEventId("");
+      toast({ title: "Buoy assigned to event" });
+    },
+    onError: () => {
+      toast({ title: "Failed to assign buoy to event", variant: "destructive" });
+    },
+  });
+
+  const releaseBuoyFromEventMutation = useMutation({
+    mutationFn: async (buoyId: string) => {
+      const res = await apiRequest("POST", `/api/buoys/${buoyId}/release-event`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      toast({ title: "Buoy released from event" });
+    },
+    onError: () => {
+      toast({ title: "Failed to release buoy from event", variant: "destructive" });
+    },
+  });
+
+  const handleOpenAssignEventDialog = (buoy: Buoy) => {
+    setSelectedBuoyForEvent(buoy);
+    setAssignToEventId("");
+    setAssignBuoyDialogOpen(true);
+  };
+
+  const handleAssignBuoyToEvent = () => {
+    if (selectedBuoyForEvent && assignToEventId) {
+      assignBuoyToEventMutation.mutate({
+        buoyId: selectedBuoyForEvent.id,
+        eventId: assignToEventId,
+      });
+    }
+  };
+
+  const getInventoryStatusBadge = (status: string) => {
+    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+      in_inventory: "secondary",
+      assigned_club: "default",
+      assigned_event: "outline",
+      maintenance: "destructive",
+      retired: "destructive",
+    };
+    const labels: Record<string, string> = {
+      in_inventory: "In Inventory",
+      assigned_club: "At Club",
+      assigned_event: "At Event",
+      maintenance: "Maintenance",
+      retired: "Retired",
+    };
+    return <Badge variant={variants[status] || "outline"}>{labels[status] || status}</Badge>;
+  };
+
+  const getEventName = (eventId: string | null) => {
+    if (!eventId) return "-";
+    const event = events.find((e) => e.id === eventId);
+    return event?.name || "-";
+  };
+
   const handleCreateEvent = () => {
     if (newEventName.trim() && user?.sailClubId && newEventBoatClassId) {
       const selectedBoatClass = boatClasses.find(bc => bc.id === newEventBoatClassId);
@@ -231,6 +309,10 @@ export default function ClubDashboard() {
             <TabsTrigger value="events" className="gap-2" data-testid="tab-events">
               <Calendar className="h-4 w-4" />
               Events
+            </TabsTrigger>
+            <TabsTrigger value="buoys" className="gap-2" data-testid="tab-buoys">
+              <Anchor className="h-4 w-4" />
+              Buoys
             </TabsTrigger>
             <TabsTrigger value="managers" className="gap-2" data-testid="tab-managers">
               <Users className="h-4 w-4" />
@@ -364,6 +446,71 @@ export default function ClubDashboard() {
                             >
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="buoys">
+            <Card>
+              <CardHeader>
+                <CardTitle>Club Buoys</CardTitle>
+                <CardDescription>Buoys assigned to your club - assign them to events as needed</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {buoysLoading ? (
+                  <div className="flex justify-center p-8">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  </div>
+                ) : clubBuoys.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No buoys assigned to this club yet.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Serial Number</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Event</TableHead>
+                        <TableHead className="w-32">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {clubBuoys.map((buoy) => (
+                        <TableRow key={buoy.id} data-testid={`row-buoy-${buoy.id}`}>
+                          <TableCell className="font-medium">{buoy.name}</TableCell>
+                          <TableCell className="text-muted-foreground">{buoy.serialNumber || "-"}</TableCell>
+                          <TableCell>{getInventoryStatusBadge(buoy.inventoryStatus)}</TableCell>
+                          <TableCell>{getEventName(buoy.eventId)}</TableCell>
+                          <TableCell className="flex gap-1">
+                            {buoy.inventoryStatus === "assigned_club" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenAssignEventDialog(buoy)}
+                                title="Assign to Event"
+                                data-testid={`button-assign-event-${buoy.id}`}
+                              >
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {buoy.inventoryStatus === "assigned_event" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => releaseBuoyFromEventMutation.mutate(buoy.id)}
+                                disabled={releaseBuoyFromEventMutation.isPending}
+                                title="Release from Event"
+                                data-testid={`button-release-event-${buoy.id}`}
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -561,6 +708,42 @@ export default function ClubDashboard() {
               data-testid="button-update-event"
             >
               {updateEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Event"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={assignBuoyDialogOpen} onOpenChange={setAssignBuoyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Buoy to Event</DialogTitle>
+            <DialogDescription>
+              Assign {selectedBuoyForEvent?.name} to an event
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="assign-event">Select Event</Label>
+              <Select value={assignToEventId} onValueChange={setAssignToEventId}>
+                <SelectTrigger data-testid="select-assign-event">
+                  <SelectValue placeholder="Select an event" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clubEvents.map((event) => (
+                    <SelectItem key={event.id} value={event.id}>
+                      {event.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={handleAssignBuoyToEvent}
+              disabled={assignBuoyToEventMutation.isPending || !assignToEventId}
+              className="w-full"
+              data-testid="button-confirm-assign-event"
+            >
+              {assignBuoyToEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Assign to Event"}
             </Button>
           </div>
         </DialogContent>

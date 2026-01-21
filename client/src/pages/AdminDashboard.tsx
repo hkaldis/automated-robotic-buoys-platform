@@ -13,8 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw } from "lucide-react";
-import type { SailClub, UserRole, Event, Buoy } from "@shared/schema";
+import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw, Eye } from "lucide-react";
+import type { SailClub, UserRole, Event, Buoy, BuoyAssignment } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -61,6 +61,17 @@ export default function AdminDashboard() {
   const [newBuoyOtherEquipment, setNewBuoyOtherEquipment] = useState("");
   const [selectedBuoyForAssign, setSelectedBuoyForAssign] = useState<Buoy | null>(null);
   const [assignToClubId, setAssignToClubId] = useState("");
+  const [editBuoyDialogOpen, setEditBuoyDialogOpen] = useState(false);
+  const [viewBuoyDialogOpen, setViewBuoyDialogOpen] = useState(false);
+  const [editingBuoy, setEditingBuoy] = useState<Buoy | null>(null);
+  const [editBuoyName, setEditBuoyName] = useState("");
+  const [editBuoySerialNumber, setEditBuoySerialNumber] = useState("");
+  const [editBuoyOwnership, setEditBuoyOwnership] = useState<"platform_owned" | "long_rental" | "event_rental">("platform_owned");
+  const [editBuoyWindSensor, setEditBuoyWindSensor] = useState("");
+  const [editBuoyCamera, setEditBuoyCamera] = useState("");
+  const [editBuoyBatteryInfo, setEditBuoyBatteryInfo] = useState("");
+  const [editBuoyOtherEquipment, setEditBuoyOtherEquipment] = useState("");
+  const [editBuoyStatus, setEditBuoyStatus] = useState<"in_inventory" | "assigned_club" | "assigned_event" | "maintenance" | "retired">("in_inventory");
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -79,6 +90,11 @@ export default function AdminDashboard() {
 
   const { data: buoys = [], isLoading: buoysLoading } = useQuery<Buoy[]>({
     queryKey: ["/api/buoys"],
+  });
+
+  const { data: buoyAssignments = [], isLoading: assignmentsLoading } = useQuery<BuoyAssignment[]>({
+    queryKey: [`/api/buoys/${editingBuoy?.id}/assignments`],
+    enabled: !!editingBuoy && viewBuoyDialogOpen,
   });
 
   const createClubMutation = useMutation({
@@ -283,6 +299,32 @@ export default function AdminDashboard() {
     },
   });
 
+  const updateBuoyMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { 
+      id: string;
+      name?: string;
+      serialNumber?: string;
+      ownershipType?: string;
+      inventoryStatus?: string;
+      windSensorModel?: string;
+      cameraModel?: string;
+      batteryInfo?: string;
+      otherEquipment?: string;
+    }) => {
+      const res = await apiRequest("PATCH", `/api/buoys/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/buoys"] });
+      setEditBuoyDialogOpen(false);
+      setEditingBuoy(null);
+      toast({ title: "Buoy updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update buoy", variant: "destructive" });
+    },
+  });
+
   const handleCreateClub = () => {
     if (newClubName.trim()) {
       createClubMutation.mutate(newClubName.trim());
@@ -397,6 +439,40 @@ export default function AdminDashboard() {
         sailClubId: assignToClubId,
       });
     }
+  };
+
+  const handleEditBuoy = (buoy: Buoy) => {
+    setEditingBuoy(buoy);
+    setEditBuoyName(buoy.name);
+    setEditBuoySerialNumber(buoy.serialNumber || "");
+    setEditBuoyOwnership(buoy.ownershipType as "platform_owned" | "long_rental" | "event_rental");
+    setEditBuoyWindSensor(buoy.windSensorModel || "");
+    setEditBuoyCamera(buoy.cameraModel || "");
+    setEditBuoyBatteryInfo(buoy.batteryInfo || "");
+    setEditBuoyOtherEquipment(buoy.otherEquipment || "");
+    setEditBuoyStatus(buoy.inventoryStatus as "in_inventory" | "assigned_club" | "assigned_event" | "maintenance" | "retired");
+    setEditBuoyDialogOpen(true);
+  };
+
+  const handleUpdateBuoy = () => {
+    if (editingBuoy && editBuoyName.trim()) {
+      updateBuoyMutation.mutate({
+        id: editingBuoy.id,
+        name: editBuoyName.trim(),
+        serialNumber: editBuoySerialNumber.trim() || undefined,
+        ownershipType: editBuoyOwnership,
+        inventoryStatus: editBuoyStatus,
+        windSensorModel: editBuoyWindSensor.trim() || undefined,
+        cameraModel: editBuoyCamera.trim() || undefined,
+        batteryInfo: editBuoyBatteryInfo.trim() || undefined,
+        otherEquipment: editBuoyOtherEquipment.trim() || undefined,
+      });
+    }
+  };
+
+  const handleViewBuoy = (buoy: Buoy) => {
+    setEditingBuoy(buoy);
+    setViewBuoyDialogOpen(true);
   };
 
   const getInventoryStatusBadge = (status: string) => {
@@ -977,6 +1053,24 @@ export default function AdminDashboard() {
                             {[buoy.windSensorModel, buoy.cameraModel, buoy.batteryInfo].filter(Boolean).join(", ") || "-"}
                           </TableCell>
                           <TableCell className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewBuoy(buoy)}
+                              title="View Details"
+                              data-testid={`button-view-buoy-${buoy.id}`}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditBuoy(buoy)}
+                              title="Edit Buoy"
+                              data-testid={`button-edit-buoy-${buoy.id}`}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
                             {buoy.inventoryStatus === "in_inventory" && (
                               <Button
                                 variant="ghost"
@@ -1143,6 +1237,209 @@ export default function AdminDashboard() {
               {updateEventMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Event"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editBuoyDialogOpen} onOpenChange={setEditBuoyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Buoy</DialogTitle>
+            <DialogDescription>Update buoy details and hardware configuration</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-name">Buoy Name *</Label>
+              <Input
+                id="edit-buoy-name"
+                value={editBuoyName}
+                onChange={(e) => setEditBuoyName(e.target.value)}
+                placeholder="e.g., Buoy Alpha"
+                data-testid="input-edit-buoy-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-serial">Serial Number</Label>
+              <Input
+                id="edit-buoy-serial"
+                value={editBuoySerialNumber}
+                onChange={(e) => setEditBuoySerialNumber(e.target.value)}
+                placeholder="e.g., SN-2024-001"
+                data-testid="input-edit-buoy-serial"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-ownership">Ownership Type</Label>
+              <Select value={editBuoyOwnership} onValueChange={(val) => setEditBuoyOwnership(val as typeof editBuoyOwnership)}>
+                <SelectTrigger id="edit-buoy-ownership" data-testid="select-edit-buoy-ownership">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="platform_owned">Platform Owned</SelectItem>
+                  <SelectItem value="long_rental">Long-term Rental</SelectItem>
+                  <SelectItem value="event_rental">Event Rental</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-status">Status</Label>
+              <Select value={editBuoyStatus} onValueChange={(val) => setEditBuoyStatus(val as typeof editBuoyStatus)}>
+                <SelectTrigger id="edit-buoy-status" data-testid="select-edit-buoy-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="in_inventory">In Inventory</SelectItem>
+                  <SelectItem value="assigned_club">Assigned to Club</SelectItem>
+                  <SelectItem value="assigned_event">Assigned to Event</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="retired">Retired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-wind-sensor">Wind Sensor Model</Label>
+              <Input
+                id="edit-buoy-wind-sensor"
+                value={editBuoyWindSensor}
+                onChange={(e) => setEditBuoyWindSensor(e.target.value)}
+                placeholder="e.g., Calypso Ultrasonic"
+                data-testid="input-edit-buoy-wind-sensor"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-camera">Camera Model</Label>
+              <Input
+                id="edit-buoy-camera"
+                value={editBuoyCamera}
+                onChange={(e) => setEditBuoyCamera(e.target.value)}
+                placeholder="e.g., GoPro Hero 12"
+                data-testid="input-edit-buoy-camera"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-battery">Battery Info</Label>
+              <Input
+                id="edit-buoy-battery"
+                value={editBuoyBatteryInfo}
+                onChange={(e) => setEditBuoyBatteryInfo(e.target.value)}
+                placeholder="e.g., LiFePO4 100Ah"
+                data-testid="input-edit-buoy-battery"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-buoy-other">Other Equipment</Label>
+              <Input
+                id="edit-buoy-other"
+                value={editBuoyOtherEquipment}
+                onChange={(e) => setEditBuoyOtherEquipment(e.target.value)}
+                placeholder="e.g., Solar panel, LED lights"
+                data-testid="input-edit-buoy-other"
+              />
+            </div>
+          </div>
+          <Button
+            onClick={handleUpdateBuoy}
+            disabled={updateBuoyMutation.isPending || !editBuoyName.trim()}
+            className="w-full mt-4"
+            data-testid="button-update-buoy"
+          >
+            {updateBuoyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Buoy"}
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewBuoyDialogOpen} onOpenChange={setViewBuoyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Buoy Details</DialogTitle>
+            <DialogDescription>{editingBuoy?.name}</DialogDescription>
+          </DialogHeader>
+          {editingBuoy && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Serial Number</Label>
+                  <p className="font-medium">{editingBuoy.serialNumber || "-"}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Ownership</Label>
+                  <div className="mt-1">{getOwnershipBadge(editingBuoy.ownershipType)}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Status</Label>
+                  <div className="mt-1">{getInventoryStatusBadge(editingBuoy.inventoryStatus)}</div>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Club</Label>
+                  <p className="font-medium">{getClubName(editingBuoy.sailClubId)}</p>
+                </div>
+              </div>
+              <div className="border-t pt-4">
+                <Label className="text-muted-foreground text-xs">Hardware Configuration</Label>
+                <div className="mt-2 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Wind Sensor:</span>
+                    <span>{editingBuoy.windSensorModel || "-"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Camera:</span>
+                    <span>{editingBuoy.cameraModel || "-"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Battery:</span>
+                    <span>{editingBuoy.batteryInfo || "-"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Other:</span>
+                    <span>{editingBuoy.otherEquipment || "-"}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="border-t pt-4">
+                <Label className="text-muted-foreground text-xs">Assignment History</Label>
+                {assignmentsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : buoyAssignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-2">No assignment history</p>
+                ) : (
+                  <div className="mt-2 space-y-2 max-h-40 overflow-y-auto">
+                    {buoyAssignments.map((assignment) => (
+                      <div key={assignment.id} className="text-xs border rounded p-2">
+                        <div className="flex justify-between">
+                          <span className="font-medium">
+                            {assignment.assignmentType === "club" ? "Club" : "Event"}
+                          </span>
+                          <Badge variant={assignment.status === "active" ? "default" : "secondary"} className="text-xs">
+                            {assignment.status}
+                          </Badge>
+                        </div>
+                        <div className="text-muted-foreground mt-1">
+                          {assignment.startAt ? new Date(assignment.startAt).toLocaleDateString() : "N/A"}
+                          {assignment.endAt && ` - ${new Date(assignment.endAt).toLocaleDateString()}`}
+                        </div>
+                        {assignment.notes && (
+                          <div className="text-muted-foreground mt-1 italic">{assignment.notes}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={() => {
+                  setViewBuoyDialogOpen(false);
+                  handleEditBuoy(editingBuoy);
+                }}
+                variant="outline"
+                className="w-full"
+                data-testid="button-view-to-edit-buoy"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Buoy
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
