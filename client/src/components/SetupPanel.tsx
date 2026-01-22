@@ -288,20 +288,24 @@ export function SetupPanel({
   
   // Sync phase with data - only force phase back if current phase is invalid
   // But don't reset from later phases if user has progressed through the workflow
+  // Fleet ("ready") phase is always accessible - it's independent of the course setup workflow
   useEffect(() => {
     // Don't sync phase during pending finish update to avoid oscillation
     if (pendingFinishUpdate) return;
+    
+    // Fleet view is always accessible - never auto-reset from it
+    if (phase === "ready") return;
     
     const minPhase = getMinPhase();
     const currentIdx = phaseOrder.indexOf(phase);
     const minIdx = phaseOrder.indexOf(minPhase);
     
-    // Allow staying in sequence/summary/assign_buoys/ready if:
+    // Allow staying in sequence/summary/assign_buoys if:
     // 1. User confirmed finish line (async mark updates may still be pending)
     // 2. User has a valid sequence (means they've progressed through the workflow)
     // For shared start/finish marks, we need confirmation OR valid finish line
     const canStayInLaterPhase = finishConfirmed || hasSequence || (hasSharedStartFinishMarks && hasFinishLine);
-    if (canStayInLaterPhase && (phase === "sequence" || phase === "summary" || phase === "assign_buoys" || phase === "ready")) {
+    if (canStayInLaterPhase && (phase === "sequence" || phase === "summary" || phase === "assign_buoys")) {
       // Only reset if we've truly lost essential prerequisites
       if (!hasStartLine || !hasCourseMarks || !hasFinishLine) {
         const essentialMinIdx = !hasStartLine ? 0 : !hasCourseMarks ? 1 : 2;

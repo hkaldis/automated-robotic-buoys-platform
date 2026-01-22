@@ -1,9 +1,10 @@
 import bcrypt from "bcrypt";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import type { Express, RequestHandler } from "express";
 import { storage } from "./storage";
 import type { User, UserRole } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { boatClasses } from "@shared/schema";
 
 declare module "express-session" {
@@ -34,8 +35,15 @@ export function setupSession(app: Express): void {
     }
   }
   
+  const PgSession = connectPgSimple(session);
+  
   app.use(
     session({
+      store: new PgSession({
+        pool: pool,
+        tableName: "session",
+        createTableIfMissing: true,
+      }),
       secret: sessionSecret || "dev-only-insecure-secret-" + Date.now(),
       resave: false,
       saveUninitialized: false,
