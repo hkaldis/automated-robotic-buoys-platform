@@ -923,36 +923,6 @@ export function SetupPanel({
 
             {hasStartLine && (
               <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Line Length</p>
-                    <p className="text-sm font-semibold">{startLineLength.toFixed(0)} m</p>
-                    {boatClass?.lengthMeters && (
-                      <p className="text-xs text-muted-foreground">
-                        ({(startLineLength / boatClass.lengthMeters).toFixed(1)} boat lengths)
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleResizeStartLine(false)}
-                      data-testid="button-shrink-line"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleResizeStartLine(true)}
-                      data-testid="button-grow-line"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
                 {/* Move Start Line controls */}
                 <div className="p-2 rounded-lg bg-muted/50">
                   <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
@@ -993,6 +963,37 @@ export function SetupPanel({
                       data-testid="button-nudge-startline-east"
                     >
                       <ChevronRight className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Line Length widget */}
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground">Line Length</p>
+                    <p className="text-sm font-semibold">{startLineLength.toFixed(0)} m</p>
+                    {boatClass?.lengthMeters && (
+                      <p className="text-xs text-muted-foreground">
+                        ({(startLineLength / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleResizeStartLine(false)}
+                      data-testid="button-shrink-line"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleResizeStartLine(true)}
+                      data-testid="button-grow-line"
+                    >
+                      <Plus className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
