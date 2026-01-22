@@ -291,6 +291,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const { mapLayer, showSeaMarks } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [courseMenuSaveOpen, setCourseMenuSaveOpen] = useState(false);
+  const [courseMenuLoadOpen, setCourseMenuLoadOpen] = useState(false);
     const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null);
   // Placement state: pendingMarkData being non-null means we're placing a mark
@@ -2375,6 +2377,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           }
         }}
         onClearCourse={() => setShowClearCourseConfirm(true)}
+        onSaveCourse={() => setCourseMenuSaveOpen(true)}
+        onLoadCourse={() => setCourseMenuLoadOpen(true)}
         pendingDeployments={buoyDeployMode === "manual" ? pendingDeployments.length : 0}
         onDeployBuoys={() => {
           const count = deployAllPending();
@@ -2510,6 +2514,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onSetMoveCourseMode={setMoveCourseMode}
               onDeleteCourse={handleDeleteCourse}
               onApplyTemplate={handleApplyTemplate}
+              externalSaveDialogOpen={courseMenuSaveOpen}
+              onExternalSaveDialogChange={setCourseMenuSaveOpen}
+              externalLoadDialogOpen={courseMenuLoadOpen}
+              onExternalLoadDialogChange={setCourseMenuLoadOpen}
+              onAlignCourseToWind={handleAlignCourseToWind}
             />
           )}
         </aside>

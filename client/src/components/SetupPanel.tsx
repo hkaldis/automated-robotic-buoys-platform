@@ -79,6 +79,11 @@ interface SetupPanelProps {
   onSetMoveCourseMode?: (enabled: boolean) => void;
   onDeleteCourse?: (snapshotId: string) => void;
   onApplyTemplate?: (template: ShapeTemplate) => void;
+  externalSaveDialogOpen?: boolean;
+  onExternalSaveDialogChange?: (open: boolean) => void;
+  externalLoadDialogOpen?: boolean;
+  onExternalLoadDialogChange?: (open: boolean) => void;
+  onAlignCourseToWind?: () => void;
 }
 
 export function SetupPanel({
@@ -112,6 +117,11 @@ export function SetupPanel({
   onSetMoveCourseMode,
   onDeleteCourse,
   onApplyTemplate,
+  externalSaveDialogOpen,
+  onExternalSaveDialogChange,
+  externalLoadDialogOpen,
+  onExternalLoadDialogChange,
+  onAlignCourseToWind,
 }: SetupPanelProps) {
   // Fetch boat classes for race time estimation
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
@@ -239,12 +249,28 @@ export function SetupPanel({
     return "ready";
   };
 
-  // State for save course dialog
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  // State for save course dialog - supports external control from TopBar
+  const [internalShowSaveDialog, setInternalShowSaveDialog] = useState(false);
+  const showSaveDialog = externalSaveDialogOpen ?? internalShowSaveDialog;
+  const setShowSaveDialog = (open: boolean) => {
+    if (onExternalSaveDialogChange) {
+      onExternalSaveDialogChange(open);
+    } else {
+      setInternalShowSaveDialog(open);
+    }
+  };
   const [courseName, setCourseName] = useState("");
   
-  // State for load course dialog
-  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  // State for load course dialog - supports external control from TopBar
+  const [internalShowLoadDialog, setInternalShowLoadDialog] = useState(false);
+  const showLoadDialog = externalLoadDialogOpen ?? internalShowLoadDialog;
+  const setShowLoadDialog = (open: boolean) => {
+    if (onExternalLoadDialogChange) {
+      onExternalLoadDialogChange(open);
+    } else {
+      setInternalShowLoadDialog(open);
+    }
+  };
 
   const [phase, setPhase] = useState<SetupPhase>(getMinPhase);
   const [selectedLineMarkIds, setSelectedLineMarkIds] = useState<Set<string>>(new Set());
@@ -1588,32 +1614,33 @@ export function SetupPanel({
                       </Button>
                     </div>
                     
-                    {/* Tap to Move button */}
-                    <Button
-                      variant={moveCourseMode ? "default" : "outline"}
-                      className="w-full gap-2 h-12"
-                      onClick={() => onSetMoveCourseMode?.(!moveCourseMode)}
-                      data-testid="button-tap-to-move"
-                    >
-                      <Navigation2 className="w-4 h-4" />
-                      {moveCourseMode ? "Tap Map to Move Course" : "Tap to Move"}
-                    </Button>
-                    
-                    {/* GPS and Coordinates buttons */}
+                    {/* Tap to Move, GPS, and Coordinates - 3 equal buttons */}
                     <div className="flex gap-2">
                       <Button
+                        variant={moveCourseMode ? "default" : "outline"}
+                        className="flex-1 gap-1"
+                        size="lg"
+                        onClick={() => onSetMoveCourseMode?.(!moveCourseMode)}
+                        data-testid="button-tap-to-move"
+                      >
+                        <Navigation2 className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{moveCourseMode ? "Tap Map" : "Tap to Move"}</span>
+                      </Button>
+                      <Button
                         variant="outline"
-                        className="flex-1 gap-2 h-12"
+                        className="flex-1 gap-1"
+                        size="lg"
                         onClick={handleMoveCourseToGPS}
                         disabled={isGpsLocating || !committeeMark}
                         data-testid="button-course-to-gps"
                       >
-                        <Crosshair className={`w-4 h-4 ${isGpsLocating ? 'animate-pulse' : ''}`} />
-                        {isGpsLocating ? "Locating..." : "GPS"}
+                        <Crosshair className={`w-4 h-4 flex-shrink-0 ${isGpsLocating ? 'animate-pulse' : ''}`} />
+                        <span className="truncate">{isGpsLocating ? "Locating..." : "GPS"}</span>
                       </Button>
                       <Button
                         variant="outline"
-                        className="flex-1 gap-2 h-12"
+                        className="flex-1 gap-1"
+                        size="lg"
                         onClick={() => {
                           if (committeeMark) {
                             setCourseCoordLat(committeeMark.lat.toString());
@@ -1624,8 +1651,8 @@ export function SetupPanel({
                         disabled={!committeeMark}
                         data-testid="button-course-to-coordinates"
                       >
-                        <MapPin className="w-4 h-4" />
-                        Coordinates
+                        <MapPin className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">Coordinates</span>
                       </Button>
                     </div>
                     
@@ -1636,27 +1663,43 @@ export function SetupPanel({
                       }
                     </p>
                     
-                    {onAutoAdjustMark && onAutoAdjustStartLine && onAutoAdjustComplete && windDirection !== undefined && (
+                    {windDirection !== undefined && (onAutoAdjustMark || onAlignCourseToWind) && (
                       <div className="space-y-2 mt-2">
-                        <Button
-                          variant="default"
-                          className="w-full gap-2 h-12"
-                          onClick={() => setShowAutoAdjustDialog(true)}
-                          data-testid="button-auto-adjust"
-                        >
-                          <Compass className="w-4 h-4" />
-                          Auto Adjust to Wind
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="default"
+                            className="flex-1 gap-1"
+                            size="lg"
+                            onClick={() => setShowAutoAdjustDialog(true)}
+                            disabled={!onAutoAdjustMark || !onAutoAdjustStartLine || !onAutoAdjustComplete}
+                            data-testid="button-points-to-wind"
+                          >
+                            <Compass className="w-4 h-4" />
+                            Points to Wind
+                          </Button>
+                          <Button
+                            variant="default"
+                            className="flex-1 gap-1"
+                            size="lg"
+                            onClick={onAlignCourseToWind}
+                            disabled={!onAlignCourseToWind}
+                            data-testid="button-course-to-wind"
+                          >
+                            <Wind className="w-4 h-4" />
+                            Course to Wind
+                          </Button>
+                        </div>
                         
                         {lastAutoAdjust && onUndoAutoAdjust && (Date.now() - lastAutoAdjust.timestamp) < 60000 && (
                           <Button
                             variant="outline"
-                            className="w-full gap-2 h-12 border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
+                            className="w-full gap-2 border-orange-500 text-orange-600"
+                            size="lg"
                             onClick={onUndoAutoAdjust}
                             data-testid="button-undo-auto-adjust"
                           >
                             <RotateCcw className="w-4 h-4" />
-                            Undo Auto Adjust
+                            Undo Adjust
                           </Button>
                         )}
                       </div>
@@ -2377,37 +2420,6 @@ export function SetupPanel({
 
   return (
     <div className="h-full flex flex-col overflow-hidden bg-card" data-testid="setup-panel">
-      {/* Header with title and actions */}
-      <div className="px-3 py-2 border-b flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">Course Setup</h2>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" data-testid="button-course-actions">
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setShowSaveDialog(true)} data-testid="menu-item-save-course">
-              <Save className="w-4 h-4 mr-2" />
-              Save Course
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowLoadDialog(true)} data-testid="menu-item-load-course">
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Load Course
-            </DropdownMenuItem>
-            {onClearAllMarks && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onClearAllMarks} className="text-destructive" data-testid="menu-item-clear-course">
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All Marks
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
       {/* Compact progress stepper */}
       <div className="px-3 py-2 border-b bg-muted/30">
         <div className="flex items-center justify-between gap-1">

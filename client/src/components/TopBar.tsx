@@ -1,8 +1,9 @@
-import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket, CloudSun, Loader2 } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket, CloudSun, Loader2, MoreVertical, Save, FolderOpen } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSettings } from "@/hooks/use-settings";
 
 interface WeatherData {
@@ -22,6 +23,8 @@ interface TopBarProps {
   onToggleDemoMode?: () => void;
   onBackClick?: () => void;
   onClearCourse?: () => void;
+  onSaveCourse?: () => void;
+  onLoadCourse?: () => void;
   pendingDeployments?: number;
   onDeployBuoys?: () => void;
   onFetchWeather?: () => void;
@@ -39,6 +42,8 @@ export function TopBar({
   onToggleDemoMode,
   onBackClick,
   onClearCourse,
+  onSaveCourse,
+  onLoadCourse,
   pendingDeployments = 0,
   onDeployBuoys,
   onFetchWeather,
@@ -263,6 +268,40 @@ export function TopBar({
             {isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           </TooltipContent>
         </Tooltip>
+
+        {/* Course Actions Menu */}
+        {(onSaveCourse || onLoadCourse || onClearCourse) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" data-testid="button-course-actions">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onSaveCourse && (
+                <DropdownMenuItem onClick={onSaveCourse} data-testid="menu-item-save-course">
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Course
+                </DropdownMenuItem>
+              )}
+              {onLoadCourse && (
+                <DropdownMenuItem onClick={onLoadCourse} data-testid="menu-item-load-course">
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  Load Course
+                </DropdownMenuItem>
+              )}
+              {onClearCourse && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={onClearCourse} className="text-destructive" data-testid="menu-item-clear-course">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear All Marks
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         <Button 
           variant="ghost" 
