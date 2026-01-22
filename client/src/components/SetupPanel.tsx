@@ -2655,6 +2655,16 @@ export function SetupPanel({
                     // Calculate bearing from first mark (or center) to each mark
                     if (marks.length === 0) return null;
                     
+                    // Sort marks: Committee Boat first, Pin second, then course marks in placement order
+                    const committeeBoat = marks.find(m => m.role === "start_boat");
+                    const pin = marks.find(m => m.role === "pin");
+                    const otherMarks = marks.filter(m => m.role !== "start_boat" && m.role !== "pin");
+                    const sortedMarks = [
+                      ...(committeeBoat ? [committeeBoat] : []),
+                      ...(pin ? [pin] : []),
+                      ...otherMarks
+                    ];
+                    
                     // Use course center as reference point
                     const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
                     const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
@@ -2669,7 +2679,7 @@ export function SetupPanel({
                       return (bearing + 360) % 360;
                     };
                     
-                    return marks.map((mark, i) => {
+                    return sortedMarks.map((mark, i) => {
                       const bearing = calcBearing(centerLat, centerLng, mark.lat, mark.lng);
                       const typeLabel = mark.isStartLine && mark.isFinishLine 
                         ? "(S/F)" 
@@ -2702,6 +2712,16 @@ export function SetupPanel({
 {(() => {
   if (marks.length === 0) return "No marks defined";
   
+  // Sort marks: Committee Boat first, Pin second, then course marks in placement order
+  const committeeBoat = marks.find(m => m.role === "start_boat");
+  const pin = marks.find(m => m.role === "pin");
+  const otherMarks = marks.filter(m => m.role !== "start_boat" && m.role !== "pin");
+  const sortedMarks = [
+    ...(committeeBoat ? [committeeBoat] : []),
+    ...(pin ? [pin] : []),
+    ...otherMarks
+  ];
+  
   const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
   const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
   
@@ -2717,7 +2737,7 @@ export function SetupPanel({
   
   const lines = [`RACE COURSE MARKS - ${event.name}`, `Date: ${new Date().toLocaleDateString()}`, ""];
   
-  marks.forEach((mark, i) => {
+  sortedMarks.forEach((mark, i) => {
     const bearing = calcBearing(centerLat, centerLng, mark.lat, mark.lng);
     const typeLabel = mark.isStartLine && mark.isFinishLine 
       ? "[Start/Finish]" 
