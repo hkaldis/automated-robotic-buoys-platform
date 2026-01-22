@@ -2547,54 +2547,75 @@ export function SetupPanel({
             </DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
-            {/* Course Diagram */}
+            {/* Course Diagram - oriented head to wind */}
             <div className="border rounded-lg p-4 bg-muted/30">
-              <h3 className="text-sm font-semibold mb-3">Course Diagram</h3>
+              <h3 className="text-sm font-semibold mb-3">Course Diagram {windDirection !== undefined && `(Wind from ${windDirection.toFixed(0)}°)`}</h3>
               <svg 
                 viewBox="0 0 400 300" 
                 className="w-full h-48 bg-blue-50 dark:bg-blue-950/30 rounded-lg"
                 data-testid="course-diagram"
               >
-                {/* Draw course area */}
+                {/* Draw course area - rotated so upwind is at top */}
                 {(() => {
                   if (marks.length === 0) return null;
                   
-                  // Find bounds
-                  const lats = marks.map(m => m.lat);
-                  const lngs = marks.map(m => m.lng);
-                  const minLat = Math.min(...lats);
-                  const maxLat = Math.max(...lats);
-                  const minLng = Math.min(...lngs);
-                  const maxLng = Math.max(...lngs);
-                  const padding = 0.1;
-                  const latRange = (maxLat - minLat) || 0.001;
-                  const lngRange = (maxLng - minLng) || 0.001;
+                  // Calculate rotation angle to put wind at top (wind comes FROM this direction)
+                  // We want upwind (where wind comes from) at the top of the diagram
+                  const windRad = windDirection !== undefined 
+                    ? (windDirection - 180) * Math.PI / 180  // Rotate so wind direction points up
+                    : 0;
                   
-                  // Scale to SVG coordinates with padding
-                  const scaleX = (lng: number) => 40 + ((lng - minLng) / (lngRange * (1 + padding * 2))) * 320;
-                  const scaleY = (lat: number) => 260 - ((lat - minLat) / (latRange * (1 + padding * 2))) * 220;
+                  // Find course center
+                  const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+                  const centerLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
                   
-                  // Draw rounding sequence path
+                  // Convert marks to rotated coordinates centered at origin
+                  const rotatedMarks = marks.map(m => {
+                    // Translate to center
+                    const dx = (m.lng - centerLng) * Math.cos(centerLat * Math.PI / 180);
+                    const dy = m.lat - centerLat;
+                    // Rotate
+                    const rx = dx * Math.cos(windRad) - dy * Math.sin(windRad);
+                    const ry = dx * Math.sin(windRad) + dy * Math.cos(windRad);
+                    return { ...m, rx, ry };
+                  });
+                  
+                  // Find bounds of rotated coordinates
+                  const rxs = rotatedMarks.map(m => m.rx);
+                  const rys = rotatedMarks.map(m => m.ry);
+                  const minRx = Math.min(...rxs);
+                  const maxRx = Math.max(...rxs);
+                  const minRy = Math.min(...rys);
+                  const maxRy = Math.max(...rys);
+                  const padding = 0.15;
+                  const rxRange = (maxRx - minRx) || 0.001;
+                  const ryRange = (maxRy - minRy) || 0.001;
+                  
+                  // Scale to SVG coordinates (Y is flipped so upwind is at top)
+                  const scaleX = (rx: number) => 40 + ((rx - minRx) / (rxRange * (1 + padding * 2))) * 320;
+                  const scaleY = (ry: number) => 260 - ((ry - minRy) / (ryRange * (1 + padding * 2))) * 220;
+                  
+                  // Draw rounding sequence path using rotated coordinates
                   const pathPoints: { x: number; y: number; label: string }[] = [];
                   for (const entry of roundingSequence) {
                     if (entry === "start") {
-                      const startMarks = marks.filter(m => m.isStartLine);
-                      if (startMarks.length >= 2) {
-                        const midLat = (startMarks[0].lat + startMarks[1].lat) / 2;
-                        const midLng = (startMarks[0].lng + startMarks[1].lng) / 2;
-                        pathPoints.push({ x: scaleX(midLng), y: scaleY(midLat), label: "S" });
+                      const startRotated = rotatedMarks.filter(m => m.isStartLine);
+                      if (startRotated.length >= 2) {
+                        const midRx = (startRotated[0].rx + startRotated[1].rx) / 2;
+                        const midRy = (startRotated[0].ry + startRotated[1].ry) / 2;
+                        pathPoints.push({ x: scaleX(midRx), y: scaleY(midRy), label: "S" });
                       }
                     } else if (entry === "finish") {
-                      const finishMarks = marks.filter(m => m.isFinishLine);
-                      if (finishMarks.length >= 2) {
-                        const midLat = (finishMarks[0].lat + finishMarks[1].lat) / 2;
-                        const midLng = (finishMarks[0].lng + finishMarks[1].lng) / 2;
-                        pathPoints.push({ x: scaleX(midLng), y: scaleY(midLat), label: "F" });
+                      const finishRotated = rotatedMarks.filter(m => m.isFinishLine);
+                      if (finishRotated.length >= 2) {
+                        const midRx = (finishRotated[0].rx + finishRotated[1].rx) / 2;
+                        const midRy = (finishRotated[0].ry + finishRotated[1].ry) / 2;
+                        pathPoints.push({ x: scaleX(midRx), y: scaleY(midRy), label: "F" });
                       }
                     } else {
-                      const mark = marks.find(m => m.id === entry);
+                      const mark = rotatedMarks.find(m => m.id === entry);
                       if (mark) {
-                        pathPoints.push({ x: scaleX(mark.lng), y: scaleY(mark.lat), label: mark.name });
+                        pathPoints.push({ x: scaleX(mark.rx), y: scaleY(mark.ry), label: mark.name });
                       }
                     }
                   }
@@ -2613,9 +2634,9 @@ export function SetupPanel({
                       )}
                       
                       {/* Draw marks */}
-                      {marks.map((mark, i) => {
-                        const x = scaleX(mark.lng);
-                        const y = scaleY(mark.lat);
+                      {rotatedMarks.map((mark) => {
+                        const x = scaleX(mark.rx);
+                        const y = scaleY(mark.ry);
                         const color = mark.isStartLine ? "#22c55e" : mark.isFinishLine ? "#3b82f6" : "#f59e0b";
                         
                         return (
@@ -2628,10 +2649,10 @@ export function SetupPanel({
                         );
                       })}
                       
-                      {/* North arrow */}
+                      {/* Wind arrow at top */}
                       <g transform="translate(370, 30)">
-                        <polygon points="0,-15 5,5 -5,5" fill="#64748b" />
-                        <text x="0" y="18" textAnchor="middle" fontSize="10" fill="#64748b">N</text>
+                        <polygon points="0,15 5,-5 -5,-5" fill="#3b82f6" />
+                        <text x="0" y="28" textAnchor="middle" fontSize="10" fill="#3b82f6">Wind</text>
                       </g>
                     </>
                   );
@@ -2655,14 +2676,29 @@ export function SetupPanel({
                     // Calculate bearing from first mark (or center) to each mark
                     if (marks.length === 0) return null;
                     
-                    // Sort marks: Committee Boat first, Pin second, then course marks in placement order
+                    // Sort marks: Committee Boat first, Pin second, then course marks in rounding sequence order
                     const committeeBoat = marks.find(m => m.role === "start_boat");
                     const pin = marks.find(m => m.role === "pin");
-                    const otherMarks = marks.filter(m => m.role !== "start_boat" && m.role !== "pin");
+                    
+                    // Get course marks in rounding sequence order (excluding start/finish)
+                    const sequenceMarkIds = roundingSequence.filter(s => s !== "start" && s !== "finish");
+                    const courseMarksInSequence = sequenceMarkIds
+                      .map(id => marks.find(m => m.id === id))
+                      .filter((m): m is NonNullable<typeof m> => m !== undefined);
+                    
+                    // Any remaining marks not in sequence
+                    const usedIds = new Set([
+                      committeeBoat?.id,
+                      pin?.id,
+                      ...sequenceMarkIds
+                    ].filter(Boolean));
+                    const remainingMarks = marks.filter(m => !usedIds.has(m.id));
+                    
                     const sortedMarks = [
                       ...(committeeBoat ? [committeeBoat] : []),
                       ...(pin ? [pin] : []),
-                      ...otherMarks
+                      ...courseMarksInSequence,
+                      ...remainingMarks
                     ];
                     
                     // Use course center as reference point
@@ -2712,14 +2748,29 @@ export function SetupPanel({
 {(() => {
   if (marks.length === 0) return "No marks defined";
   
-  // Sort marks: Committee Boat first, Pin second, then course marks in placement order
+  // Sort marks: Committee Boat first, Pin second, then course marks in rounding sequence order
   const committeeBoat = marks.find(m => m.role === "start_boat");
   const pin = marks.find(m => m.role === "pin");
-  const otherMarks = marks.filter(m => m.role !== "start_boat" && m.role !== "pin");
+  
+  // Get course marks in rounding sequence order (excluding start/finish)
+  const sequenceMarkIds = roundingSequence.filter(s => s !== "start" && s !== "finish");
+  const courseMarksInSequence = sequenceMarkIds
+    .map(id => marks.find(m => m.id === id))
+    .filter((m): m is NonNullable<typeof m> => m !== undefined);
+  
+  // Any remaining marks not in sequence
+  const usedIds = new Set([
+    committeeBoat?.id,
+    pin?.id,
+    ...sequenceMarkIds
+  ].filter(Boolean));
+  const remainingMarks = marks.filter(m => !usedIds.has(m.id));
+  
   const sortedMarks = [
     ...(committeeBoat ? [committeeBoat] : []),
     ...(pin ? [pin] : []),
-    ...otherMarks
+    ...courseMarksInSequence,
+    ...remainingMarks
   ];
   
   const centerLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
