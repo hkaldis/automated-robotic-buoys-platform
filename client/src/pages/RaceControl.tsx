@@ -1101,15 +1101,22 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             return { mark, newLat: mark.lat, newLng: mark.lng };
           }
           
+          // Longitude degrees are "smaller" than latitude degrees at most locations
+          // 1° lat = ~111km everywhere, 1° lng = ~111km * cos(lat)
+          // We must scale lng to equal-distance space before rotation, then scale back
+          const lngScale = Math.cos(pivotLat * Math.PI / 180);
+          
           const dLat = newLat - pivotLat;
-          const dLng = newLng - pivotLng;
+          const dLng = (newLng - pivotLng) * lngScale; // Scale to equal-distance space
+          
           const angle = transform.rotation * Math.PI / 180;
           const cosA = Math.cos(angle);
           const sinA = Math.sin(angle);
           const rotatedDLat = dLat * cosA - dLng * sinA;
           const rotatedDLng = dLat * sinA + dLng * cosA;
+          
           newLat = pivotLat + rotatedDLat;
-          newLng = pivotLng + rotatedDLng;
+          newLng = pivotLng + rotatedDLng / lngScale; // Scale back to degrees
         }
 
         // Apply translation
