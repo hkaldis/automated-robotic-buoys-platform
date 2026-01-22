@@ -575,7 +575,15 @@ export async function registerRoutes(
   app.patch("/api/events/:id", requireAuth, requireEventAccess, async (req, res) => {
     try {
       const eventId = req.params.id as string;
-      const validatedData = insertEventSchema.partial().parse(req.body);
+      // Convert date strings to Date objects for the database
+      const body = { ...req.body };
+      if (body.startDate && typeof body.startDate === 'string') {
+        body.startDate = new Date(body.startDate);
+      }
+      if (body.endDate && typeof body.endDate === 'string') {
+        body.endDate = new Date(body.endDate);
+      }
+      const validatedData = insertEventSchema.partial().parse(body);
       const event = await storage.updateEvent(eventId, validatedData);
       if (!event) {
         return res.status(404).json({ error: "Event not found" });
