@@ -81,12 +81,6 @@ export async function seedSuperAdmin(): Promise<void> {
 }
 
 export async function seedBoatClasses(): Promise<void> {
-  const existingClasses = await db.select().from(boatClasses).limit(1);
-  if (existingClasses.length > 0) {
-    console.log("Boat classes already exist");
-    return;
-  }
-
   const boatClassData = [
     {
       name: "Optimist",
@@ -508,11 +502,86 @@ export async function seedBoatClasses(): Promise<void> {
       markRoundingTime: 6,
       noGoZoneAngle: 32,
     },
+    {
+      name: "Yngling",
+      hullType: "displacement",
+      crewSize: 3,
+      lengthMeters: 6.35,
+      upwindVmgLight: 3.2,
+      upwindVmgMedium: 4.2,
+      upwindVmgHeavy: 4.8,
+      upwindTwa: 42,
+      downwindVmgLight: 3.5,
+      downwindVmgMedium: 4.8,
+      downwindVmgHeavy: 5.5,
+      downwindTwa: 145,
+      reachSpeedLight: 4.2,
+      reachSpeedMedium: 5.8,
+      reachSpeedHeavy: 6.8,
+      tackTime: 10,
+      jibeTime: 8,
+      markRoundingTime: 12,
+      noGoZoneAngle: 42,
+    },
+    {
+      name: "Lightning",
+      hullType: "displacement",
+      crewSize: 3,
+      lengthMeters: 5.79,
+      upwindVmgLight: 3.0,
+      upwindVmgMedium: 4.0,
+      upwindVmgHeavy: 4.5,
+      upwindTwa: 43,
+      downwindVmgLight: 3.2,
+      downwindVmgMedium: 4.5,
+      downwindVmgHeavy: 5.2,
+      downwindTwa: 148,
+      reachSpeedLight: 4.0,
+      reachSpeedMedium: 5.5,
+      reachSpeedHeavy: 6.5,
+      tackTime: 10,
+      jibeTime: 8,
+      markRoundingTime: 12,
+      noGoZoneAngle: 43,
+    },
+    {
+      name: "RS 21",
+      hullType: "displacement",
+      crewSize: 4,
+      lengthMeters: 6.4,
+      upwindVmgLight: 3.5,
+      upwindVmgMedium: 4.5,
+      upwindVmgHeavy: 5.2,
+      upwindTwa: 41,
+      downwindVmgLight: 4.0,
+      downwindVmgMedium: 5.5,
+      downwindVmgHeavy: 6.5,
+      downwindTwa: 145,
+      reachSpeedLight: 5.0,
+      reachSpeedMedium: 6.5,
+      reachSpeedHeavy: 7.8,
+      tackTime: 10,
+      jibeTime: 8,
+      markRoundingTime: 12,
+      noGoZoneAngle: 41,
+    },
   ];
 
+  // Get existing boat class names
+  const existingClasses = await db.select({ name: boatClasses.name }).from(boatClasses);
+  const existingNames = new Set(existingClasses.map(c => c.name));
+  
+  // Filter to only new boat classes
+  const newBoatClasses = boatClassData.filter(bc => !existingNames.has(bc.name));
+  
+  if (newBoatClasses.length === 0) {
+    console.log("All boat classes already exist");
+    return;
+  }
+
   try {
-    await db.insert(boatClasses).values(boatClassData);
-    console.log(`Seeded ${boatClassData.length} boat classes successfully`);
+    await db.insert(boatClasses).values(newBoatClasses);
+    console.log(`Seeded ${newBoatClasses.length} new boat classes: ${newBoatClasses.map(bc => bc.name).join(", ")}`);
   } catch (error) {
     console.error("Error seeding boat classes:", error);
   }
