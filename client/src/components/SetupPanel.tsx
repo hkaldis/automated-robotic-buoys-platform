@@ -117,8 +117,8 @@ export function SetupPanel({
   const { data: boatClassesData } = useBoatClasses();
   const boatClasses = boatClassesData || [];
   
-  // Start line adjustment settings
-  const { startLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings } = useSettings();
+  // Start line adjustment settings and distance formatting
+  const { startLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, formatDistance } = useSettings();
   
   // Transform visual direction to geographic lat/lng delta based on map bearing
   // When map is rotated, visual "up" is not geographic north
@@ -935,6 +935,19 @@ export function SetupPanel({
                   </div>
                 </div>
 
+                {startLineCrossingTime && (
+                  <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Crossing time
+                    </p>
+                    <p className="text-sm font-semibold">{startLineCrossingTime.timeFormatted}</p>
+                    <p className="text-xs text-muted-foreground">
+                      ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
+                    </p>
+                  </div>
+                )}
+
                 <Button
                   variant="outline"
                   className="w-full gap-2"
@@ -1322,7 +1335,7 @@ export function SetupPanel({
                             <p className="text-sm font-medium truncate">{name}</p>
                             {legDistance !== null && legDistance !== undefined && (
                               <p className="text-[10px] text-muted-foreground">
-                                {legDistance.toFixed(2)} nm
+                                {formatDistance(legDistance)}
                               </p>
                             )}
                           </div>
@@ -1345,7 +1358,7 @@ export function SetupPanel({
                   <div className="mt-3 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-md">
                     <p className="text-xs font-medium">Total Distance</p>
                     <p className="text-lg font-bold" data-testid="text-sequence-total">
-                      {courseStats.totalDistance.toFixed(2)} nm
+                      {formatDistance(courseStats.totalDistance)}
                     </p>
                   </div>
                 )}
@@ -1426,7 +1439,7 @@ export function SetupPanel({
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                 <p className="text-xs text-muted-foreground mb-1">Total Distance</p>
                 <p className="text-2xl font-bold" data-testid="text-summary-distance">
-                  {courseStats.totalDistance.toFixed(2)} nm
+                  {formatDistance(courseStats.totalDistance)}
                 </p>
               </div>
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
@@ -1529,7 +1542,7 @@ export function SetupPanel({
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <span className="text-sm font-medium">{leg.distance.toFixed(2)} nm</span>
+                                  <span className="text-sm font-medium">{formatDistance(leg.distance)}</span>
                                   {legEstimate && (
                                     <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
                                       <Clock className="w-3 h-3" />
