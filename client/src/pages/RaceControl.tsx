@@ -2387,7 +2387,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           if (user?.role === "super_admin") {
             setLocation("/admin");
           } else if (user?.role === "club_manager") {
-            setLocation("/clubs/" + user?.sailClubId);
+            setLocation("/club");
           } else if (user?.role === "event_manager") {
             setLocation("/events");
           }
