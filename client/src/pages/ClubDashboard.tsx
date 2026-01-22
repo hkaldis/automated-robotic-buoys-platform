@@ -38,6 +38,8 @@ export default function ClubDashboard() {
   const [newEventName, setNewEventName] = useState("");
   const [newEventType, setNewEventType] = useState<"race" | "training">("race");
   const [newEventBoatClassId, setNewEventBoatClassId] = useState<string>("");
+  const [newEventStartDate, setNewEventStartDate] = useState("");
+  const [newEventEndDate, setNewEventEndDate] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -80,7 +82,7 @@ export default function ClubDashboard() {
   const [openPopoverEventId, setOpenPopoverEventId] = useState<string | null>(null);
 
   const createEventMutation = useMutation({
-    mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string }) => {
+    mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string; startDate?: string; endDate?: string }) => {
       const res = await apiRequest("POST", "/api/events", data);
       return res.json();
     },
@@ -88,6 +90,8 @@ export default function ClubDashboard() {
       invalidateRelatedQueries("events");
       setEventDialogOpen(false);
       setNewEventName("");
+      setNewEventStartDate("");
+      setNewEventEndDate("");
       toast({ title: "Event created successfully" });
     },
     onError: () => {
@@ -263,7 +267,7 @@ export default function ClubDashboard() {
   };
 
   const handleCreateEvent = () => {
-    if (newEventName.trim() && user?.sailClubId && newEventBoatClassId) {
+    if (newEventName.trim() && user?.sailClubId && newEventBoatClassId && newEventStartDate) {
       const selectedBoatClass = boatClasses.find(bc => bc.id === newEventBoatClassId);
       createEventMutation.mutate({
         name: newEventName.trim(),
@@ -271,6 +275,8 @@ export default function ClubDashboard() {
         boatClass: selectedBoatClass?.name || "Unknown",
         boatClassId: newEventBoatClassId,
         sailClubId: user.sailClubId,
+        startDate: newEventStartDate,
+        endDate: newEventEndDate || undefined,
       });
     }
   };
@@ -448,9 +454,32 @@ export default function ClubDashboard() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="event-start-date">Start Date</Label>
+                          <Input
+                            id="event-start-date"
+                            type="date"
+                            value={newEventStartDate}
+                            onChange={(e) => setNewEventStartDate(e.target.value)}
+                            data-testid="input-event-start-date"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="event-end-date">End Date (optional)</Label>
+                          <Input
+                            id="event-end-date"
+                            type="date"
+                            value={newEventEndDate}
+                            onChange={(e) => setNewEventEndDate(e.target.value)}
+                            min={newEventStartDate}
+                            data-testid="input-event-end-date"
+                          />
+                        </div>
+                      </div>
                       <Button
                         onClick={handleCreateEvent}
-                        disabled={createEventMutation.isPending || !newEventName.trim() || !newEventBoatClassId}
+                        disabled={createEventMutation.isPending || !newEventName.trim() || !newEventBoatClassId || !newEventStartDate}
                         className="w-full"
                         data-testid="button-create-event"
                       >
