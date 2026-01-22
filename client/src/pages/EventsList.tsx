@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LogOut, Loader2, Play, Calendar } from "lucide-react";
 import type { Event } from "@shared/schema";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
@@ -12,8 +14,25 @@ export default function EventsList() {
   const [, setLocation] = useLocation();
   const { user, logout, isLoggingOut, eventAccess } = useAuth();
 
+  // Event filter state
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
+  const [eventHidePast, setEventHidePast] = useState(true);
+  
+  // Build events query with filters
+  const eventsQueryParams = new URLSearchParams();
+  if (eventTypeFilter !== "all") eventsQueryParams.set("type", eventTypeFilter);
+  if (eventHidePast) eventsQueryParams.set("hidePast", "true");
+  const eventsQueryString = eventsQueryParams.toString();
+
   const { data: events = [], isLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
+    queryKey: ["/api/events", eventsQueryString],
+    queryFn: async () => {
+      const res = await fetch(`/api/events${eventsQueryString ? `?${eventsQueryString}` : ""}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch events");
+      return res.json();
+    },
   });
 
   const accessibleEvents = events.filter((e) => eventAccess.includes(e.id));
@@ -48,12 +67,34 @@ export default function EventsList() {
 
       <main className="container mx-auto p-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Assigned Events
-            </CardTitle>
-            <CardDescription>Events you have access to manage</CardDescription>
+          <CardHeader className="flex flex-col gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Assigned Events
+              </CardTitle>
+              <CardDescription>Events you have access to manage</CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                <SelectTrigger className="w-32" data-testid="select-event-type-filter">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="race">Race</SelectItem>
+                  <SelectItem value="training">Training</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant={eventHidePast ? "default" : "outline"}
+                size="sm"
+                onClick={() => setEventHidePast(!eventHidePast)}
+                data-testid="button-toggle-hide-past"
+              >
+                {eventHidePast ? "Showing Upcoming" : "Showing All"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (

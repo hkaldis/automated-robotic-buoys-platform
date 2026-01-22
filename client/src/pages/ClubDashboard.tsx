@@ -40,6 +40,11 @@ export default function ClubDashboard() {
   const [newEventBoatClassId, setNewEventBoatClassId] = useState<string>("");
   const [newEventStartDate, setNewEventStartDate] = useState("");
   const [newEventEndDate, setNewEventEndDate] = useState("");
+  
+  // Event filter state
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>("all");
+  const [eventHidePast, setEventHidePast] = useState(true);
+  
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -52,8 +57,21 @@ export default function ClubDashboard() {
     enabled: !!user?.sailClubId,
   });
 
+  // Build events query with filters
+  const eventsQueryParams = new URLSearchParams();
+  if (eventTypeFilter !== "all") eventsQueryParams.set("type", eventTypeFilter);
+  if (eventHidePast) eventsQueryParams.set("hidePast", "true");
+  const eventsQueryString = eventsQueryParams.toString();
+  
   const { data: events = [], isLoading: eventsLoading } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
+    queryKey: ["/api/events", eventsQueryString],
+    queryFn: async () => {
+      const res = await fetch(`/api/events${eventsQueryString ? `?${eventsQueryString}` : ""}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch events");
+      return res.json();
+    },
   });
 
   const { data: users = [], isLoading: usersLoading } = useQuery<SafeUser[]>({
@@ -395,19 +413,40 @@ export default function ClubDashboard() {
 
           <TabsContent value="events">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between gap-4">
-                <div>
-                  <CardTitle>Events</CardTitle>
-                  <CardDescription>Races and training sessions</CardDescription>
+              <CardHeader className="flex flex-col gap-4">
+                <div className="flex flex-row items-center justify-between gap-4">
+                  <div>
+                    <CardTitle>Events</CardTitle>
+                    <CardDescription>Races and training sessions</CardDescription>
+                  </div>
+                  <Button onClick={() => setEventDialogOpen(true)} data-testid="button-add-event">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Event
+                  </Button>
                 </div>
-                <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button data-testid="button-add-event">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Event
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                    <SelectTrigger className="w-32" data-testid="select-event-type-filter">
+                      <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="race">Race</SelectItem>
+                      <SelectItem value="training">Training</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant={eventHidePast ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setEventHidePast(!eventHidePast)}
+                    data-testid="button-toggle-hide-past"
+                  >
+                    {eventHidePast ? "Showing Upcoming" : "Showing All"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+                <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create New Event</DialogTitle>
                       <DialogDescription>Add a new race or training event</DialogDescription>
@@ -488,7 +527,6 @@ export default function ClubDashboard() {
                     </div>
                   </DialogContent>
                 </Dialog>
-              </CardHeader>
               <CardContent>
                 {eventsLoading ? (
                   <div className="flex justify-center p-8">
