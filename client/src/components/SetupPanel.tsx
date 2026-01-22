@@ -2561,8 +2561,9 @@ export function SetupPanel({
                   
                   // Calculate rotation angle to put wind at top (wind comes FROM this direction)
                   // We want upwind (where wind comes from) at the top of the diagram
+                  // This makes start line (perpendicular to wind) appear horizontal
                   const windRad = windDirection !== undefined 
-                    ? -windDirection * Math.PI / 180  // Rotate so wind source direction points up
+                    ? windDirection * Math.PI / 180  // Rotate so upwind direction points up
                     : 0;
                   
                   // Find course center
