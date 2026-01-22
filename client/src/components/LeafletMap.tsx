@@ -635,7 +635,7 @@ function LegLabels({
   return <>{legs}</>;
 }
 
-function WindArrowsLayer({ windDirection, windSpeed }: { windDirection: number; windSpeed: number }) {
+function WindArrowsLayer({ windDirection, windSpeed, mapBearing = 0 }: { windDirection: number; windSpeed: number; mapBearing?: number }) {
   const map = useMap();
   const [arrows, setArrows] = useState<Array<{ lat: number; lng: number; key: string }>>([]);
   const [currentZoom, setCurrentZoom] = useState(map.getZoom());
@@ -698,7 +698,7 @@ function WindArrowsLayer({ windDirection, windSpeed }: { windDirection: number; 
               <div style="
                 width: ${arrowSize}px;
                 height: ${arrowSize}px;
-                transform: rotate(${windDirection + 180}deg);
+                transform: rotate(${(windDirection + 180 + mapBearing) % 360}deg);
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -1079,7 +1079,7 @@ export function LeafletMap({
         ))}
         
         {showWindArrows && weatherData && (
-          <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} />
+          <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} mapBearing={mapBearing} />
         )}
         
         {sortedMarks.map((mark) => 
