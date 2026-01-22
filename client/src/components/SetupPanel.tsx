@@ -836,7 +836,7 @@ export function SetupPanel({
     { id: "marks", label: "Points", number: 2 },
     { id: "finish_line", label: "Finish", number: 3 },
     { id: "sequence", label: "Route", number: 4 },
-    { id: "summary", label: "Review", number: 5 },
+    { id: "summary", label: "Course", number: 5 },
     { id: "assign_buoys", label: "Assign", number: 6 },
     { id: "ready", label: "Fleet", number: 7 },
   ];
@@ -1491,7 +1491,7 @@ export function SetupPanel({
                 <Ruler className="w-4 h-4 text-purple-600" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold">Course Review</h2>
+                <h2 className="text-sm font-semibold">Course</h2>
                 <p className="text-xs text-muted-foreground">Review distances & adjust course</p>
               </div>
             </div>
@@ -1662,28 +1662,26 @@ export function SetupPanel({
                     
                     {windDirection !== undefined && (onAutoAdjustMark || onAlignCourseToWind) && (
                       <div className="space-y-2 mt-2">
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-2 gap-2">
                           <Button
                             variant="default"
-                            className="flex-1 gap-1"
-                            size="lg"
+                            className="gap-1"
                             onClick={() => setShowAutoAdjustDialog(true)}
                             disabled={!onAutoAdjustMark || !onAutoAdjustStartLine || !onAutoAdjustComplete}
                             data-testid="button-points-to-wind"
                           >
-                            <Compass className="w-4 h-4" />
-                            Points to Wind
+                            <Compass className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">Marks</span>
                           </Button>
                           <Button
                             variant="default"
-                            className="flex-1 gap-1"
-                            size="lg"
+                            className="gap-1"
                             onClick={onAlignCourseToWind}
                             disabled={!onAlignCourseToWind}
                             data-testid="button-course-to-wind"
                           >
-                            <Wind className="w-4 h-4" />
-                            Course to Wind
+                            <Wind className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">Align</span>
                           </Button>
                         </div>
                         
@@ -1691,12 +1689,11 @@ export function SetupPanel({
                           <Button
                             variant="outline"
                             className="w-full gap-2 border-orange-500 text-orange-600"
-                            size="lg"
                             onClick={onUndoAutoAdjust}
                             data-testid="button-undo-auto-adjust"
                           >
                             <RotateCcw className="w-4 h-4" />
-                            Undo Adjust
+                            Undo
                           </Button>
                         )}
                       </div>
