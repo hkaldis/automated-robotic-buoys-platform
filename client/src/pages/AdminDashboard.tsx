@@ -14,8 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw, Eye, X } from "lucide-react";
-import type { SailClub, UserRole, Event, Buoy, BuoyAssignment, BuoyInventoryStatus } from "@shared/schema";
+import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw, Eye, X, Sailboat } from "lucide-react";
+import type { SailClub, UserRole, Event, Buoy, BuoyAssignment, BuoyInventoryStatus, BoatClass, InsertBoatClass } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
 
@@ -83,6 +83,15 @@ export default function AdminDashboard() {
   
   // State for inline buoy assignment popover in events table
   const [openPopoverEventId, setOpenPopoverEventId] = useState<string | null>(null);
+  
+  // Boat class management state
+  const [boatClassDialogOpen, setBoatClassDialogOpen] = useState(false);
+  const [editBoatClassDialogOpen, setEditBoatClassDialogOpen] = useState(false);
+  const [editingBoatClass, setEditingBoatClass] = useState<BoatClass | null>(null);
+  const [newBoatClassName, setNewBoatClassName] = useState("");
+  const [newBoatClassHullType, setNewBoatClassHullType] = useState<"displacement" | "planing" | "foiling">("displacement");
+  const [newBoatClassCrewSize, setNewBoatClassCrewSize] = useState(1);
+  const [newBoatClassLength, setNewBoatClassLength] = useState(4.0);
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -372,6 +381,90 @@ export default function AdminDashboard() {
     },
   });
 
+  const createBoatClassMutation = useMutation({
+    mutationFn: async (data: Partial<InsertBoatClass>) => {
+      const res = await apiRequest("POST", "/api/boat-classes", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boat-classes"] });
+      setBoatClassDialogOpen(false);
+      resetBoatClassForm();
+      toast({ title: "Boat class created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: error?.message || "Failed to create boat class", variant: "destructive" });
+    },
+  });
+
+  const updateBoatClassMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<InsertBoatClass>) => {
+      const res = await apiRequest("PATCH", `/api/boat-classes/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boat-classes"] });
+      setEditBoatClassDialogOpen(false);
+      setEditingBoatClass(null);
+      toast({ title: "Boat class updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: error?.message || "Failed to update boat class", variant: "destructive" });
+    },
+  });
+
+  const deleteBoatClassMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("DELETE", `/api/boat-classes/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/boat-classes"] });
+      toast({ title: "Boat class deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete boat class", variant: "destructive" });
+    },
+  });
+
+  const resetBoatClassForm = () => {
+    setNewBoatClassName("");
+    setNewBoatClassHullType("displacement");
+    setNewBoatClassCrewSize(1);
+    setNewBoatClassLength(4.0);
+  };
+
+  const handleCreateBoatClass = () => {
+    if (newBoatClassName.trim()) {
+      createBoatClassMutation.mutate({
+        name: newBoatClassName.trim(),
+        hullType: newBoatClassHullType,
+        crewSize: newBoatClassCrewSize,
+        lengthMeters: newBoatClassLength,
+        upwindVmgLight: 2.5,
+        upwindVmgMedium: 3.2,
+        upwindVmgHeavy: 3.8,
+        upwindTwa: 42,
+        downwindVmgLight: 3.0,
+        downwindVmgMedium: 4.0,
+        downwindVmgHeavy: 5.0,
+        downwindTwa: 145,
+        reachSpeedLight: 4.0,
+        reachSpeedMedium: 5.5,
+        reachSpeedHeavy: 6.5,
+        tackTime: 8,
+        jibeTime: 6,
+        markRoundingTime: 10,
+        noGoZoneAngle: 40,
+      });
+    }
+  };
+
+  const handleEditBoatClass = (boatClass: BoatClass) => {
+    setEditingBoatClass(boatClass);
+    setEditBoatClassDialogOpen(true);
+  };
+
   const handleCreateClub = () => {
     if (newClubName.trim()) {
       createClubMutation.mutate(newClubName.trim());
@@ -653,6 +746,10 @@ export default function AdminDashboard() {
               <Anchor className="h-4 w-4" />
               Buoys
             </TabsTrigger>
+            <TabsTrigger value="boat-classes" className="gap-2" data-testid="tab-boat-classes">
+              <Sailboat className="h-4 w-4" />
+              Boat Classes
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="clubs">
@@ -813,7 +910,7 @@ export default function AdminDashboard() {
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               </div>
                             ) : (
-                              boatClasses.map((bc) => (
+                              [...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
                                 <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                               ))
                             )}
@@ -1298,8 +1395,237 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="boat-classes">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Boat Classes</CardTitle>
+                  <CardDescription>Manage sailboat types and their performance characteristics</CardDescription>
+                </div>
+                <Dialog open={boatClassDialogOpen} onOpenChange={setBoatClassDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-boat-class">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Boat Class
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Boat Class</DialogTitle>
+                      <DialogDescription>Add a new sailboat type to the platform</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="boat-class-name">Name</Label>
+                        <Input
+                          id="boat-class-name"
+                          value={newBoatClassName}
+                          onChange={(e) => setNewBoatClassName(e.target.value)}
+                          placeholder="e.g., Laser, 470, Finn"
+                          data-testid="input-boat-class-name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="boat-class-hull">Hull Type</Label>
+                          <Select value={newBoatClassHullType} onValueChange={(v) => setNewBoatClassHullType(v as "displacement" | "planing" | "foiling")}>
+                            <SelectTrigger data-testid="select-boat-class-hull">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="displacement">Displacement</SelectItem>
+                              <SelectItem value="planing">Planing</SelectItem>
+                              <SelectItem value="foiling">Foiling</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="boat-class-crew">Crew Size</Label>
+                          <Input
+                            id="boat-class-crew"
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={newBoatClassCrewSize}
+                            onChange={(e) => setNewBoatClassCrewSize(parseInt(e.target.value) || 1)}
+                            data-testid="input-boat-class-crew"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="boat-class-length">Length (meters)</Label>
+                        <Input
+                          id="boat-class-length"
+                          type="number"
+                          step="0.1"
+                          min={1}
+                          max={30}
+                          value={newBoatClassLength}
+                          onChange={(e) => setNewBoatClassLength(parseFloat(e.target.value) || 4.0)}
+                          data-testid="input-boat-class-length"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleCreateBoatClass}
+                        disabled={!newBoatClassName.trim() || createBoatClassMutation.isPending}
+                        className="w-full"
+                        data-testid="button-confirm-add-boat-class"
+                      >
+                        {createBoatClassMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : null}
+                        Add Boat Class
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {boatClassesLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  </div>
+                ) : boatClasses.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No boat classes found. Add your first boat class above.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Hull Type</TableHead>
+                        <TableHead>Crew</TableHead>
+                        <TableHead>Length (m)</TableHead>
+                        <TableHead className="w-24">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {[...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((boatClass) => (
+                        <TableRow key={boatClass.id} data-testid={`row-boat-class-${boatClass.id}`}>
+                          <TableCell className="font-medium">{boatClass.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {boatClass.hullType}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{boatClass.crewSize}</TableCell>
+                          <TableCell>{boatClass.lengthMeters?.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditBoatClass(boatClass)}
+                                data-testid={`button-edit-boat-class-${boatClass.id}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => deleteBoatClassMutation.mutate(boatClass.id)}
+                                disabled={deleteBoatClassMutation.isPending}
+                                data-testid={`button-delete-boat-class-${boatClass.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
+
+      {/* Edit Boat Class Dialog */}
+      <Dialog open={editBoatClassDialogOpen} onOpenChange={setEditBoatClassDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Boat Class</DialogTitle>
+            <DialogDescription>Update boat class details</DialogDescription>
+          </DialogHeader>
+          {editingBoatClass && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-boat-class-name">Name</Label>
+                <Input
+                  id="edit-boat-class-name"
+                  value={editingBoatClass.name}
+                  onChange={(e) => setEditingBoatClass({ ...editingBoatClass, name: e.target.value })}
+                  data-testid="input-edit-boat-class-name"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-boat-class-hull">Hull Type</Label>
+                  <Select 
+                    value={editingBoatClass.hullType} 
+                    onValueChange={(v) => setEditingBoatClass({ ...editingBoatClass, hullType: v })}
+                  >
+                    <SelectTrigger data-testid="select-edit-boat-class-hull">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="displacement">Displacement</SelectItem>
+                      <SelectItem value="planing">Planing</SelectItem>
+                      <SelectItem value="foiling">Foiling</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-boat-class-crew">Crew Size</Label>
+                  <Input
+                    id="edit-boat-class-crew"
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={editingBoatClass.crewSize}
+                    onChange={(e) => setEditingBoatClass({ ...editingBoatClass, crewSize: parseInt(e.target.value) || 1 })}
+                    data-testid="input-edit-boat-class-crew"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-boat-class-length">Length (meters)</Label>
+                <Input
+                  id="edit-boat-class-length"
+                  type="number"
+                  step="0.1"
+                  min={1}
+                  max={30}
+                  value={editingBoatClass.lengthMeters}
+                  onChange={(e) => setEditingBoatClass({ ...editingBoatClass, lengthMeters: parseFloat(e.target.value) || 4.0 })}
+                  data-testid="input-edit-boat-class-length"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  updateBoatClassMutation.mutate({
+                    id: editingBoatClass.id,
+                    name: editingBoatClass.name,
+                    hullType: editingBoatClass.hullType,
+                    crewSize: editingBoatClass.crewSize,
+                    lengthMeters: editingBoatClass.lengthMeters,
+                  });
+                }}
+                disabled={updateBoatClassMutation.isPending}
+                className="w-full"
+                data-testid="button-confirm-edit-boat-class"
+              >
+                {updateBoatClassMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={assignBuoyDialogOpen} onOpenChange={setAssignBuoyDialogOpen}>
         <DialogContent>
@@ -1445,7 +1771,7 @@ export default function AdminDashboard() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                     </div>
                   ) : (
-                    boatClasses.map((bc) => (
+                    [...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
                       <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                     ))
                   )}

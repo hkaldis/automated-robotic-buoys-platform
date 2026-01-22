@@ -158,7 +158,7 @@ export function CreateRaceDialog({ onCreateRace, trigger }: CreateRaceDialogProp
                     </div>
                   ) : (
                     <>
-                      {boatClasses.map((bc) => (
+                      {[...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
                         <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                       ))}
                       <SelectItem value="other">Other (custom)</SelectItem>

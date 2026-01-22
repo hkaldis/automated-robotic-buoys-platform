@@ -430,7 +430,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/boat-classes", requireAuth, requireRole(["super_admin"]), async (req, res) => {
+  app.post("/api/boat-classes", requireAuth, requireRole("super_admin"), async (req, res) => {
     try {
       const parsed = insertBoatClassSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -447,7 +447,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/boat-classes/:id", requireAuth, requireRole(["super_admin"]), async (req, res) => {
+  app.patch("/api/boat-classes/:id", requireAuth, requireRole("super_admin"), async (req, res) => {
     try {
       const boatClassId = req.params.id as string;
       const updateSchema = insertBoatClassSchema.partial();
@@ -469,7 +469,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/boat-classes/:id", requireAuth, requireRole(["super_admin"]), async (req, res) => {
+  app.delete("/api/boat-classes/:id", requireAuth, requireRole("super_admin"), async (req, res) => {
     try {
       const boatClassId = req.params.id as string;
       const [deleted] = await db.delete(boatClasses).where(eq(boatClasses.id, boatClassId)).returning();

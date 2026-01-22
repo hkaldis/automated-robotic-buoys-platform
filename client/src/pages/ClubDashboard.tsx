@@ -441,7 +441,7 @@ export default function ClubDashboard() {
                                 <Loader2 className="w-4 h-4 animate-spin" />
                               </div>
                             ) : (
-                              boatClasses.map((bc) => (
+                              [...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
                                 <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                               ))
                             )}
@@ -839,7 +839,7 @@ export default function ClubDashboard() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                     </div>
                   ) : (
-                    boatClasses.map((bc) => (
+                    [...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
                       <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                     ))
                   )}

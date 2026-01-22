@@ -1378,7 +1378,7 @@ export function SetupPanel({
                   <SelectValue placeholder="Select boat class" />
                 </SelectTrigger>
                 <SelectContent className="z-[10000] max-h-60">
-                  {boatClasses.map((bc) => (
+                  {[...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
                     <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
                   ))}
                 </SelectContent>
