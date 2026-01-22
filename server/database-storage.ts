@@ -136,6 +136,11 @@ export class DatabaseStorage implements IStorage {
     return event;
   }
 
+  async getEventByCourseId(courseId: string): Promise<Event | undefined> {
+    const [event] = await db.select().from(events).where(eq(events.courseId, courseId));
+    return event;
+  }
+
   async getEvents(sailClubId?: string): Promise<Event[]> {
     if (sailClubId) {
       return db.select().from(events).where(eq(events.sailClubId, sailClubId));

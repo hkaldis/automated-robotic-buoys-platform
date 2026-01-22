@@ -32,6 +32,7 @@ export interface IStorage {
   deleteSailClub(id: string): Promise<boolean>;
 
   getEvent(id: string): Promise<Event | undefined>;
+  getEventByCourseId(courseId: string): Promise<Event | undefined>;
   getEvents(sailClubId?: string): Promise<Event[]>;
   createEvent(event: InsertEvent): Promise<Event>;
   updateEvent(id: string, event: Partial<InsertEvent>): Promise<Event | undefined>;
@@ -295,6 +296,10 @@ export class MemStorage implements IStorage {
 
   async getEvent(id: string): Promise<Event | undefined> {
     return this.events.get(id);
+  }
+
+  async getEventByCourseId(courseId: string): Promise<Event | undefined> {
+    return Array.from(this.events.values()).find(e => e.courseId === courseId);
   }
 
   async getEvents(sailClubId?: string): Promise<Event[]> {

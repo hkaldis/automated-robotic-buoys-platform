@@ -655,6 +655,38 @@ export const requireEventAccess: RequestHandler = async (req, res, next) => {
   next();
 };
 
+export const requireCourseAccess: RequestHandler = async (req, res, next) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  
+  if (req.session.role === "super_admin" || req.session.role === "club_manager") {
+    return next();
+  }
+  
+  const courseId = req.params.id || req.params.courseId || req.body?.courseId;
+  if (!courseId) {
+    return next();
+  }
+  
+  // Find which event uses this course
+  const event = await storage.getEventByCourseId(courseId);
+  if (!event) {
+    // Course not linked to any event, allow access
+    return next();
+  }
+  
+  // Check if user has access to the event
+  const accessList = await storage.getUserEventAccess(req.session.userId);
+  const hasAccess = accessList.some(a => a.eventId === event.id);
+  
+  if (!hasAccess) {
+    return res.status(403).json({ error: "No access to this course" });
+  }
+  
+  next();
+};
+
 export function safeUserResponse(user: User): Omit<User, "passwordHash"> {
   const { passwordHash, ...safeUser } = user;
   return safeUser;

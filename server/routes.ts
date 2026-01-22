@@ -27,6 +27,7 @@ import {
   comparePassword, 
   safeUserResponse,
   requireEventAccess,
+  requireCourseAccess,
 } from "./auth";
 import {
   validateCoordinates,
@@ -639,7 +640,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/courses", requireAuth, async (req, res) => {
+  app.post("/api/courses", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const validatedData = insertCourseSchema.parse(req.body);
       const course = await storage.createCourse(validatedData);
@@ -652,7 +653,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/courses/:id", requireAuth, async (req, res) => {
+  app.patch("/api/courses/:id", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const courseId = req.params.id as string;
       const validatedData = insertCourseSchema.partial().parse(req.body);
@@ -695,7 +696,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/courses/:id", requireAuth, async (req, res) => {
+  app.delete("/api/courses/:id", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const courseId = req.params.id as string;
       const existingCourse = await storage.getCourse(courseId);
@@ -922,7 +923,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/marks", requireAuth, async (req, res) => {
+  app.post("/api/marks", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const validatedData = insertMarkSchema.parse(req.body);
       
@@ -972,7 +973,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/marks/:id", requireAuth, async (req, res) => {
+  app.patch("/api/marks/:id", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const markId = req.params.id as string;
       const validatedData = insertMarkSchema.partial().parse(req.body);
@@ -1043,7 +1044,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/marks/:id", requireAuth, async (req, res) => {
+  app.delete("/api/marks/:id", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const markId = req.params.id as string;
       
@@ -1074,7 +1075,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/courses/:id/marks", requireAuth, async (req, res) => {
+  app.delete("/api/courses/:id/marks", requireAuth, requireCourseAccess, async (req, res) => {
     try {
       const courseId = req.params.id as string;
       
