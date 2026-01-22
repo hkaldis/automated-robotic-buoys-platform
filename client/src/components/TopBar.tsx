@@ -106,7 +106,7 @@ export function TopBar({
         <Menu className="w-5 h-5" />
       </Button>
 
-      {onBackClick && (userRole === "super_admin" || userRole === "club_manager") && (
+      {onBackClick && (userRole === "super_admin" || userRole === "club_manager" || userRole === "event_manager") && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button 

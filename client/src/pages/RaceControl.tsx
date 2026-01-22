@@ -2388,6 +2388,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             setLocation("/admin");
           } else if (user?.role === "club_manager") {
             setLocation("/clubs/" + user?.sailClubId);
+          } else if (user?.role === "event_manager") {
+            setLocation("/events");
           }
         }}
         onClearCourse={() => setShowClearCourseConfirm(true)}
