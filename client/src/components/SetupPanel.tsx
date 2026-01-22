@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2 } from "lucide-react";
+import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -251,7 +252,12 @@ export function SetupPanel({
   const [pendingFinishUpdate, setPendingFinishUpdate] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showAutoAdjustDialog, setShowAutoAdjustDialog] = useState(false);
+  const [showCourseCoordinatesDialog, setShowCourseCoordinatesDialog] = useState(false);
+  const [courseCoordLat, setCourseCoordLat] = useState("");
+  const [courseCoordLng, setCourseCoordLng] = useState("");
+  const [isGpsLocating, setIsGpsLocating] = useState(false);
   const [legsExpanded, setLegsExpanded] = useState(false);
+  const [courseDetailsOpen, setCourseDetailsOpen] = useState(false);
   
   // Track all current mark IDs for reconciliation
   const currentMarkIds = useMemo(() => new Set(marks.map(m => m.id)), [marks]);
@@ -737,6 +743,36 @@ export function SetupPanel({
     onSaveMark?.(pinMark.id, { lat: pinMark.lat + translateLat, lng: pinMark.lng + translateLng });
     onSaveMark?.(committeeMark.id, { lat: committeeMark.lat + translateLat, lng: committeeMark.lng + translateLng });
   }, [pinMark, committeeMark, onSaveMark, getTransformedCourseMove]);
+
+  // Move course to GPS position (places committee boat at current position)
+  const handleMoveCourseToGPS = useCallback(() => {
+    if (!committeeMark || !navigator.geolocation) return;
+    
+    setIsGpsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const newLat = position.coords.latitude;
+        const newLng = position.coords.longitude;
+        const translateLat = newLat - committeeMark.lat;
+        const translateLng = newLng - committeeMark.lng;
+        onTransformCourse?.({ translateLat, translateLng });
+        setIsGpsLocating(false);
+      },
+      (error) => {
+        console.error("GPS error:", error);
+        setIsGpsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [committeeMark, onTransformCourse]);
+
+  // Move course to specific coordinates (places committee boat at given position)
+  const handleMoveCourseToCoordinates = useCallback((lat: number, lng: number) => {
+    if (!committeeMark) return;
+    const translateLat = lat - committeeMark.lat;
+    const translateLng = lng - committeeMark.lng;
+    onTransformCourse?.({ translateLat, translateLng });
+  }, [committeeMark, onTransformCourse]);
 
   // Add course mark (M1, M2, M3, etc.)
   const handleAddCourseMark = () => {
@@ -1434,23 +1470,20 @@ export function SetupPanel({
               </div>
             </div>
 
-            {/* Quick Estimate - Always visible at top (no scrolling needed) */}
-            <div className="grid grid-cols-2 gap-3 flex-shrink-0">
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-1">Total Distance</p>
-                <p className="text-2xl font-bold" data-testid="text-summary-distance">
+            {/* Quick Estimate - Compact boxes */}
+            <div className="grid grid-cols-2 gap-2 flex-shrink-0">
+              <div className="bg-primary/10 border border-primary/20 rounded-md p-2">
+                <p className="text-[10px] text-muted-foreground">Distance</p>
+                <p className="text-lg font-bold" data-testid="text-summary-distance">
                   {formatDistance(courseStats.totalDistance)}
                 </p>
               </div>
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Est. Race Time
-                  {raceTimeEstimate && (
-                    <span className="text-green-600 dark:text-green-400">(VMG)</span>
-                  )}
+              <div className="bg-primary/10 border border-primary/20 rounded-md p-2">
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5" />
+                  Est. Time
                 </p>
-                <p className="text-2xl font-bold" data-testid="text-summary-time">
+                <p className="text-lg font-bold" data-testid="text-summary-time">
                   {raceTimeEstimate 
                     ? raceTimeEstimate.totalTimeFormatted
                     : `${Math.round(courseStats.estimatedTime)} min`
@@ -1459,181 +1492,9 @@ export function SetupPanel({
               </div>
             </div>
 
-            {/* Boat Class Selector - quick change at sea */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Sailboat className="w-4 h-4 text-muted-foreground" />
-              <Select 
-                value={boatClassOverrideId || event.boatClassId || ""} 
-                onValueChange={setBoatClassOverrideId}
-              >
-                <SelectTrigger className="flex-1 min-h-10" data-testid="select-boat-class-override">
-                  <SelectValue placeholder="Select boat class" />
-                </SelectTrigger>
-                <SelectContent className="z-[10000] max-h-60">
-                  {[...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
-                    <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3">
-                {/* Route Legs - Collapsible (default collapsed for quick glance) */}
-                {courseStats.legs.length > 0 && (
-                  <Collapsible open={legsExpanded} onOpenChange={setLegsExpanded}>
-                    <Card>
-                      <CollapsibleTrigger asChild>
-                        <CardHeader 
-                          className="pb-2 cursor-pointer hover-elevate rounded-t-lg min-h-12"
-                          data-testid="button-toggle-route-legs"
-                        >
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <List className="w-4 h-4" />
-                            <span className="flex-1">Route Legs ({courseStats.legs.length})</span>
-                            <ChevronDown className={cn(
-                              "w-4 h-4 transition-transform duration-200",
-                              legsExpanded && "rotate-180"
-                            )} />
-                          </CardTitle>
-                        </CardHeader>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <CardContent className="space-y-2 pt-0">
-                          {courseStats.legs.map((leg, index) => {
-                            const windAngle = windDirection !== undefined 
-                              ? calculateWindAngle(leg.bearing, windDirection)
-                              : null;
-                            const legEstimate = raceTimeEstimate?.legs[index];
-                            
-                            return (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
-                                data-testid={`leg-${index}`}
-                              >
-                                <div className="w-6 h-6 rounded-full bg-indigo-500 text-white text-xs flex items-center justify-center font-bold">
-                                  {index + 1}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-sm">
-                                    {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5">
-                                    <span>{leg.bearing.toFixed(0)}°</span>
-                                    {legEstimate && (
-                                      <Badge 
-                                        variant="outline" 
-                                        className={cn(
-                                          "text-[10px] px-1 py-0",
-                                          legEstimate.pointOfSail === "upwind" && "border-red-400 text-red-600 dark:text-red-400",
-                                          legEstimate.pointOfSail === "downwind" && "border-blue-400 text-blue-600 dark:text-blue-400",
-                                          (legEstimate.pointOfSail === "beam_reach" || legEstimate.pointOfSail === "close_reach" || legEstimate.pointOfSail === "broad_reach") && "border-green-400 text-green-600 dark:text-green-400"
-                                        )}
-                                      >
-                                        {legEstimate.pointOfSail.replace("_", " ")}
-                                      </Badge>
-                                    )}
-                                    {windAngle !== null && !legEstimate && (
-                                      <span className="text-amber-600 dark:text-amber-400">
-                                        ({formatWindRelative(windAngle.signedRelative)})
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-sm font-medium">{formatDistance(leg.distance)}</span>
-                                  {legEstimate && (
-                                    <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
-                                      <Clock className="w-3 h-3" />
-                                      {formatLegTime(legEstimate.legTimeSeconds)}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </CardContent>
-                      </CollapsibleContent>
-                    </Card>
-                  </Collapsible>
-                )}
-
-                {/* Line Lengths */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Start Line</p>
-                    <p className="text-lg font-semibold">
-                      {(courseStats.startLineLength * 1852).toFixed(0)} m
-                    </p>
-                    {boatClass?.lengthMeters && (
-                      <p className="text-sm text-muted-foreground">
-                        ({((courseStats.startLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
-                      </p>
-                    )}
-                    {startLineCrossingTime && (
-                      <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-800">
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Crossing time
-                        </p>
-                        <p className="text-sm font-medium">
-                          {startLineCrossingTime.timeFormatted}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                    <p className="text-xs text-muted-foreground">Finish Line</p>
-                    <p className="text-lg font-semibold">
-                      {(courseStats.finishLineLength * 1852).toFixed(0)} m
-                    </p>
-                    {boatClass?.lengthMeters && (
-                      <p className="text-sm text-muted-foreground">
-                        ({((courseStats.finishLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Marks Summary */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <MapPin className="w-4 h-4" />
-                      Marks ({marks.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {startLineMarks.map(m => (
-                        <Badge key={m.id} className="bg-green-500">{m.name}</Badge>
-                      ))}
-                      {courseMarks.map(m => (
-                        <Badge key={m.id} variant="secondary">{m.name}</Badge>
-                      ))}
-                      {finishLineMarks.filter(m => !m.isStartLine).map(m => (
-                        <Badge key={m.id} className="bg-blue-500">{m.name}</Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Export Course Data */}
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={() => setShowExportDialog(true)}
-                  data-testid="button-export-course"
-                >
-                  <Download className="w-4 h-4" />
-                  Export Mark Locations
-                </Button>
-
-                {/* Course Transformation Controls */}
+                {/* Course Transformation Controls - First */}
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -1738,10 +1599,40 @@ export function SetupPanel({
                       {moveCourseMode ? "Tap Map to Move Course" : "Tap to Move"}
                     </Button>
                     
+                    {/* GPS and Coordinates buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1 gap-2 h-12"
+                        onClick={handleMoveCourseToGPS}
+                        disabled={isGpsLocating || !committeeMark}
+                        data-testid="button-course-to-gps"
+                      >
+                        <Crosshair className={`w-4 h-4 ${isGpsLocating ? 'animate-pulse' : ''}`} />
+                        {isGpsLocating ? "Locating..." : "GPS"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 gap-2 h-12"
+                        onClick={() => {
+                          if (committeeMark) {
+                            setCourseCoordLat(committeeMark.lat.toString());
+                            setCourseCoordLng(committeeMark.lng.toString());
+                          }
+                          setShowCourseCoordinatesDialog(true);
+                        }}
+                        disabled={!committeeMark}
+                        data-testid="button-course-to-coordinates"
+                      >
+                        <MapPin className="w-4 h-4" />
+                        Coordinates
+                      </Button>
+                    </div>
+                    
                     <p className="text-xs text-center text-muted-foreground">
                       {moveCourseMode 
                         ? "Tap anywhere on the map to relocate the course"
-                        : "Drag points on the map to reposition them"
+                        : "Committee boat moves to position, rest follows"
                       }
                     </p>
                     
@@ -1806,6 +1697,170 @@ export function SetupPanel({
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Course Details - Collapsible (default closed) */}
+                <Collapsible open={courseDetailsOpen} onOpenChange={setCourseDetailsOpen}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader 
+                        className="pb-2 cursor-pointer hover-elevate rounded-t-lg min-h-12"
+                        data-testid="button-toggle-course-details"
+                      >
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <List className="w-4 h-4" />
+                          <span className="flex-1">Course Details</span>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform duration-200",
+                            courseDetailsOpen && "rotate-180"
+                          )} />
+                        </CardTitle>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-3 pt-0">
+                        {/* Boat Class Selector */}
+                        <div className="flex items-center gap-2">
+                          <Sailboat className="w-4 h-4 text-muted-foreground" />
+                          <Select 
+                            value={boatClassOverrideId || event.boatClassId || ""} 
+                            onValueChange={setBoatClassOverrideId}
+                          >
+                            <SelectTrigger className="flex-1 min-h-10" data-testid="select-boat-class-override">
+                              <SelectValue placeholder="Select boat class" />
+                            </SelectTrigger>
+                            <SelectContent className="z-[10000] max-h-60">
+                              {[...boatClasses].sort((a, b) => a.name.localeCompare(b.name)).map((bc) => (
+                                <SelectItem key={bc.id} value={bc.id}>{bc.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Route Legs */}
+                        {courseStats.legs.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">Route Legs ({courseStats.legs.length})</p>
+                            {courseStats.legs.map((leg, index) => {
+                              const windAngle = windDirection !== undefined 
+                                ? calculateWindAngle(leg.bearing, windDirection)
+                                : null;
+                              const legEstimate = raceTimeEstimate?.legs[index];
+                              
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg"
+                                  data-testid={`leg-${index}`}
+                                >
+                                  <div className="w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] flex items-center justify-center font-bold">
+                                    {index + 1}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs truncate">
+                                      {getSequenceEntryName(leg.from)} → {getSequenceEntryName(leg.to)}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2">
+                                      <span>{leg.bearing.toFixed(0)}°</span>
+                                      {legEstimate && (
+                                        <Badge 
+                                          variant="outline" 
+                                          className={cn(
+                                            "text-[10px] px-1 py-0",
+                                            legEstimate.pointOfSail === "upwind" && "border-red-400 text-red-600 dark:text-red-400",
+                                            legEstimate.pointOfSail === "downwind" && "border-blue-400 text-blue-600 dark:text-blue-400",
+                                            (legEstimate.pointOfSail === "beam_reach" || legEstimate.pointOfSail === "close_reach" || legEstimate.pointOfSail === "broad_reach") && "border-green-400 text-green-600 dark:text-green-400"
+                                          )}
+                                        >
+                                          {legEstimate.pointOfSail.replace("_", " ")}
+                                        </Badge>
+                                      )}
+                                      {windAngle !== null && !legEstimate && (
+                                        <span className="text-amber-600 dark:text-amber-400">
+                                          ({formatWindRelative(windAngle.signedRelative)})
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right text-xs">
+                                    <span className="font-medium">{formatDistance(leg.distance)}</span>
+                                    {legEstimate && (
+                                      <div className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
+                                        <Clock className="w-2.5 h-2.5" />
+                                        {formatLegTime(legEstimate.legTimeSeconds)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Line Lengths */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-2">
+                            <p className="text-[10px] text-muted-foreground">Start Line</p>
+                            <p className="text-sm font-semibold">
+                              {(courseStats.startLineLength * 1852).toFixed(0)} m
+                            </p>
+                            {boatClass?.lengthMeters && (
+                              <p className="text-[10px] text-muted-foreground">
+                                ({((courseStats.startLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                              </p>
+                            )}
+                            {startLineCrossingTime && (
+                              <div className="mt-1 pt-1 border-t border-green-200 dark:border-green-800">
+                                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  {startLineCrossingTime.timeFormatted}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
+                            <p className="text-[10px] text-muted-foreground">Finish Line</p>
+                            <p className="text-sm font-semibold">
+                              {(courseStats.finishLineLength * 1852).toFixed(0)} m
+                            </p>
+                            {boatClass?.lengthMeters && (
+                              <p className="text-[10px] text-muted-foreground">
+                                ({((courseStats.finishLineLength * 1852) / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Marks Summary */}
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Marks ({marks.length})</p>
+                          <div className="flex flex-wrap gap-1">
+                            {startLineMarks.map(m => (
+                              <Badge key={m.id} className="bg-green-500 text-xs">{m.name}</Badge>
+                            ))}
+                            {courseMarks.map(m => (
+                              <Badge key={m.id} variant="secondary" className="text-xs">{m.name}</Badge>
+                            ))}
+                            {finishLineMarks.filter(m => !m.isStartLine).map(m => (
+                              <Badge key={m.id} className="bg-blue-500 text-xs">{m.name}</Badge>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Export Course Data */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={() => setShowExportDialog(true)}
+                          data-testid="button-export-course"
+                        >
+                          <Download className="w-4 h-4" />
+                          Export Mark Locations
+                        </Button>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
                 {/* Clear Course */}
                 <Card className="border-destructive/30">
@@ -2786,6 +2841,65 @@ export function SetupPanel({
           onComplete={onAutoAdjustComplete}
         />
       )}
+
+      {/* Course Coordinates Dialog */}
+      <Dialog open={showCourseCoordinatesDialog} onOpenChange={setShowCourseCoordinatesDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move Course to Coordinates</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Enter the new position for the committee boat. The entire course will move relative to this point.
+          </p>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="course-coord-lat">Latitude</Label>
+              <Input
+                id="course-coord-lat"
+                type="number"
+                step="0.0001"
+                value={courseCoordLat}
+                onChange={(e) => setCourseCoordLat(e.target.value)}
+                placeholder="e.g. 51.5074"
+                className="text-lg font-mono"
+                data-testid="input-course-coord-lat"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="course-coord-lng">Longitude</Label>
+              <Input
+                id="course-coord-lng"
+                type="number"
+                step="0.0001"
+                value={courseCoordLng}
+                onChange={(e) => setCourseCoordLng(e.target.value)}
+                placeholder="e.g. -0.1278"
+                className="text-lg font-mono"
+                data-testid="input-course-coord-lng"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCourseCoordinatesDialog(false)} data-testid="button-course-coord-cancel">
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                const parsedLat = parseFloat(courseCoordLat);
+                const parsedLng = parseFloat(courseCoordLng);
+                if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+                  handleMoveCourseToCoordinates(parsedLat, parsedLng);
+                  setShowCourseCoordinatesDialog(false);
+                }
+              }}
+              disabled={isNaN(parseFloat(courseCoordLat)) || isNaN(parseFloat(courseCoordLng))}
+              data-testid="button-place-course-at-coordinates"
+            >
+              Move Course
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
