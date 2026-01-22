@@ -635,6 +635,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         }
         
         // Rebuild rounding sequence with new mark IDs
+        // Preserve "start" and "finish" as special entries
         if (snapshot.roundingSequence && snapshot.roundingSequence.length > 0) {
           const nameToNewId = new Map<string, string>();
           sourceMarks.forEach((sourceMark, index) => {
@@ -643,9 +644,20 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             }
           });
           
-          const newSequence = snapshot.roundingSequence
-            .map(name => nameToNewId.get(name))
-            .filter((id): id is string => id !== undefined);
+          const newSequence: string[] = [];
+          for (const item of snapshot.roundingSequence) {
+            if (item === "start" || item === "finish") {
+              // Preserve special entries as-is
+              newSequence.push(item);
+            } else {
+              // Try to map mark name to new ID
+              const newId = nameToNewId.get(item);
+              if (newId) {
+                newSequence.push(newId);
+              }
+              // Skip items that can't be mapped (legacy UUIDs)
+            }
+          }
           
           if (newSequence.length > 0) {
             await updateCourse.mutateAsync({
