@@ -12,6 +12,7 @@ import {
   insertUserSettingsSchema,
   insertSailClubSchema,
   insertCourseSnapshotSchema,
+  insertBoatClassSchema,
   snapshotMarkSchema,
   boatClasses,
   type UserRole,
@@ -426,6 +427,59 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching boat class:", error);
       res.status(500).json({ error: "Failed to fetch boat class" });
+    }
+  });
+
+  app.post("/api/boat-classes", requireAuth, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const parsed = insertBoatClassSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid boat class data", details: parsed.error.errors });
+      }
+      const [newBoatClass] = await db.insert(boatClasses).values(parsed.data).returning();
+      res.status(201).json(newBoatClass);
+    } catch (error: any) {
+      if (error?.code === "23505") {
+        return res.status(409).json({ error: "A boat class with this name already exists" });
+      }
+      console.error("Error creating boat class:", error);
+      res.status(500).json({ error: "Failed to create boat class" });
+    }
+  });
+
+  app.patch("/api/boat-classes/:id", requireAuth, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const boatClassId = req.params.id as string;
+      const updateSchema = insertBoatClassSchema.partial();
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid boat class data", details: parsed.error.errors });
+      }
+      const [updated] = await db.update(boatClasses).set(parsed.data).where(eq(boatClasses.id, boatClassId)).returning();
+      if (!updated) {
+        return res.status(404).json({ error: "Boat class not found" });
+      }
+      res.json(updated);
+    } catch (error: any) {
+      if (error?.code === "23505") {
+        return res.status(409).json({ error: "A boat class with this name already exists" });
+      }
+      console.error("Error updating boat class:", error);
+      res.status(500).json({ error: "Failed to update boat class" });
+    }
+  });
+
+  app.delete("/api/boat-classes/:id", requireAuth, requireRole(["super_admin"]), async (req, res) => {
+    try {
+      const boatClassId = req.params.id as string;
+      const [deleted] = await db.delete(boatClasses).where(eq(boatClasses.id, boatClassId)).returning();
+      if (!deleted) {
+        return res.status(404).json({ error: "Boat class not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting boat class:", error);
+      res.status(500).json({ error: "Failed to delete boat class" });
     }
   });
 
