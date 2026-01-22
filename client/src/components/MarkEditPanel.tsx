@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair, Minus, Plus } from "lucide-react";
+import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair, Minus, Plus, Triangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
-import { adjustSingleMarkToWind, getStartLineCenter } from "@/lib/course-bearings";
+import { adjustSingleMarkToWind, getStartLineCenter, calculateInteriorAngle, adjustMarkToAngle } from "@/lib/course-bearings";
+import { COMMON_ANGLES } from "@/lib/shape-templates";
 
 interface MarkEditPanelProps {
   mark: Mark;
@@ -27,6 +28,7 @@ interface MarkEditPanelProps {
   onMoveToCoordinates?: (lat: number, lng: number) => void;
   onNudge?: (direction: "north" | "south" | "east" | "west") => void;
   onAdjustToWind?: (lat: number, lng: number) => void;
+  onAdjustToShape?: (lat: number, lng: number) => void;
   lastMovePosition?: { originalLat: number; originalLng: number; timestamp: number } | null;
   onUndoMove?: () => void;
   isGpsLocating?: boolean;
@@ -57,6 +59,7 @@ export function MarkEditPanel({
   onMoveToCoordinates,
   onNudge,
   onAdjustToWind,
+  onAdjustToShape,
   lastMovePosition,
   onUndoMove,
   isGpsLocating,
@@ -78,6 +81,7 @@ export function MarkEditPanel({
   const [hasChanges, setHasChanges] = useState(false);
   
   const [degreesToWind, setDegreesToWind] = useState(() => getWindAngleForRole(mark.role));
+  const [targetAngle, setTargetAngle] = useState(60);
   const [undoTick, setUndoTick] = useState(0);
   const [showCoordinatesDialog, setShowCoordinatesDialog] = useState(false);
   const [coordLat, setCoordLat] = useState(mark.lat.toString());
@@ -152,6 +156,69 @@ export function MarkEditPanel({
     
     onAdjustToWind(result.lat, result.lng);
   }, [canAdjustToWind, previousReferencePosition, windDirection, mark.lat, mark.lng, degreesToWind, onAdjustToWind]);
+  
+  const nextReferencePosition = useMemo(() => {
+    if (markPositionInSequence < 0) return null;
+    if (markPositionInSequence >= roundingSequence.length - 1) return null;
+    
+    const nextEntry = roundingSequence[markPositionInSequence + 1];
+    if (nextEntry === "finish") {
+      const finishLine = allMarks.filter(m => m.isFinishLine || m.role === "finish");
+      if (finishLine.length >= 2) {
+        return {
+          lat: finishLine.reduce((s, m) => s + m.lat, 0) / finishLine.length,
+          lng: finishLine.reduce((s, m) => s + m.lng, 0) / finishLine.length,
+        };
+      }
+      return null;
+    }
+    
+    const nextMark = allMarks.find(m => m.id === nextEntry);
+    if (nextMark) {
+      return { lat: nextMark.lat, lng: nextMark.lng };
+    }
+    return null;
+  }, [markPositionInSequence, roundingSequence, allMarks]);
+  
+  const currentInteriorAngle = useMemo(() => {
+    if (!previousReferencePosition || !nextReferencePosition) return null;
+    
+    const result = calculateInteriorAngle(
+      previousReferencePosition.lat,
+      previousReferencePosition.lng,
+      mark.lat,
+      mark.lng,
+      nextReferencePosition.lat,
+      nextReferencePosition.lng
+    );
+    
+    return result.angle;
+  }, [previousReferencePosition, nextReferencePosition, mark.lat, mark.lng]);
+  
+  const canAdjustToShape = useMemo(() => {
+    if (isStartOrFinishMark) return { can: false, reason: "Use line controls for start/finish" };
+    if (markPositionInSequence < 0) return { can: false, reason: "Add to route first" };
+    if (markPositionInSequence === 0) return { can: false, reason: "First in route" };
+    if (!previousReferencePosition) return { can: false, reason: "No previous mark" };
+    if (!nextReferencePosition) return { can: false, reason: "Last in route - needs next mark" };
+    return { can: true, reason: null };
+  }, [isStartOrFinishMark, markPositionInSequence, previousReferencePosition, nextReferencePosition]);
+  
+  const handleAdjustToShape = useCallback(() => {
+    if (!canAdjustToShape.can || !previousReferencePosition || !nextReferencePosition || !onAdjustToShape) return;
+    
+    const result = adjustMarkToAngle(
+      mark.lat,
+      mark.lng,
+      previousReferencePosition.lat,
+      previousReferencePosition.lng,
+      nextReferencePosition.lat,
+      nextReferencePosition.lng,
+      targetAngle
+    );
+    
+    onAdjustToShape(result.lat, result.lng);
+  }, [canAdjustToShape, previousReferencePosition, nextReferencePosition, mark.lat, mark.lng, targetAngle, onAdjustToShape]);
 
   // Track which fields the user has edited (dirty flags)
   // This prevents external updates from overwriting user edits
@@ -519,6 +586,67 @@ export function MarkEditPanel({
           
           {!canAdjustToWind.can && canAdjustToWind.reason && (
             <p className="text-xs text-muted-foreground mt-2">{canAdjustToWind.reason}</p>
+          )}
+        </div>
+      )}
+      
+      {!isStartOrFinishMark && (
+        <div className="p-3 border-b bg-amber-500/5">
+          <div className="flex items-center gap-2 mb-2">
+            <Triangle className="w-4 h-4 text-amber-500" />
+            <Label className="text-sm font-medium">Adjust to Shape</Label>
+            {currentInteriorAngle !== null && (
+              <Badge variant="outline" className="ml-auto text-xs">
+                Current: {currentInteriorAngle.toFixed(0)}°
+              </Badge>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1">
+              <Input
+                type="number"
+                min={10}
+                max={170}
+                value={targetAngle}
+                onChange={(e) => setTargetAngle(parseInt(e.target.value) || 60)}
+                className="w-20 h-12 text-center text-lg font-mono"
+                disabled={!canAdjustToShape.can}
+                data-testid="input-target-angle"
+              />
+              <span className="text-sm text-muted-foreground">°</span>
+            </div>
+            
+            <Button
+              variant="default"
+              className="flex-1 h-12 gap-2"
+              onClick={handleAdjustToShape}
+              disabled={!canAdjustToShape.can || !onAdjustToShape}
+              data-testid="button-adjust-to-shape"
+            >
+              <Triangle className="w-4 h-4" />
+              Adjust to Shape
+            </Button>
+          </div>
+          
+          <div className="flex flex-wrap gap-1 mt-2">
+            {COMMON_ANGLES.map((angle) => (
+              <Button
+                key={angle}
+                variant={targetAngle === angle ? "secondary" : "ghost"}
+                size="sm"
+                className="h-8 px-2 text-xs"
+                onClick={() => setTargetAngle(angle)}
+                disabled={!canAdjustToShape.can}
+                data-testid={`button-preset-angle-${angle}`}
+              >
+                {angle}°
+              </Button>
+            ))}
+          </div>
+          
+          {!canAdjustToShape.can && canAdjustToShape.reason && (
+            <p className="text-xs text-muted-foreground mt-2">{canAdjustToShape.reason}</p>
           )}
         </div>
       )}

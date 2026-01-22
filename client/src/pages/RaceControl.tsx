@@ -1406,6 +1406,28 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       },
     });
   }, [marks, updateMark, toast, handleMarkMoved]);
+  
+  const handleAdjustMarkToShape = useCallback((markId: string, newLat: number, newLng: number) => {
+    const mark = marks.find(m => m.id === markId);
+    if (!mark) return;
+    
+    setLastMarkMove({
+      markId,
+      prevLat: mark.lat,
+      prevLng: mark.lng,
+      timestamp: Date.now(),
+    });
+    
+    updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } }, {
+      onSuccess: () => {
+        handleMarkMoved(markId, newLat, newLng);
+        toast({
+          title: "Shape Adjusted",
+          description: "Point moved to achieve target angle.",
+        });
+      },
+    });
+  }, [marks, updateMark, toast, handleMarkMoved]);
 
   const handleUndoMarkMove = useCallback(() => {
     if (!lastMarkMove) return;
@@ -2365,6 +2387,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onMoveToCoordinates={(lat, lng) => handleMoveMarkToCoordinates(selectedMark.id, lat, lng)}
               onNudge={(direction) => handleNudgeMark(selectedMark.id, direction)}
               onAdjustToWind={(lat, lng) => handleAdjustMarkToWind(selectedMark.id, lat, lng)}
+              onAdjustToShape={(lat, lng) => handleAdjustMarkToShape(selectedMark.id, lat, lng)}
               lastMovePosition={lastMarkMove && lastMarkMove.markId === selectedMark.id ? {
                 originalLat: lastMarkMove.prevLat,
                 originalLng: lastMarkMove.prevLng,
