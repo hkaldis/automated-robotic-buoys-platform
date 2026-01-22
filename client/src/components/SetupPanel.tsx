@@ -1575,7 +1575,6 @@ export function SetupPanel({
                     
                     {/* Move controls - directional pad */}
                     <div className="flex flex-col items-center gap-1">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">Move Course</p>
                       <Button
                         variant="outline"
                         size="icon"
@@ -1699,40 +1698,6 @@ export function SetupPanel({
                         )}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-
-                {/* Save/Load Course */}
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Save className="w-4 h-4" />
-                      Save / Load Course
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="gap-2"
-                        onClick={() => setShowSaveDialog(true)}
-                        data-testid="button-save-course"
-                      >
-                        <Download className="w-4 h-4" />
-                        Save Course
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        className="gap-2"
-                        onClick={() => setShowLoadDialog(true)}
-                        data-testid="button-load-course"
-                      >
-                        <Upload className="w-4 h-4" />
-                        Load Course
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
 
@@ -1900,61 +1865,6 @@ export function SetupPanel({
                   </Card>
                 </Collapsible>
 
-                {/* Clear Course */}
-                <Card className="border-destructive/30">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2 text-destructive">
-                      <Trash2 className="w-4 h-4" />
-                      Clear Course
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Remove all marks and reset the course. Any assigned buoys will return to idle.
-                    </p>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="lg"
-                          className="w-full gap-2"
-                          disabled={marks.length === 0}
-                          data-testid="button-clear-course"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Clear All Marks
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="flex items-center gap-2">
-                            <AlertTriangle className="w-5 h-5 text-destructive" />
-                            Clear Course?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will remove all {marks.length} marks from the course.
-                            {marks.some(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId) && (
-                              <span className="block mt-2 font-medium text-destructive">
-                                Assigned buoys will be set to idle and stop moving.
-                              </span>
-                            )}
-                            This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel data-testid="button-cancel-clear">Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => onClearAllMarks?.()}
-                            className="bg-destructive text-destructive-foreground"
-                            data-testid="button-confirm-clear"
-                          >
-                            Clear Course
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </CardContent>
-                </Card>
               </div>
             </ScrollArea>
 
