@@ -127,60 +127,133 @@ export function generateTemplateMarks(
   courseLengthMeters: number = 500
 ): GeneratedMark[] {
   const marks: GeneratedMark[] = [];
+  const W = windDirection;
+  const D = courseLengthMeters;
   
   if (template.type === "triangle") {
-    // Standard 3-mark sailing triangle with marks at vertices
-    // Template defines interior angles at each mark
-    // Default layout: M1 (windward), M2 (wing/reach), M3 (leeward)
-    // Typical rounding: Start → M1 → M2 → M3 → Finish (near start)
+    // Generate triangle where course turn angles at M1, M2, M3 match template.angles
+    // Course: Start → M1 → M2 → M3 → Finish (near start)
+    //
+    // Key insight: For the turn angles at each mark to match the template,
+    // the course path must form a closed triangle M1→M2→M3→M1.
+    // Start is positioned such that Start→M1 aligns with M3→M1 direction,
+    // ensuring correct turn angles at all three marks.
+    //
+    // Geometry approach:
+    // 1. Use law of sines to compute relative side lengths
+    // 2. Build triangle in local coordinates with M1 at top (windward)
+    // 3. Scale to desired course length and orient to wind direction
     
-    // Template angles represent interior angles at each vertex
-    // For 60-60-60: equilateral triangle
-    // For 45-90-45: isoceles right triangle (90° at M2)
     const [angleAtM1, angleAtM2, angleAtM3] = template.angles;
-    const legRatios = template.legRatios || [1, 1, 1];
     
-    // M1: Windward mark - directly upwind from start
-    const windwardBearing = normalizeBearing(windDirection);
-    const leg1Distance = courseLengthMeters * (legRatios[0] || 1);
-    const m1 = movePoint(startLineCenterLat, startLineCenterLng, windwardBearing, leg1Distance);
+    // Validate angles sum to 180°
+    const angleSum = angleAtM1 + angleAtM2 + angleAtM3;
+    if (Math.abs(angleSum - 180) > 0.1) {
+      console.warn(`Template angles sum to ${angleSum}, not 180°`);
+    }
+    
+    // For a closed triangle with interior angles A, B, C:
+    // Place triangle in local coordinates (wind direction = up/north in local frame)
+    // M1 at top (windward), then traverse port-rounding to M2, M3
+    
+    const A = angleAtM1 * Math.PI / 180;
+    const B = angleAtM2 * Math.PI / 180;
+    const C = angleAtM3 * Math.PI / 180;
+    
+    // Law of sines: a/sin(A) = b/sin(B) = c/sin(C)
+    // a = side opposite M1 (M2→M3)
+    // b = side opposite M2 (M3→M1)
+    // c = side opposite M3 (M1→M2)
+    
+    const sinA = Math.sin(A);
+    const sinB = Math.sin(B);
+    const sinC = Math.sin(C);
+    
+    // Scale factor: Set the first beat leg (Start→M1) = D
+    // For closed triangle, Start is on line M3→M1, at distance D from M1
+    // So sideB (M3→M1) = D + distance(Start→M3)
+    // To determine scale, we use: side c (M1→M2) as reference
+    // Set side c = D * 1.5 for reasonable course size
+    const sideC = D * 1.5;
+    const scaleK = sideC / sinC;
+    const sideA = scaleK * sinA;
+    const sideB = scaleK * sinB;
+    
+    // Build triangle in local Cartesian coordinates
+    // Origin = start line center, Y = upwind direction (north in local frame)
+    // M1 at (0, D) - windward mark
+    const m1Local = { x: 0, y: D };
+    
+    // M1→M2: Turn at M1 by exterior angle (180° - A) to port (left)
+    // If incoming heading is 0° (north/upwind), outgoing is 0° - (180° - A) = A - 180°
+    // In local coords, this bearing is (A - 180°) from north
+    const m1ToM2BearingLocal = A * 180 / Math.PI - 180; // degrees
+    const m2Local = {
+      x: m1Local.x + sideC * Math.sin(m1ToM2BearingLocal * Math.PI / 180),
+      y: m1Local.y + sideC * Math.cos(m1ToM2BearingLocal * Math.PI / 180)
+    };
+    
+    // M2→M3: Turn at M2 by exterior angle (180° - B) to port
+    const m2ToM3BearingLocal = m1ToM2BearingLocal + (B * 180 / Math.PI) - 180;
+    const m3Local = {
+      x: m2Local.x + sideA * Math.sin(m2ToM3BearingLocal * Math.PI / 180),
+      y: m2Local.y + sideA * Math.cos(m2ToM3BearingLocal * Math.PI / 180)
+    };
+    
+    // Rotate local coordinates to align with actual wind direction W
+    // Local "up" (Y+) corresponds to bearing W in global frame
+    const rotateToGlobal = (local: {x: number, y: number}, windBearing: number): {x: number, y: number} => {
+      const theta = windBearing * Math.PI / 180;
+      return {
+        x: local.x * Math.cos(theta) + local.y * Math.sin(theta),
+        y: -local.x * Math.sin(theta) + local.y * Math.cos(theta)
+      };
+    };
+    
+    // Convert local to global offsets (meters east/north from start)
+    const m1Global = rotateToGlobal(m1Local, W);
+    const m2Global = rotateToGlobal(m2Local, W);
+    const m3Global = rotateToGlobal(m3Local, W);
+    
+    // Convert meter offsets to lat/lng
+    // Approximate: 1° lat ≈ 111320m, 1° lng ≈ 111320m * cos(lat)
+    const metersPerDegreeLat = 111320;
+    const metersPerDegreeLng = 111320 * Math.cos(startLineCenterLat * Math.PI / 180);
+    
+    const m1Pos = {
+      lat: startLineCenterLat + m1Global.y / metersPerDegreeLat,
+      lng: startLineCenterLng + m1Global.x / metersPerDegreeLng
+    };
+    const m2Pos = {
+      lat: startLineCenterLat + m2Global.y / metersPerDegreeLat,
+      lng: startLineCenterLng + m2Global.x / metersPerDegreeLng
+    };
+    const m3Pos = {
+      lat: startLineCenterLat + m3Global.y / metersPerDegreeLat,
+      lng: startLineCenterLng + m3Global.x / metersPerDegreeLng
+    };
+    
     marks.push({
       name: "M1",
       role: "turning_mark",
-      lat: m1.lat,
-      lng: m1.lng,
+      lat: m1Pos.lat,
+      lng: m1Pos.lng,
       isCourseMark: true,
     });
     
-    // M2: Wing/reach mark
-    // Interior angle at M1 determines the turn from upwind leg to reach leg
-    // Bearing from M1 to M2: rotate from reverse of incoming bearing by (180 - angleAtM1)
-    // Incoming bearing to M1 is windDirection, so M1→M2 bearing is:
-    // windDirection + 180 - (180 - angleAtM1) / 2 offset
-    // Simplified: for typical reach, offset by half the complement of the windward angle
-    const reachOffset = (180 - angleAtM1) / 2;
-    const m2Bearing = normalizeBearing(windDirection + 180 - reachOffset);
-    const leg2Distance = courseLengthMeters * (legRatios[1] || 1);
-    const m2 = movePoint(m1.lat, m1.lng, m2Bearing, leg2Distance);
     marks.push({
       name: "M2",
       role: "turning_mark",
-      lat: m2.lat,
-      lng: m2.lng,
+      lat: m2Pos.lat,
+      lng: m2Pos.lng,
       isCourseMark: true,
     });
     
-    // M3: Leeward mark - complete the triangle
-    // Position relative to M2 and the target angle at M2
-    // For simplicity, place M3 downwind from start at a distance that closes the shape
-    const leewardBearing = normalizeBearing(windDirection + 180);
-    const leg3Distance = courseLengthMeters * (legRatios[2] || 0.5);
-    const m3 = movePoint(startLineCenterLat, startLineCenterLng, leewardBearing, leg3Distance);
     marks.push({
       name: "M3",
       role: "turning_mark",
-      lat: m3.lat,
-      lng: m3.lng,
+      lat: m3Pos.lat,
+      lng: m3Pos.lng,
       isCourseMark: true,
     });
     
