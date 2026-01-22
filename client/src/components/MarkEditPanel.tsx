@@ -592,12 +592,12 @@ export function MarkEditPanel({
       
       {!isStartOrFinishMark && (
         <div className="p-3 border-b bg-amber-500/5">
-          <div className="flex items-center gap-2 mb-2">
-            <Triangle className="w-4 h-4 text-amber-500" />
+          <div className="flex items-center gap-2 mb-3">
+            <Triangle className="w-5 h-5 text-amber-500" />
             <Label className="text-sm font-medium">Adjust to Shape</Label>
             {currentInteriorAngle !== null && (
-              <Badge variant="outline" className="ml-auto text-xs">
-                Current: {currentInteriorAngle.toFixed(0)}°
+              <Badge variant="secondary" className="ml-auto text-sm px-3 py-1">
+                Now: {currentInteriorAngle.toFixed(0)}°
               </Badge>
             )}
           </div>
@@ -629,13 +629,12 @@ export function MarkEditPanel({
             </Button>
           </div>
           
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-2 mt-3">
             {COMMON_ANGLES.map((angle) => (
               <Button
                 key={angle}
-                variant={targetAngle === angle ? "secondary" : "ghost"}
-                size="sm"
-                className="h-8 px-2 text-xs"
+                variant={targetAngle === angle ? "secondary" : "outline"}
+                className="h-11 min-w-[52px] px-3 text-sm font-medium"
                 onClick={() => setTargetAngle(angle)}
                 disabled={!canAdjustToShape.can}
                 data-testid={`button-preset-angle-${angle}`}

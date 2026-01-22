@@ -237,7 +237,7 @@ export function calculateNewPosition(
 
 export interface InteriorAngleResult {
   angle: number;
-  bearingFromPrev: number;
+  bearingToPrev: number;
   bearingToNext: number;
 }
 
@@ -249,20 +249,22 @@ export function calculateInteriorAngle(
   nextLat: number,
   nextLng: number
 ): InteriorAngleResult {
-  const bearingFromPrev = calculateBearing(prevLat, prevLng, currentLat, currentLng);
+  // Calculate bearings FROM the current mark TO adjacent marks
+  // This gives us the vectors originating at the current mark
+  const bearingToPrev = calculateBearing(currentLat, currentLng, prevLat, prevLng);
   const bearingToNext = calculateBearing(currentLat, currentLng, nextLat, nextLng);
   
-  let angle = bearingToNext - bearingFromPrev;
-  while (angle < 0) angle += 360;
-  while (angle > 360) angle -= 360;
+  // The interior angle is the absolute difference between these two bearings
+  let angle = Math.abs(bearingToNext - bearingToPrev);
   
+  // Normalize to get the smaller angle (0-180)
   if (angle > 180) {
     angle = 360 - angle;
   }
   
   return {
     angle,
-    bearingFromPrev,
+    bearingToPrev,
     bearingToNext,
   };
 }
@@ -270,7 +272,7 @@ export function calculateInteriorAngle(
 export interface AdjustToShapeResult {
   lat: number;
   lng: number;
-  distanceToNext: number;
+  distanceFromPrev: number;
   originalAngle: number;
   newAngle: number;
 }
@@ -284,24 +286,94 @@ export function adjustMarkToAngle(
   nextLng: number,
   targetAngle: number
 ): AdjustToShapeResult {
+  // Get current interior angle
   const currentAngleResult = calculateInteriorAngle(
     prevLat, prevLng,
     currentLat, currentLng,
     nextLat, nextLng
   );
   
-  const distanceToNext = calculateDistance(currentLat, currentLng, nextLat, nextLng);
+  // Keep distance from previous mark constant (leg length stays the same)
+  const distanceFromPrev = calculateDistance(prevLat, prevLng, currentLat, currentLng);
   
-  const bearingFromPrev = calculateBearing(prevLat, prevLng, currentLat, currentLng);
+  // Current bearing from prev to current (current position)
+  const currentBearing = calculateBearing(prevLat, prevLng, currentLat, currentLng);
   
-  const newBearingToNext = normalizeBearing(bearingFromPrev + (180 - targetAngle));
+  // Dense sweep: test every 2 degrees around the full 360° circle
+  // Track ALL positions and their errors - no filtering
+  let bestRotation = 0;
+  let bestError = Infinity;
+  let bestPos = { lat: currentLat, lng: currentLng };
   
-  const newPosition = movePoint(nextLat, nextLng, normalizeBearing(newBearingToNext + 180), distanceToNext);
+  // Track multiple local minima (there can be two solutions: port and starboard side)
+  const localMinima: { rotation: number; error: number; pos: { lat: number; lng: number } }[] = [];
+  let prevError = Infinity;
+  let prevPrevError = Infinity;
+  
+  for (let rotation = 0; rotation < 360; rotation += 2) {
+    const testBearing = normalizeBearing(currentBearing + rotation);
+    const testPos = movePoint(prevLat, prevLng, testBearing, distanceFromPrev);
+    const testAngle = calculateInteriorAngle(prevLat, prevLng, testPos.lat, testPos.lng, nextLat, nextLng);
+    const error = Math.abs(testAngle.angle - targetAngle);
+    
+    // Detect local minimum (error was decreasing, now increasing)
+    if (prevError < prevPrevError && prevError < error) {
+      localMinima.push({
+        rotation: rotation - 2,
+        error: prevError,
+        pos: movePoint(prevLat, prevLng, normalizeBearing(currentBearing + rotation - 2), distanceFromPrev),
+      });
+    }
+    
+    if (error < bestError) {
+      bestError = error;
+      bestRotation = rotation;
+      bestPos = testPos;
+    }
+    
+    prevPrevError = prevError;
+    prevError = error;
+  }
+  
+  // Add global best if not already in local minima
+  if (!localMinima.some(m => m.rotation === bestRotation)) {
+    localMinima.push({ rotation: bestRotation, error: bestError, pos: bestPos });
+  }
+  
+  // Sort local minima: prefer small error, then prefer position closest to current (minimal rotation)
+  localMinima.sort((a, b) => {
+    // If errors are similar (within 2°), prefer minimal movement
+    if (Math.abs(a.error - b.error) < 2) {
+      const distA = Math.min(a.rotation, 360 - a.rotation);
+      const distB = Math.min(b.rotation, 360 - b.rotation);
+      return distA - distB;
+    }
+    return a.error - b.error;
+  });
+  
+  // Take the best candidate
+  const bestCandidate = localMinima[0] || { rotation: bestRotation, error: bestError, pos: bestPos };
+  let finalPosition = bestCandidate.pos;
+  let finalError = bestCandidate.error;
+  
+  // Fine-tune with 0.2 degree steps in the ±3° range around the best candidate
+  for (let delta = -3; delta <= 3; delta += 0.2) {
+    const testRotation = bestCandidate.rotation + delta;
+    const testBearing = normalizeBearing(currentBearing + testRotation);
+    const testPos = movePoint(prevLat, prevLng, testBearing, distanceFromPrev);
+    const testAngle = calculateInteriorAngle(prevLat, prevLng, testPos.lat, testPos.lng, nextLat, nextLng);
+    const error = Math.abs(testAngle.angle - targetAngle);
+    
+    if (error < finalError) {
+      finalError = error;
+      finalPosition = testPos;
+    }
+  }
   
   return {
-    lat: newPosition.lat,
-    lng: newPosition.lng,
-    distanceToNext,
+    lat: finalPosition.lat,
+    lng: finalPosition.lng,
+    distanceFromPrev,
     originalAngle: currentAngleResult.angle,
     newAngle: targetAngle,
   };
