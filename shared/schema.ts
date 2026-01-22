@@ -316,6 +316,8 @@ export const insertEventSchema = createInsertSchema(events).pick({
   boatClassId: true,
   targetDuration: true,
   courseId: true,
+  startDate: true,
+  endDate: true,
 });
 
 export const insertBoatClassSchema = createInsertSchema(boatClasses).pick({
