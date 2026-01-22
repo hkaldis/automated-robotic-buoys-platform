@@ -130,6 +130,8 @@ export const events = pgTable("events", {
   boatClassId: varchar("boat_class_id"),  // Reference to boat_classes table
   targetDuration: integer("target_duration").notNull().default(40),
   courseId: varchar("course_id"),
+  startDate: timestamp("start_date"),  // Event start date (required for filtering)
+  endDate: timestamp("end_date"),      // Event end date (optional, for multi-day events)
   createdAt: timestamp("created_at").defaultNow(),
 });
 

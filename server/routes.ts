@@ -17,6 +17,7 @@ import {
   boatClasses,
   type UserRole,
   type SnapshotMark,
+  type Event as DbEvent,
 } from "@shared/schema";
 import { z } from "zod";
 import { 
@@ -486,22 +487,48 @@ export async function registerRoutes(
   app.get("/api/events", requireAuth, async (req, res) => {
     try {
       const sailClubId = req.query.sailClubId as string | undefined;
+      const eventType = req.query.type as string | undefined;
+      const hidePast = req.query.hidePast === "true";
       const user = await storage.getUser(req.session.userId!);
       
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
       
+      // Helper function to filter events by type and date
+      const applyFilters = (events: DbEvent[]) => {
+        let filtered = events;
+        
+        // Filter by event type
+        if (eventType) {
+          filtered = filtered.filter(e => e.type === eventType);
+        }
+        
+        // Filter out past events (events whose endDate or startDate is before today)
+        if (hidePast) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          filtered = filtered.filter(e => {
+            // Use endDate if available, otherwise startDate
+            const eventDate = e.endDate || e.startDate;
+            if (!eventDate) return true; // Keep events without dates
+            return new Date(eventDate) >= today;
+          });
+        }
+        
+        return filtered;
+      };
+      
       // Super admins see all events
       if (user.role === "super_admin") {
         const events = await storage.getEvents(sailClubId);
-        return res.json(events);
+        return res.json(applyFilters(events));
       }
       
       // Club managers see events from their club
       if (user.role === "club_manager") {
         const clubEvents = await storage.getEvents(user.sailClubId || undefined);
-        return res.json(clubEvents);
+        return res.json(applyFilters(clubEvents));
       }
       
       // Event managers see only their assigned events from the access table
@@ -510,7 +537,7 @@ export async function registerRoutes(
         const accessibleEventIds = accessList.map(a => a.eventId);
         const allEvents = await storage.getEvents(sailClubId);
         const filteredEvents = allEvents.filter(e => accessibleEventIds.includes(e.id));
-        return res.json(filteredEvents);
+        return res.json(applyFilters(filteredEvents));
       }
       
       res.json([]);
