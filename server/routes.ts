@@ -561,7 +561,15 @@ export async function registerRoutes(
 
   app.post("/api/events", requireAuth, requireRole("super_admin", "club_manager"), async (req, res) => {
     try {
-      const validatedData = insertEventSchema.parse(req.body);
+      // Convert date strings to Date objects for the database
+      const body = { ...req.body };
+      if (body.startDate && typeof body.startDate === 'string') {
+        body.startDate = new Date(body.startDate);
+      }
+      if (body.endDate && typeof body.endDate === 'string') {
+        body.endDate = new Date(body.endDate);
+      }
+      const validatedData = insertEventSchema.parse(body);
       const event = await storage.createEvent(validatedData);
       res.status(201).json(event);
     } catch (error) {
