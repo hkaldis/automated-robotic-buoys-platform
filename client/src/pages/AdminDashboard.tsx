@@ -92,6 +92,11 @@ export default function AdminDashboard() {
   const [newBoatClassHullType, setNewBoatClassHullType] = useState<"displacement" | "planing" | "foiling">("displacement");
   const [newBoatClassCrewSize, setNewBoatClassCrewSize] = useState(1);
   const [newBoatClassLength, setNewBoatClassLength] = useState(4.0);
+  const [newBoatClassSpeeds, setNewBoatClassSpeeds] = useState({
+    upwindVmgLight: 2.5, upwindVmgMedium: 3.2, upwindVmgHeavy: 3.8,
+    downwindVmgLight: 3.0, downwindVmgMedium: 4.0, downwindVmgHeavy: 5.0,
+    reachSpeedLight: 4.0, reachSpeedMedium: 5.5, reachSpeedHeavy: 6.5,
+  });
 
   const { data: clubs = [], isLoading: clubsLoading } = useQuery<SailClub[]>({
     queryKey: ["/api/sail-clubs"],
@@ -432,6 +437,11 @@ export default function AdminDashboard() {
     setNewBoatClassHullType("displacement");
     setNewBoatClassCrewSize(1);
     setNewBoatClassLength(4.0);
+    setNewBoatClassSpeeds({
+      upwindVmgLight: 2.5, upwindVmgMedium: 3.2, upwindVmgHeavy: 3.8,
+      downwindVmgLight: 3.0, downwindVmgMedium: 4.0, downwindVmgHeavy: 5.0,
+      reachSpeedLight: 4.0, reachSpeedMedium: 5.5, reachSpeedHeavy: 6.5,
+    });
   };
 
   const handleCreateBoatClass = () => {
@@ -441,17 +451,9 @@ export default function AdminDashboard() {
         hullType: newBoatClassHullType,
         crewSize: newBoatClassCrewSize,
         lengthMeters: newBoatClassLength,
-        upwindVmgLight: 2.5,
-        upwindVmgMedium: 3.2,
-        upwindVmgHeavy: 3.8,
+        ...newBoatClassSpeeds,
         upwindTwa: 42,
-        downwindVmgLight: 3.0,
-        downwindVmgMedium: 4.0,
-        downwindVmgHeavy: 5.0,
         downwindTwa: 145,
-        reachSpeedLight: 4.0,
-        reachSpeedMedium: 5.5,
-        reachSpeedHeavy: 6.5,
         tackTime: 8,
         jibeTime: 6,
         markRoundingTime: 10,
@@ -1410,10 +1412,10 @@ export default function AdminDashboard() {
                       Add Boat Class
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Add New Boat Class</DialogTitle>
-                      <DialogDescription>Add a new sailboat type to the platform</DialogDescription>
+                      <DialogDescription>Add a new sailboat type with speed data</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div className="space-y-2">
@@ -1466,6 +1468,66 @@ export default function AdminDashboard() {
                           data-testid="input-boat-class-length"
                         />
                       </div>
+                      
+                      <div className="border-t pt-4 space-y-3">
+                        <Label className="text-base font-medium">Speed Data (knots)</Label>
+                        <p className="text-xs text-muted-foreground">L = Light (0-8 kts), M = Medium (8-14 kts), H = Heavy (14+ kts)</p>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-sm">Upwind VMG</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Light</Label>
+                              <Input type="number" step="0.1" min={0} max={15} value={newBoatClassSpeeds.upwindVmgLight} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, upwindVmgLight: parseFloat(e.target.value) || 0 })} data-testid="input-new-upwind-light" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Medium</Label>
+                              <Input type="number" step="0.1" min={0} max={15} value={newBoatClassSpeeds.upwindVmgMedium} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, upwindVmgMedium: parseFloat(e.target.value) || 0 })} data-testid="input-new-upwind-medium" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Heavy</Label>
+                              <Input type="number" step="0.1" min={0} max={15} value={newBoatClassSpeeds.upwindVmgHeavy} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, upwindVmgHeavy: parseFloat(e.target.value) || 0 })} data-testid="input-new-upwind-heavy" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-sm">Downwind VMG</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Light</Label>
+                              <Input type="number" step="0.1" min={0} max={15} value={newBoatClassSpeeds.downwindVmgLight} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, downwindVmgLight: parseFloat(e.target.value) || 0 })} data-testid="input-new-downwind-light" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Medium</Label>
+                              <Input type="number" step="0.1" min={0} max={15} value={newBoatClassSpeeds.downwindVmgMedium} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, downwindVmgMedium: parseFloat(e.target.value) || 0 })} data-testid="input-new-downwind-medium" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Heavy</Label>
+                              <Input type="number" step="0.1" min={0} max={15} value={newBoatClassSpeeds.downwindVmgHeavy} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, downwindVmgHeavy: parseFloat(e.target.value) || 0 })} data-testid="input-new-downwind-heavy" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-sm">Reaching Speed</Label>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Light</Label>
+                              <Input type="number" step="0.1" min={0} max={20} value={newBoatClassSpeeds.reachSpeedLight} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, reachSpeedLight: parseFloat(e.target.value) || 0 })} data-testid="input-new-reach-light" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Medium</Label>
+                              <Input type="number" step="0.1" min={0} max={20} value={newBoatClassSpeeds.reachSpeedMedium} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, reachSpeedMedium: parseFloat(e.target.value) || 0 })} data-testid="input-new-reach-medium" />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Heavy</Label>
+                              <Input type="number" step="0.1" min={0} max={20} value={newBoatClassSpeeds.reachSpeedHeavy} onChange={(e) => setNewBoatClassSpeeds({ ...newBoatClassSpeeds, reachSpeedHeavy: parseFloat(e.target.value) || 0 })} data-testid="input-new-reach-heavy" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
                       <Button
                         onClick={handleCreateBoatClass}
                         disabled={!newBoatClassName.trim() || createBoatClassMutation.isPending}
@@ -1496,6 +1558,9 @@ export default function AdminDashboard() {
                         <TableHead>Hull Type</TableHead>
                         <TableHead>Crew</TableHead>
                         <TableHead>Length (m)</TableHead>
+                        <TableHead>Upwind VMG (kts)</TableHead>
+                        <TableHead>Downwind VMG (kts)</TableHead>
+                        <TableHead>Reach Speed (kts)</TableHead>
                         <TableHead className="w-24">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1510,6 +1575,15 @@ export default function AdminDashboard() {
                           </TableCell>
                           <TableCell>{boatClass.crewSize}</TableCell>
                           <TableCell>{boatClass.lengthMeters?.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs">
+                            <span className="text-muted-foreground">L:</span>{boatClass.upwindVmgLight} <span className="text-muted-foreground">M:</span>{boatClass.upwindVmgMedium} <span className="text-muted-foreground">H:</span>{boatClass.upwindVmgHeavy}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <span className="text-muted-foreground">L:</span>{boatClass.downwindVmgLight} <span className="text-muted-foreground">M:</span>{boatClass.downwindVmgMedium} <span className="text-muted-foreground">H:</span>{boatClass.downwindVmgHeavy}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <span className="text-muted-foreground">L:</span>{boatClass.reachSpeedLight} <span className="text-muted-foreground">M:</span>{boatClass.reachSpeedMedium} <span className="text-muted-foreground">H:</span>{boatClass.reachSpeedHeavy}
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button
@@ -1544,10 +1618,10 @@ export default function AdminDashboard() {
 
       {/* Edit Boat Class Dialog */}
       <Dialog open={editBoatClassDialogOpen} onOpenChange={setEditBoatClassDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Boat Class</DialogTitle>
-            <DialogDescription>Update boat class details</DialogDescription>
+            <DialogDescription>Update boat class details and speed data</DialogDescription>
           </DialogHeader>
           {editingBoatClass && (
             <div className="space-y-4">
@@ -1603,6 +1677,66 @@ export default function AdminDashboard() {
                   data-testid="input-edit-boat-class-length"
                 />
               </div>
+              
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-base font-medium">Speed Data (knots by wind condition)</Label>
+                <p className="text-xs text-muted-foreground">L = Light (0-8 kts), M = Medium (8-14 kts), H = Heavy (14+ kts)</p>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Upwind VMG</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Light</Label>
+                      <Input type="number" step="0.1" min={0} max={15} value={editingBoatClass.upwindVmgLight} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, upwindVmgLight: parseFloat(e.target.value) || 0 })} data-testid="input-edit-upwind-light" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Medium</Label>
+                      <Input type="number" step="0.1" min={0} max={15} value={editingBoatClass.upwindVmgMedium} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, upwindVmgMedium: parseFloat(e.target.value) || 0 })} data-testid="input-edit-upwind-medium" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Heavy</Label>
+                      <Input type="number" step="0.1" min={0} max={15} value={editingBoatClass.upwindVmgHeavy} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, upwindVmgHeavy: parseFloat(e.target.value) || 0 })} data-testid="input-edit-upwind-heavy" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Downwind VMG</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Light</Label>
+                      <Input type="number" step="0.1" min={0} max={15} value={editingBoatClass.downwindVmgLight} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, downwindVmgLight: parseFloat(e.target.value) || 0 })} data-testid="input-edit-downwind-light" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Medium</Label>
+                      <Input type="number" step="0.1" min={0} max={15} value={editingBoatClass.downwindVmgMedium} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, downwindVmgMedium: parseFloat(e.target.value) || 0 })} data-testid="input-edit-downwind-medium" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Heavy</Label>
+                      <Input type="number" step="0.1" min={0} max={15} value={editingBoatClass.downwindVmgHeavy} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, downwindVmgHeavy: parseFloat(e.target.value) || 0 })} data-testid="input-edit-downwind-heavy" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm">Reaching Speed</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Light</Label>
+                      <Input type="number" step="0.1" min={0} max={20} value={editingBoatClass.reachSpeedLight} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, reachSpeedLight: parseFloat(e.target.value) || 0 })} data-testid="input-edit-reach-light" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Medium</Label>
+                      <Input type="number" step="0.1" min={0} max={20} value={editingBoatClass.reachSpeedMedium} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, reachSpeedMedium: parseFloat(e.target.value) || 0 })} data-testid="input-edit-reach-medium" />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Heavy</Label>
+                      <Input type="number" step="0.1" min={0} max={20} value={editingBoatClass.reachSpeedHeavy} onChange={(e) => setEditingBoatClass({ ...editingBoatClass, reachSpeedHeavy: parseFloat(e.target.value) || 0 })} data-testid="input-edit-reach-heavy" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <Button
                 onClick={() => {
                   updateBoatClassMutation.mutate({
@@ -1611,6 +1745,15 @@ export default function AdminDashboard() {
                     hullType: editingBoatClass.hullType,
                     crewSize: editingBoatClass.crewSize,
                     lengthMeters: editingBoatClass.lengthMeters,
+                    upwindVmgLight: editingBoatClass.upwindVmgLight,
+                    upwindVmgMedium: editingBoatClass.upwindVmgMedium,
+                    upwindVmgHeavy: editingBoatClass.upwindVmgHeavy,
+                    downwindVmgLight: editingBoatClass.downwindVmgLight,
+                    downwindVmgMedium: editingBoatClass.downwindVmgMedium,
+                    downwindVmgHeavy: editingBoatClass.downwindVmgHeavy,
+                    reachSpeedLight: editingBoatClass.reachSpeedLight,
+                    reachSpeedMedium: editingBoatClass.reachSpeedMedium,
+                    reachSpeedHeavy: editingBoatClass.reachSpeedHeavy,
                   });
                 }}
                 disabled={updateBoatClassMutation.isPending}
