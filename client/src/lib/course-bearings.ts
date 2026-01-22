@@ -234,3 +234,75 @@ export function calculateNewPosition(
   const absoluteBearing = normalizeBearing(windDirection + bearing);
   return movePoint(centerLat, centerLng, absoluteBearing, distanceMeters);
 }
+
+export interface InteriorAngleResult {
+  angle: number;
+  bearingFromPrev: number;
+  bearingToNext: number;
+}
+
+export function calculateInteriorAngle(
+  prevLat: number,
+  prevLng: number,
+  currentLat: number,
+  currentLng: number,
+  nextLat: number,
+  nextLng: number
+): InteriorAngleResult {
+  const bearingFromPrev = calculateBearing(prevLat, prevLng, currentLat, currentLng);
+  const bearingToNext = calculateBearing(currentLat, currentLng, nextLat, nextLng);
+  
+  let angle = bearingToNext - bearingFromPrev;
+  while (angle < 0) angle += 360;
+  while (angle > 360) angle -= 360;
+  
+  if (angle > 180) {
+    angle = 360 - angle;
+  }
+  
+  return {
+    angle,
+    bearingFromPrev,
+    bearingToNext,
+  };
+}
+
+export interface AdjustToShapeResult {
+  lat: number;
+  lng: number;
+  distanceToNext: number;
+  originalAngle: number;
+  newAngle: number;
+}
+
+export function adjustMarkToAngle(
+  currentLat: number,
+  currentLng: number,
+  prevLat: number,
+  prevLng: number,
+  nextLat: number,
+  nextLng: number,
+  targetAngle: number
+): AdjustToShapeResult {
+  const currentAngleResult = calculateInteriorAngle(
+    prevLat, prevLng,
+    currentLat, currentLng,
+    nextLat, nextLng
+  );
+  
+  const distanceToNext = calculateDistance(currentLat, currentLng, nextLat, nextLng);
+  
+  const bearingFromPrev = calculateBearing(prevLat, prevLng, currentLat, currentLng);
+  
+  const newBearingToNext = normalizeBearing(bearingFromPrev + (180 - targetAngle));
+  
+  const newPosition = movePoint(nextLat, nextLng, normalizeBearing(newBearingToNext + 180), distanceToNext);
+  
+  return {
+    lat: newPosition.lat,
+    lng: newPosition.lng,
+    distanceToNext,
+    originalAngle: currentAngleResult.angle,
+    newAngle: targetAngle,
+  };
+}
