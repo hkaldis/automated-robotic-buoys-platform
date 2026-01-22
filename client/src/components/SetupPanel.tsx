@@ -2649,9 +2649,10 @@ export function SetupPanel({
                         );
                       })}
                       
-                      {/* Wind arrow at top */}
-                      <g transform="translate(370, 30)">
-                        <polygon points="0,15 5,-5 -5,-5" fill="#3b82f6" />
+                      {/* Wind arrow - showing wind flowing from top to bottom */}
+                      <g transform="translate(370, 40)">
+                        <line x1="0" y1="-20" x2="0" y2="10" stroke="#3b82f6" strokeWidth="2" />
+                        <polygon points="0,15 5,5 -5,5" fill="#3b82f6" />
                         <text x="0" y="28" textAnchor="middle" fontSize="10" fill="#3b82f6">Wind</text>
                       </g>
                     </>
