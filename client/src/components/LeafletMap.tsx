@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker,
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-rotate";
-import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2 } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2, Triangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { MapLayerType } from "@/lib/services/settings-service";
@@ -13,7 +13,7 @@ import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import type { PendingDeployment } from "@/hooks/use-buoy-follow";
 import { cn } from "@/lib/utils";
-import { calculateWindAngle, calculateStartLineWindAngle, formatWindRelative } from "@/lib/course-bearings";
+import { calculateWindAngle, calculateStartLineWindAngle, formatWindRelative, calculateInteriorAngle } from "@/lib/course-bearings";
 
 interface WeatherData {
   windSpeed: number;
@@ -756,6 +756,7 @@ export function LeafletMap({
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
   const [showWindRelative, setShowWindRelative] = useState(false);
+  const [showAngles, setShowAngles] = useState(false);
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
   
@@ -839,6 +840,53 @@ export function LeafletMap({
     if (previewMarks.length < 2) return [];
     return previewMarks.map(m => [m.lat, m.lng] as [number, number]);
   }, [finishLinePreviewIds, marks]);
+
+  // Calculate interior angles at each mark in the rounding sequence
+  const markAngles = useMemo(() => {
+    if (roundingSequence.length < 3) return [];
+    
+    const angles: { markId: string; lat: number; lng: number; angle: number; name: string }[] = [];
+    
+    const getPosition = (entry: string): { lat: number; lng: number } | null => {
+      if (entry === "start" && startLineCenter) return startLineCenter;
+      if (entry === "finish" && finishLineCenter) return finishLineCenter;
+      const mark = marks.find(m => m.id === entry);
+      return mark ? { lat: mark.lat, lng: mark.lng } : null;
+    };
+    
+    // Calculate angle at each interior point (not start or finish)
+    for (let i = 1; i < roundingSequence.length - 1; i++) {
+      const prevEntry = roundingSequence[i - 1];
+      const currentEntry = roundingSequence[i];
+      const nextEntry = roundingSequence[i + 1];
+      
+      const prevPos = getPosition(prevEntry);
+      const currentPos = getPosition(currentEntry);
+      const nextPos = getPosition(nextEntry);
+      
+      if (prevPos && currentPos && nextPos) {
+        const angleResult = calculateInteriorAngle(
+          prevPos.lat, prevPos.lng,
+          currentPos.lat, currentPos.lng,
+          nextPos.lat, nextPos.lng
+        );
+        
+        // Get mark name
+        const mark = marks.find(m => m.id === currentEntry);
+        const name = mark?.name || currentEntry;
+        
+        angles.push({
+          markId: currentEntry,
+          lat: currentPos.lat,
+          lng: currentPos.lng,
+          angle: angleResult.angle,
+          name,
+        });
+      }
+    }
+    
+    return angles;
+  }, [roundingSequence, marks, startLineCenter, finishLineCenter]);
 
   const handleZoomIn = () => mapRef.current?.zoomIn();
   const handleZoomOut = () => mapRef.current?.zoomOut();
@@ -1010,6 +1058,26 @@ export function LeafletMap({
           />
         )}
         
+        {showAngles && markAngles.map((angleData) => (
+          <CircleMarker
+            key={`angle-${angleData.markId}`}
+            center={[angleData.lat, angleData.lng]}
+            radius={0}
+            pathOptions={{ opacity: 0 }}
+          >
+            <Tooltip 
+              permanent 
+              direction="top" 
+              offset={[0, -25]}
+              className="angle-label-tooltip"
+            >
+              <div className="text-sm font-bold bg-amber-500 text-white px-2 py-1 rounded shadow-md">
+                {angleData.angle.toFixed(0)}°
+              </div>
+            </Tooltip>
+          </CircleMarker>
+        ))}
+        
         {showWindArrows && weatherData && (
           <WindArrowsLayer windDirection={weatherData.windDirection} windSpeed={weatherData.windSpeed} />
         )}
@@ -1115,6 +1183,25 @@ export function LeafletMap({
           </TooltipTrigger>
           <TooltipContent side="right">
             {showWindRelative ? "Show True Bearings" : "Show Wind-Relative Bearings"}
+          </TooltipContent>
+        </UITooltip>
+        
+        <UITooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant={showAngles ? "default" : "ghost"} 
+                size="icon" 
+                onClick={() => setShowAngles(!showAngles)}
+                disabled={roundingSequence.length < 3}
+                data-testid="button-toggle-angles"
+              >
+                <Triangle className="w-4 h-4" />
+              </Button>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {showAngles ? "Hide Interior Angles" : "Show Interior Angles"}
           </TooltipContent>
         </UITooltip>
         
