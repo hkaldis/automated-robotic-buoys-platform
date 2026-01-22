@@ -1622,8 +1622,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       offsetLng = mapCenter.lng - sourceCenter.lng;
     }
     
-    // Clear existing marks first
-    await Promise.all(marks.map(m => deleteMark.mutateAsync(m.id)));
+    // Clear existing marks first using the bulk delete endpoint
+    // This properly clears the rounding sequence before deleting marks,
+    // avoiding race conditions that occur with individual deletions
+    if (marks.length > 0) {
+      await deleteAllMarks.mutateAsync(currentCourse.id);
+    }
     
     // Create new marks from snapshot data
     // For snapshots, we don't have mark IDs since they're serialized data
@@ -1714,7 +1718,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         ? "Race course has been loaded at its saved location."
         : "Course shape has been placed at your current map location.",
     });
-  }, [currentCourse, marks, mapCenter, createMark, deleteMark, updateCourse, toast]);
+  }, [currentCourse, marks, mapCenter, createMark, deleteAllMarks, updateCourse, toast]);
 
   // Clear all marks from the current course and set assigned buoys to idle
   const handleClearAllMarks = useCallback(async () => {
