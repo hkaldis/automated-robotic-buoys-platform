@@ -19,6 +19,7 @@ import { estimateRaceTime, buildLegsFromRoundingSequence, estimateLineCrossingTi
 import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
+import { ALL_SHAPE_TEMPLATES, TRIANGLE_TEMPLATES, TRAPEZOID_TEMPLATES, type ShapeTemplate } from "@/lib/shape-templates";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
@@ -77,6 +78,7 @@ interface SetupPanelProps {
   moveCourseMode?: boolean;
   onSetMoveCourseMode?: (enabled: boolean) => void;
   onDeleteCourse?: (snapshotId: string) => void;
+  onApplyTemplate?: (template: ShapeTemplate) => void;
 }
 
 export function SetupPanel({
@@ -109,6 +111,7 @@ export function SetupPanel({
   moveCourseMode,
   onSetMoveCourseMode,
   onDeleteCourse,
+  onApplyTemplate,
 }: SetupPanelProps) {
   // Fetch boat classes for race time estimation
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
@@ -940,9 +943,48 @@ export function SetupPanel({
               </div>
               <div>
                 <h2 className="text-sm font-semibold">Course Points</h2>
-                <p className="text-xs text-muted-foreground">Add points (M1, M2, M3...)</p>
+                <p className="text-xs text-muted-foreground">Add points or use a template</p>
               </div>
             </div>
+
+            {courseMarks.length === 0 && onApplyTemplate && windDirection !== undefined && (
+              <div className="space-y-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Quick Start with Template</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-medium">Triangles</p>
+                    {TRIANGLE_TEMPLATES.map((template) => (
+                      <Button
+                        key={template.id}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2 h-9 text-xs"
+                        onClick={() => onApplyTemplate(template)}
+                        data-testid={`button-template-${template.id}`}
+                      >
+                        <span className="truncate">{template.name.replace("Triangle ", "")}</span>
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-muted-foreground font-medium">Trapezoids</p>
+                    {TRAPEZOID_TEMPLATES.map((template) => (
+                      <Button
+                        key={template.id}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2 h-9 text-xs"
+                        onClick={() => onApplyTemplate(template)}
+                        data-testid={`button-template-${template.id}`}
+                      >
+                        <span className="truncate">{template.name.replace("Trapezoid ", "")}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Marks placed relative to wind - adjust with drag or "Adjust to Shape"</p>
+              </div>
+            )}
 
             <Button
               className="w-full gap-2"

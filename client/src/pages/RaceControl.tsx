@@ -41,6 +41,7 @@ import { useDemoModeContext } from "@/contexts/DemoModeContext";
 import { useToast } from "@/hooks/use-toast";
 import { executeAutoAssignWithRecovery } from "@/lib/batchedMutations";
 import { useBuoyFollow } from "@/hooks/use-buoy-follow";
+import { generateTemplateMarks, type ShapeTemplate } from "@/lib/shape-templates";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
@@ -1822,6 +1823,78 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [currentCourse, marks, demoMode, sendDemoCommand, buoyCommand, deleteAllMarks, updateCourse, toast]);
 
+  // Apply a shape template to auto-generate course marks
+  const handleApplyTemplate = useCallback(async (template: ShapeTemplate) => {
+    if (!currentCourse) return;
+    
+    // Get start line center
+    const startMarks = marks.filter(m => m.isStartLine);
+    if (startMarks.length < 2) {
+      toast({
+        title: "Start Line Required",
+        description: "Please set up the start line before using a template.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const startCenterLat = startMarks.reduce((sum, m) => sum + m.lat, 0) / startMarks.length;
+    const startCenterLng = startMarks.reduce((sum, m) => sum + m.lng, 0) / startMarks.length;
+    
+    // Get wind direction (required for template placement)
+    const windDir = activeWeatherData?.windDirection;
+    if (windDir === undefined) {
+      toast({
+        title: "Wind Data Required",
+        description: "Templates need wind direction to position marks correctly.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Default course length - 500m is typical for small boat racing
+    const courseLengthMeters = 500;
+    
+    try {
+      // Generate marks from template
+      const generatedMarks = generateTemplateMarks(
+        template,
+        startCenterLat,
+        startCenterLng,
+        windDir,
+        courseLengthMeters
+      );
+      
+      // Create marks in the database with proper ordering
+      const baseOrder = marks.length;
+      for (let i = 0; i < generatedMarks.length; i++) {
+        const genMark = generatedMarks[i];
+        await createMark.mutateAsync({
+          courseId: currentCourse.id,
+          name: genMark.name,
+          role: genMark.role,
+          order: baseOrder + i,
+          lat: genMark.lat,
+          lng: genMark.lng,
+          isStartLine: false,
+          isFinishLine: false,
+          isCourseMark: true,
+        });
+      }
+      
+      toast({
+        title: "Template Applied",
+        description: `${template.name} - ${generatedMarks.length} course points added.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Template Failed",
+        description: "Could not create course marks. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [currentCourse, marks, activeWeatherData, createMark, toast]);
+
   // Transform course (scale, rotate, move) - shows confirmation if buoys are assigned
   const handleTransformCourse = useCallback((transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => {
     if (marks.length === 0) return;
@@ -2429,6 +2502,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               moveCourseMode={moveCourseMode}
               onSetMoveCourseMode={setMoveCourseMode}
               onDeleteCourse={handleDeleteCourse}
+              onApplyTemplate={handleApplyTemplate}
             />
           )}
         </aside>
