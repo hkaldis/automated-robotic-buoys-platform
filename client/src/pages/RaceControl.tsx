@@ -1936,19 +1936,33 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         lat: startMarks.reduce((sum, m) => sum + m.lat, 0) / startMarks.length,
         lng: startMarks.reduce((sum, m) => sum + m.lng, 0) / startMarks.length,
       };
+      
+      // Apply latitude-based longitude scaling for accurate angle calculation
+      const latRad = startCenter.lat * Math.PI / 180;
+      const lngScale = Math.cos(latRad);
+      
       const dLat = windwardMark.lat - startCenter.lat;
-      const dLng = windwardMark.lng - startCenter.lng;
+      const dLng = (windwardMark.lng - startCenter.lng) * lngScale;
+      
+      // Calculate bearing from start center to windward mark
       currentCourseAngle = Math.atan2(dLng, dLat) * 180 / Math.PI;
+      // Normalize to 0-360
+      currentCourseAngle = ((currentCourseAngle % 360) + 360) % 360;
     }
     
+    // Calculate exact rotation needed
     const targetAngle = windDirection;
-    const rotationDelta = targetAngle - currentCourseAngle;
+    let rotationDelta = targetAngle - currentCourseAngle;
+    
+    // Normalize to -180 to 180 for shortest rotation
+    while (rotationDelta > 180) rotationDelta -= 360;
+    while (rotationDelta < -180) rotationDelta += 360;
     
     handleTransformCourse({ rotation: rotationDelta });
     
     toast({
       title: "Course Aligned to Wind",
-      description: `Course rotated to align with wind from ${windDirection.toFixed(0)}°`,
+      description: `Rotated ${Math.abs(rotationDelta).toFixed(1)}° to align with wind from ${windDirection.toFixed(0)}°`,
     });
   }, [activeWeatherData, marks, handleTransformCourse, toast]);
 

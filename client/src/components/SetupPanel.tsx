@@ -1614,33 +1614,30 @@ export function SetupPanel({
                       </Button>
                     </div>
                     
-                    {/* Tap to Move, GPS, and Coordinates - 3 equal buttons */}
-                    <div className="flex gap-2">
+                    {/* Tap to Move, GPS, and Coordinates - 3 icon buttons */}
+                    <div className="flex gap-2 justify-center">
                       <Button
                         variant={moveCourseMode ? "default" : "outline"}
-                        className="flex-1 gap-1"
-                        size="lg"
+                        size="icon"
                         onClick={() => onSetMoveCourseMode?.(!moveCourseMode)}
+                        title="Tap to Move"
                         data-testid="button-tap-to-move"
                       >
-                        <Navigation2 className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{moveCourseMode ? "Tap Map" : "Tap to Move"}</span>
+                        <Navigation2 className="w-5 h-5" />
                       </Button>
                       <Button
                         variant="outline"
-                        className="flex-1 gap-1"
-                        size="lg"
+                        size="icon"
                         onClick={handleMoveCourseToGPS}
                         disabled={isGpsLocating || !committeeMark}
+                        title="Move to GPS"
                         data-testid="button-course-to-gps"
                       >
-                        <Crosshair className={`w-4 h-4 flex-shrink-0 ${isGpsLocating ? 'animate-pulse' : ''}`} />
-                        <span className="truncate">{isGpsLocating ? "Locating..." : "GPS"}</span>
+                        <Crosshair className={`w-5 h-5 ${isGpsLocating ? 'animate-pulse' : ''}`} />
                       </Button>
                       <Button
                         variant="outline"
-                        className="flex-1 gap-1"
-                        size="lg"
+                        size="icon"
                         onClick={() => {
                           if (committeeMark) {
                             setCourseCoordLat(committeeMark.lat.toString());
@@ -1649,10 +1646,10 @@ export function SetupPanel({
                           setShowCourseCoordinatesDialog(true);
                         }}
                         disabled={!committeeMark}
+                        title="Enter Coordinates"
                         data-testid="button-course-to-coordinates"
                       >
-                        <MapPin className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">Coordinates</span>
+                        <MapPin className="w-5 h-5" />
                       </Button>
                     </div>
                     
