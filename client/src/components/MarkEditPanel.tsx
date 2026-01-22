@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { adjustSingleMarkToWind, getStartLineCenter, calculateInteriorAngle, adjustMarkToAngle } from "@/lib/course-bearings";
@@ -86,6 +87,7 @@ export function MarkEditPanel({
   const [showCoordinatesDialog, setShowCoordinatesDialog] = useState(false);
   const [coordLat, setCoordLat] = useState(mark.lat.toString());
   const [coordLng, setCoordLng] = useState(mark.lng.toString());
+  const [isShapeOpen, setIsShapeOpen] = useState(false);
   
   useEffect(() => {
     setDegreesToWind(getWindAngleForRole(role));
@@ -633,85 +635,6 @@ export function MarkEditPanel({
           )}
         </div>
       )}
-      
-      {!isStartOrFinishMark && (
-        <div className="p-3 border-b bg-amber-500/5">
-          <div className="flex items-center gap-2 mb-2">
-            <Triangle className="w-5 h-5 text-amber-500" />
-            <Label className="text-sm font-medium">Adjust to Shape</Label>
-            {markOccurrenceInfo?.isMultiple && (
-              <Badge 
-                variant="outline" 
-                className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-600"
-                data-testid="badge-occurrence-context"
-              >
-                {markOccurrenceInfo.current} of {markOccurrenceInfo.total}
-              </Badge>
-            )}
-            {currentInteriorAngle !== null && (
-              <Badge variant="secondary" className="ml-auto text-sm px-3 py-1">
-                Now: {currentInteriorAngle.toFixed(0)}°
-              </Badge>
-            )}
-          </div>
-          
-          {sequenceContext && canAdjustToShape.can && (
-            <div className="flex items-center gap-1 mb-3 text-xs text-muted-foreground" data-testid="shape-sequence-context">
-              <span className="font-medium">{sequenceContext.prevName}</span>
-              <span>→</span>
-              <span className="font-bold text-amber-600 dark:text-amber-400">{mark.name}</span>
-              <span>→</span>
-              <span className="font-medium">{sequenceContext.nextName}</span>
-            </div>
-          )}
-          
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                min={10}
-                max={170}
-                value={targetAngle}
-                onChange={(e) => setTargetAngle(parseInt(e.target.value) || 60)}
-                className="w-20 h-12 text-center text-lg font-mono"
-                disabled={!canAdjustToShape.can}
-                data-testid="input-target-angle"
-              />
-              <span className="text-sm text-muted-foreground">°</span>
-            </div>
-            
-            <Button
-              variant="default"
-              className="flex-1 h-12 gap-2"
-              onClick={handleAdjustToShape}
-              disabled={!canAdjustToShape.can || !onAdjustToShape}
-              data-testid="button-adjust-to-shape"
-            >
-              <Triangle className="w-4 h-4" />
-              Adjust to Shape
-            </Button>
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mt-3">
-            {COMMON_ANGLES.map((angle) => (
-              <Button
-                key={angle}
-                variant={targetAngle === angle ? "secondary" : "outline"}
-                className="h-11 min-w-[52px] px-3 text-sm font-medium"
-                onClick={() => setTargetAngle(angle)}
-                disabled={!canAdjustToShape.can}
-                data-testid={`button-preset-angle-${angle}`}
-              >
-                {angle}°
-              </Button>
-            ))}
-          </div>
-          
-          {!canAdjustToShape.can && canAdjustToShape.reason && (
-            <p className="text-xs text-muted-foreground mt-2">{canAdjustToShape.reason}</p>
-          )}
-        </div>
-      )}
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -967,6 +890,97 @@ export function MarkEditPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* Adjust to Shape - Collapsible at end */}
+        {!isStartOrFinishMark && (
+          <Collapsible open={isShapeOpen} onOpenChange={setIsShapeOpen} className="mt-4">
+            <CollapsibleTrigger asChild>
+              <Button 
+                variant="ghost" 
+                className="w-full justify-between h-10 px-3 text-muted-foreground hover:text-foreground"
+                data-testid="button-toggle-shape"
+              >
+                <div className="flex items-center gap-2">
+                  <Triangle className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm">Adjust to Shape</span>
+                  {currentInteriorAngle !== null && (
+                    <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                      {currentInteriorAngle.toFixed(0)}°
+                    </Badge>
+                  )}
+                </div>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isShapeOpen ? 'rotate-180' : ''}`} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3 space-y-3">
+              {markOccurrenceInfo?.isMultiple && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-600"
+                  data-testid="badge-occurrence-context"
+                >
+                  {markOccurrenceInfo.current} of {markOccurrenceInfo.total}
+                </Badge>
+              )}
+              
+              {sequenceContext && canAdjustToShape.can && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" data-testid="shape-sequence-context">
+                  <span className="font-medium">{sequenceContext.prevName}</span>
+                  <span>→</span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400">{mark.name}</span>
+                  <span>→</span>
+                  <span className="font-medium">{sequenceContext.nextName}</span>
+                </div>
+              )}
+              
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    min={10}
+                    max={170}
+                    value={targetAngle}
+                    onChange={(e) => setTargetAngle(parseInt(e.target.value) || 60)}
+                    className="w-20 h-12 text-center text-lg font-mono"
+                    disabled={!canAdjustToShape.can}
+                    data-testid="input-target-angle"
+                  />
+                  <span className="text-sm text-muted-foreground">°</span>
+                </div>
+                
+                <Button
+                  variant="default"
+                  className="flex-1 h-12 gap-2"
+                  onClick={handleAdjustToShape}
+                  disabled={!canAdjustToShape.can || !onAdjustToShape}
+                  data-testid="button-adjust-to-shape"
+                >
+                  <Triangle className="w-4 h-4" />
+                  Adjust
+                </Button>
+              </div>
+              
+              <div className="flex flex-wrap gap-2">
+                {COMMON_ANGLES.map((angle) => (
+                  <Button
+                    key={angle}
+                    variant={targetAngle === angle ? "secondary" : "outline"}
+                    className="h-11 min-w-[52px] px-3 text-sm font-medium"
+                    onClick={() => setTargetAngle(angle)}
+                    disabled={!canAdjustToShape.can}
+                    data-testid={`button-preset-angle-${angle}`}
+                  >
+                    {angle}°
+                  </Button>
+                ))}
+              </div>
+              
+              {!canAdjustToShape.can && canAdjustToShape.reason && (
+                <p className="text-xs text-muted-foreground">{canAdjustToShape.reason}</p>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </div>
 
