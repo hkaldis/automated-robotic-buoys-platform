@@ -114,6 +114,50 @@ export function MarkEditPanel({
     return idx;
   }, [roundingSequence, mark.id]);
   
+  // Track occurrences of this mark in the sequence for context display
+  const markOccurrenceInfo = useMemo(() => {
+    const occurrences = roundingSequence
+      .map((id, index) => ({ id, index }))
+      .filter(item => item.id === mark.id);
+    
+    if (occurrences.length === 0) return null;
+    
+    const currentOccurrenceIndex = occurrences.findIndex(o => o.index === markPositionInSequence);
+    
+    return {
+      total: occurrences.length,
+      current: currentOccurrenceIndex + 1,
+      isMultiple: occurrences.length > 1,
+    };
+  }, [roundingSequence, mark.id, markPositionInSequence]);
+  
+  // Get previous and next mark names for context display
+  const sequenceContext = useMemo(() => {
+    if (markPositionInSequence < 0) return null;
+    
+    const prevEntry = markPositionInSequence > 0 ? roundingSequence[markPositionInSequence - 1] : null;
+    const nextEntry = markPositionInSequence < roundingSequence.length - 1 ? roundingSequence[markPositionInSequence + 1] : null;
+    
+    let prevName = "—";
+    let nextName = "—";
+    
+    if (prevEntry === "start") {
+      prevName = "Start";
+    } else if (prevEntry) {
+      const prevMark = allMarks.find(m => m.id === prevEntry);
+      prevName = prevMark?.name || "Unknown";
+    }
+    
+    if (nextEntry === "finish") {
+      nextName = "Finish";
+    } else if (nextEntry) {
+      const nextMark = allMarks.find(m => m.id === nextEntry);
+      nextName = nextMark?.name || "Unknown";
+    }
+    
+    return { prevName, nextName };
+  }, [markPositionInSequence, roundingSequence, allMarks]);
+  
   const previousReferencePosition = useMemo(() => {
     if (markPositionInSequence < 0) return null;
     if (markPositionInSequence === 0) return null;
@@ -592,15 +636,34 @@ export function MarkEditPanel({
       
       {!isStartOrFinishMark && (
         <div className="p-3 border-b bg-amber-500/5">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-2">
             <Triangle className="w-5 h-5 text-amber-500" />
             <Label className="text-sm font-medium">Adjust to Shape</Label>
+            {markOccurrenceInfo?.isMultiple && (
+              <Badge 
+                variant="outline" 
+                className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 border-amber-300 dark:border-amber-600"
+                data-testid="badge-occurrence-context"
+              >
+                {markOccurrenceInfo.current} of {markOccurrenceInfo.total}
+              </Badge>
+            )}
             {currentInteriorAngle !== null && (
               <Badge variant="secondary" className="ml-auto text-sm px-3 py-1">
                 Now: {currentInteriorAngle.toFixed(0)}°
               </Badge>
             )}
           </div>
+          
+          {sequenceContext && canAdjustToShape.can && (
+            <div className="flex items-center gap-1 mb-3 text-xs text-muted-foreground" data-testid="shape-sequence-context">
+              <span className="font-medium">{sequenceContext.prevName}</span>
+              <span>→</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">{mark.name}</span>
+              <span>→</span>
+              <span className="font-medium">{sequenceContext.nextName}</span>
+            </div>
+          )}
           
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1">
