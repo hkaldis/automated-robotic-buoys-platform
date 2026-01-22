@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Minus, ChevronRight, ChevronLeft, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2 } from "lucide-react";
+import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
 import type { Event, Buoy, Mark, Course, MarkRole, RaceTimeEstimate } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import { AutoAdjustWizard, OriginalPosition } from "./AutoAdjustWizard";
@@ -727,6 +726,18 @@ export function SetupPanel({
     }
   }, [pinMark, committeeMark, windDirection, startLineLength, startLineFixBearingMode, onSaveMark]);
 
+  // Nudge entire start line (move both marks together) - uses map bearing for correct screen direction
+  const handleNudgeStartLine = useCallback((direction: "north" | "south" | "east" | "west") => {
+    if (!pinMark || !committeeMark) return;
+    
+    // Use 10 meter nudge (~0.00009 degrees at typical latitudes)
+    const nudgeAmount = 0.00009;
+    const { translateLat, translateLng } = getTransformedCourseMove(direction, nudgeAmount);
+    
+    onSaveMark?.(pinMark.id, { lat: pinMark.lat + translateLat, lng: pinMark.lng + translateLng });
+    onSaveMark?.(committeeMark.id, { lat: committeeMark.lat + translateLat, lng: committeeMark.lng + translateLng });
+  }, [pinMark, committeeMark, onSaveMark, getTransformedCourseMove]);
+
   // Add course mark (M1, M2, M3, etc.)
   const handleAddCourseMark = () => {
     const markNumber = courseMarks.length + 1;
@@ -787,75 +798,66 @@ export function SetupPanel({
             </div>
 
             <div className="space-y-2">
-              <Button
-                variant={hasCommitteeBoat ? "secondary" : "default"}
-                className={cn(
-                  "w-full gap-2 justify-start",
-                  hasCommitteeBoat && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+              {/* Committee Boat row - use committeeMark directly for consistent detection */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={committeeMark ? "secondary" : "default"}
+                  className={cn(
+                    "flex-1 gap-2 justify-start",
+                    committeeMark && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                  )}
+                  onClick={() => committeeMark ? onMarkSelect?.(committeeMark.id) : handleAddStartLineMark("committee_boat")}
+                  data-testid="button-add-committee-boat"
+                >
+                  {committeeMark ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Ship className="w-4 h-4" />
+                  )}
+                  Committee Boat
+                </Button>
+                {committeeMark && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => onMarkSelect?.(committeeMark.id)}
+                    data-testid="button-edit-committee-boat"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                 )}
-                onClick={() => handleAddStartLineMark("committee_boat")}
-                disabled={hasCommitteeBoat}
-                data-testid="button-add-committee-boat"
-              >
-                {hasCommitteeBoat ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Ship className="w-4 h-4" />
-                )}
-                Committee Boat (Starboard)
-                {hasCommitteeBoat && (
-                  <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
-                )}
-              </Button>
+              </div>
 
-              <Button
-                variant={hasPinEnd ? "secondary" : "default"}
-                className={cn(
-                  "w-full gap-2 justify-start",
-                  hasPinEnd && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+              {/* Pin End row - use pinMark directly for consistent detection */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={pinMark ? "secondary" : "default"}
+                  className={cn(
+                    "flex-1 gap-2 justify-start",
+                    pinMark && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                  )}
+                  onClick={() => pinMark ? onMarkSelect?.(pinMark.id) : handleAddStartLineMark("pin")}
+                  data-testid="button-add-pin-end"
+                >
+                  {pinMark ? (
+                    <Check className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  Pin End
+                </Button>
+                {pinMark && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => onMarkSelect?.(pinMark.id)}
+                    data-testid="button-edit-pin-end"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                 )}
-                onClick={() => handleAddStartLineMark("pin")}
-                disabled={hasPinEnd}
-                data-testid="button-add-pin-end"
-              >
-                {hasPinEnd ? (
-                  <Check className="w-4 h-4 text-green-600" />
-                ) : (
-                  <Plus className="w-4 h-4" />
-                )}
-                Pin End (Port)
-                {hasPinEnd && (
-                  <Badge variant="secondary" className="ml-auto text-[10px] bg-green-500/20 text-green-600">Added</Badge>
-                )}
-              </Button>
+              </div>
             </div>
-
-            {startLineMarks.length > 0 && (
-              <ScrollArea className="flex-1 min-h-0">
-                <div className="space-y-1.5 pt-2">
-                  <p className="text-xs font-medium text-muted-foreground">Start Line Marks:</p>
-                  {startLineMarks.map((mark) => (
-                    <button
-                      key={mark.id}
-                      onClick={() => onMarkSelect?.(mark.id)}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 hover-elevate text-left"
-                      data-testid={`button-start-mark-${mark.id}`}
-                    >
-                      <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center text-white">
-                        <Flag className="w-3.5 h-3.5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{mark.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {mark.lat.toFixed(4)}, {mark.lng.toFixed(4)}
-                        </p>
-                      </div>
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
 
             {hasStartLine && (
               <div className="space-y-3 pt-2">
@@ -889,18 +891,49 @@ export function SetupPanel({
                   </div>
                 </div>
 
-                {startLineCrossingTime && (
-                  <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Crossing time
-                    </p>
-                    <p className="text-sm font-semibold">{startLineCrossingTime.timeFormatted}</p>
-                    <p className="text-xs text-muted-foreground">
-                      ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
-                    </p>
+                {/* Move Start Line controls */}
+                <div className="p-2 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                    <Move className="w-3 h-3" />
+                    Move Start Line
+                  </p>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button 
+                      variant="outline" 
+                      className="h-10 w-10 p-0" 
+                      onClick={() => handleNudgeStartLine("west")} 
+                      data-testid="button-nudge-startline-west"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </Button>
+                    <div className="flex flex-col gap-1">
+                      <Button 
+                        variant="outline" 
+                        className="h-10 w-10 p-0" 
+                        onClick={() => handleNudgeStartLine("north")} 
+                        data-testid="button-nudge-startline-north"
+                      >
+                        <ChevronUp className="w-5 h-5" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="h-10 w-10 p-0" 
+                        onClick={() => handleNudgeStartLine("south")} 
+                        data-testid="button-nudge-startline-south"
+                      >
+                        <ChevronDown className="w-5 h-5" />
+                      </Button>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="h-10 w-10 p-0" 
+                      onClick={() => handleNudgeStartLine("east")} 
+                      data-testid="button-nudge-startline-east"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </Button>
                   </div>
-                )}
+                </div>
 
                 <Button
                   variant="outline"
