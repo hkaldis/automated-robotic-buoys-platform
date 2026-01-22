@@ -53,6 +53,8 @@ export default function AdminDashboard() {
   const [editEventName, setEditEventName] = useState("");
   const [editEventType, setEditEventType] = useState<"race" | "training">("race");
   const [editEventBoatClassId, setEditEventBoatClassId] = useState<string>("");
+  const [editEventStartDate, setEditEventStartDate] = useState("");
+  const [editEventEndDate, setEditEventEndDate] = useState("");
   const [buoyDialogOpen, setBuoyDialogOpen] = useState(false);
   const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
   const [newBuoyName, setNewBuoyName] = useState("");
@@ -246,7 +248,7 @@ export default function AdminDashboard() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string; boatClassId?: string | null }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string; boatClassId?: string | null; startDate?: string; endDate?: string }) => {
       const res = await apiRequest("PATCH", `/api/events/${id}`, data);
       return res.json();
     },
@@ -543,11 +545,13 @@ export default function AdminDashboard() {
     setEditEventName(event.name);
     setEditEventType(event.type as "race" | "training");
     setEditEventBoatClassId(event.boatClassId || "");
+    setEditEventStartDate(event.startDate ? new Date(event.startDate).toISOString().split("T")[0] : "");
+    setEditEventEndDate(event.endDate ? new Date(event.endDate).toISOString().split("T")[0] : "");
     setEditEventDialogOpen(true);
   };
 
   const handleUpdateEvent = () => {
-    if (editingEvent && editEventName.trim()) {
+    if (editingEvent && editEventName.trim() && editEventStartDate) {
       const selectedBoatClass = boatClasses.find(bc => bc.id === editEventBoatClassId);
       updateEventMutation.mutate({
         id: editingEvent.id,
@@ -555,6 +559,8 @@ export default function AdminDashboard() {
         type: editEventType,
         boatClass: selectedBoatClass?.name || editingEvent.boatClass,
         boatClassId: editEventBoatClassId || null,
+        startDate: editEventStartDate,
+        endDate: editEventEndDate || undefined,
       });
     }
   };
@@ -1026,6 +1032,7 @@ export default function AdminDashboard() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Name</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Club</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Boat Class</TableHead>
@@ -1037,6 +1044,18 @@ export default function AdminDashboard() {
                       {events.map((event) => (
                         <TableRow key={event.id} data-testid={`row-event-${event.id}`}>
                           <TableCell className="font-medium">{event.name}</TableCell>
+                          <TableCell className="text-sm">
+                            {event.startDate ? (
+                              <span>
+                                {new Date(event.startDate).toLocaleDateString()}
+                                {event.endDate && event.endDate !== event.startDate && (
+                                  <> - {new Date(event.endDate).toLocaleDateString()}</>
+                                )}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
                           <TableCell>{getClubName(event.sailClubId)}</TableCell>
                           <TableCell>
                             <Badge variant={event.type === "race" ? "default" : "secondary"}>
@@ -2004,6 +2023,28 @@ export default function AdminDashboard() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-event-start-date">Start Date *</Label>
+                <Input
+                  id="edit-event-start-date"
+                  type="date"
+                  value={editEventStartDate}
+                  onChange={(e) => setEditEventStartDate(e.target.value)}
+                  data-testid="input-edit-event-start-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-event-end-date">End Date</Label>
+                <Input
+                  id="edit-event-end-date"
+                  type="date"
+                  value={editEventEndDate}
+                  onChange={(e) => setEditEventEndDate(e.target.value)}
+                  data-testid="input-edit-event-end-date"
+                />
+              </div>
+            </div>
 
             {/* Buoy Management Section */}
             <div className="space-y-3 border-t pt-4">
@@ -2062,7 +2103,7 @@ export default function AdminDashboard() {
 
             <Button
               onClick={handleUpdateEvent}
-              disabled={updateEventMutation.isPending || !editEventName.trim()}
+              disabled={updateEventMutation.isPending || !editEventName.trim() || !editEventStartDate}
               className="w-full"
               data-testid="button-update-event"
             >

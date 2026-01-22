@@ -117,7 +117,18 @@ export default function EventsList() {
                           {event.type === "race" ? "Race" : "Training"}
                         </Badge>
                       </div>
-                      <CardDescription>{event.boatClass}</CardDescription>
+                      <CardDescription className="flex flex-col gap-1">
+                        <span>{event.boatClass}</span>
+                        {event.startDate && (
+                          <span className="flex items-center gap-1 text-xs">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(event.startDate).toLocaleDateString()}
+                            {event.endDate && event.endDate !== event.startDate && (
+                              <> - {new Date(event.endDate).toLocaleDateString()}</>
+                            )}
+                          </span>
+                        )}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <Button
