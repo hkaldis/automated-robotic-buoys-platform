@@ -115,24 +115,27 @@ function calculateGatePositions(
 
 function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
   const stateColors: Record<string, string> = {
-    idle: "#94a3b8",
-    moving_to_target: "#3b82f6",
-    holding_position: "#22c55e",
+    idle: "#3b82f6",             // Blue
+    moving_to_target: "#f97316", // Orange
+    holding_position: "#22c55e", // Green (Loitering)
     station_keeping_degraded: "#eab308",
     unavailable: "#6b7280",
-    maintenance: "#f97316",
-    fault: "#ef4444",
+    maintenance: "#6b7280",
+    fault: "#ef4444",            // Red
   };
-  const color = stateColors[buoy.state] || "#94a3b8";
+  const isLowBattery = buoy.battery < 20;
+  const baseColor = stateColors[buoy.state] || "#3b82f6";
   const initial = buoy.name.charAt(0).toUpperCase();
   const ring = isSelected ? `<div style="position:absolute;top:-4px;left:-4px;width:48px;height:48px;border:3px solid #3b82f6;border-radius:50%;"></div>` : "";
+  const batteryRing = isLowBattery ? `<div style="position:absolute;top:-2px;left:-2px;width:44px;height:44px;border:2px dashed #a855f7;border-radius:50%;"></div>` : "";
 
   return L.divIcon({
     className: "custom-buoy-marker",
     html: `
       <div style="position:relative;width:40px;height:40px;z-index:1000;pointer-events:auto;">
         ${ring}
-        <div style="width:40px;height:40px;background:${color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+        ${batteryRing}
+        <div style="width:40px;height:40px;background:${baseColor};border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
           ${initial}
         </div>
       </div>

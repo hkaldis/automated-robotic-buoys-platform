@@ -2143,9 +2143,9 @@ export function SetupPanel({
         const getBuoyStateInfo = (state: string) => {
           switch (state) {
             case "moving_to_target":
-              return { label: "Moving", color: "text-amber-600", bgColor: "bg-amber-100 dark:bg-amber-900/30" };
+              return { label: "Moving", color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30" };
             case "holding_position":
-              return { label: "On Station", color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" };
+              return { label: "Loitering", color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" };
             case "idle":
               return { label: "Idle", color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30" };
             case "fault":
@@ -2178,10 +2178,11 @@ export function SetupPanel({
                   buoy.state === "fault" || buoy.state === "unavailable" 
                     ? "bg-red-500 text-white" 
                     : buoy.state === "moving_to_target"
-                    ? "bg-amber-500 text-white"
+                    ? "bg-orange-500 text-white"
                     : buoy.state === "idle"
                     ? "bg-blue-500 text-white"
-                    : "bg-green-500 text-white"
+                    : "bg-green-500 text-white",
+                  buoy.battery < 20 && "ring-2 ring-purple-500 ring-offset-1"
                 )}>
                   <Anchor className="w-4 h-4" />
                 </div>
@@ -2190,13 +2191,13 @@ export function SetupPanel({
                   <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] flex-shrink-0">
-                  <span className={cn("font-mono", buoy.battery < 20 ? "text-red-500" : "text-muted-foreground")}>
+                  <span className={cn("font-mono", buoy.battery < 20 ? "text-purple-500" : "text-muted-foreground")}>
                     {buoy.battery}%
                   </span>
                   {buoy.state === "moving_to_target" && (
                     <>
-                      <span className="font-mono text-amber-600">{buoy.speed?.toFixed(1) ?? 0}kts</span>
-                      {etaFormatted && <span className="font-mono font-medium text-amber-600">{etaFormatted}</span>}
+                      <span className="font-mono text-orange-600">{buoy.speed?.toFixed(1) ?? 0}kts</span>
+                      {etaFormatted && <span className="font-mono font-medium text-orange-600">{etaFormatted}</span>}
                     </>
                   )}
                 </div>
@@ -2222,10 +2223,10 @@ export function SetupPanel({
             <div className="grid grid-cols-5 gap-1.5" data-testid="fleet-status-summary">
               <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-1.5 text-center" data-testid="status-on-station">
                 <p className="text-base font-bold text-green-600" data-testid="count-on-station">{allOnStationBuoys.length}</p>
-                <p className="text-[9px] text-muted-foreground">Station</p>
+                <p className="text-[9px] text-muted-foreground">Loitering</p>
               </div>
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-1.5 text-center" data-testid="status-moving">
-                <p className="text-base font-bold text-amber-600" data-testid="count-moving">{allMovingBuoys.length}</p>
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-1.5 text-center" data-testid="status-moving">
+                <p className="text-base font-bold text-orange-600" data-testid="count-moving">{allMovingBuoys.length}</p>
                 <p className="text-[9px] text-muted-foreground">Moving</p>
               </div>
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-1.5 text-center" data-testid="status-idle">
@@ -2238,9 +2239,9 @@ export function SetupPanel({
               </div>
               <div className={cn(
                 "rounded-lg p-1.5 text-center",
-                allLowBatteryBuoys.length > 0 ? "bg-orange-50 dark:bg-orange-900/20" : "bg-muted/50"
+                allLowBatteryBuoys.length > 0 ? "bg-purple-50 dark:bg-purple-900/20" : "bg-muted/50"
               )} data-testid="status-low-battery">
-                <p className={cn("text-base font-bold", allLowBatteryBuoys.length > 0 ? "text-orange-600" : "text-muted-foreground")} data-testid="count-low-battery">
+                <p className={cn("text-base font-bold", allLowBatteryBuoys.length > 0 ? "text-purple-600" : "text-muted-foreground")} data-testid="count-low-battery">
                   {allLowBatteryBuoys.length}
                 </p>
                 <p className="text-[9px] text-muted-foreground">Low Bat</p>

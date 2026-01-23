@@ -15,27 +15,27 @@ interface BuoyCardProps {
 
 function getBuoyStateColor(state: BuoyState): string {
   switch (state) {
-    case "idle": return "text-muted-foreground";
-    case "moving_to_target": return "text-chart-1";
+    case "idle": return "text-blue-500";
+    case "moving_to_target": return "text-orange-500";
     case "holding_position": return "text-green-500";
     case "station_keeping_degraded": return "text-yellow-500";
     case "unavailable": return "text-muted-foreground";
-    case "maintenance": return "text-chart-3";
-    case "fault": return "text-destructive";
-    default: return "text-muted-foreground";
+    case "maintenance": return "text-muted-foreground";
+    case "fault": return "text-red-500";
+    default: return "text-blue-500";
   }
 }
 
 function getBuoyStateBgColor(state: BuoyState): string {
   switch (state) {
-    case "idle": return "bg-muted";
-    case "moving_to_target": return "bg-chart-1/20";
+    case "idle": return "bg-blue-500/20";
+    case "moving_to_target": return "bg-orange-500/20";
     case "holding_position": return "bg-green-500/20";
     case "station_keeping_degraded": return "bg-yellow-500/20";
     case "unavailable": return "bg-muted";
-    case "maintenance": return "bg-chart-3/20";
-    case "fault": return "bg-destructive/20";
-    default: return "bg-muted";
+    case "maintenance": return "bg-muted";
+    case "fault": return "bg-red-500/20";
+    default: return "bg-blue-500/20";
   }
 }
 
@@ -43,7 +43,7 @@ function getBuoyStateLabel(state: BuoyState): string {
   switch (state) {
     case "idle": return "Idle";
     case "moving_to_target": return "Moving";
-    case "holding_position": return "Holding";
+    case "holding_position": return "Loitering";
     case "station_keeping_degraded": return "Degraded";
     case "unavailable": return "Unavailable";
     case "maintenance": return "Maintenance";
@@ -59,11 +59,12 @@ export function BuoyCard({ buoy, isSelected, onClick, compact = false }: BuoyCar
   const stateBgColor = getBuoyStateBgColor(buoy.state as BuoyState);
   const stateLabel = getBuoyStateLabel(buoy.state as BuoyState);
 
-  const batteryColor = buoy.battery > 50 
-    ? "text-green-500" 
-    : buoy.battery > 20 
-      ? "text-yellow-500" 
-      : "text-destructive";
+  const isLowBattery = buoy.battery < 20;
+  const batteryColor = isLowBattery 
+    ? "text-purple-500" 
+    : buoy.battery > 50 
+      ? "text-green-500" 
+      : "text-yellow-500";
 
   if (compact) {
     const isMoving = buoy.state === "moving_to_target";
@@ -72,21 +73,26 @@ export function BuoyCard({ buoy, isSelected, onClick, compact = false }: BuoyCar
         className={cn(
           "flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover-elevate transition-colors",
           isSelected && "ring-2 ring-primary bg-primary/5",
-          isMoving && "bg-chart-1/5 border-chart-1/30"
+          isMoving && "bg-orange-500/5 border-orange-500/30"
         )}
         onClick={onClick}
         data-testid={`buoy-card-compact-${buoy.id}`}
       >
-        <div className={cn("w-3 h-3 rounded-full", isMoving && "animate-pulse", stateColor.replace("text-", "bg-"))} />
+        <div className={cn(
+          "w-3 h-3 rounded-full", 
+          isMoving && "animate-pulse", 
+          stateColor.replace("text-", "bg-"),
+          isLowBattery && "ring-2 ring-purple-500 ring-offset-1"
+        )} />
         <span className="font-medium flex-1 truncate">{buoy.name}</span>
         {isMoving && buoy.speed > 0 && (
-          <div className="flex items-center gap-1 text-xs text-chart-1 font-mono">
+          <div className="flex items-center gap-1 text-xs text-orange-500 font-mono">
             <Navigation className="w-3 h-3" />
             {formatSpeed(buoy.speed)}
           </div>
         )}
         {isMoving && buoy.eta && (
-          <div className="flex items-center gap-1 text-xs text-chart-1 font-mono">
+          <div className="flex items-center gap-1 text-xs text-orange-500 font-mono">
             <Clock className="w-3 h-3" />
             {Math.floor(buoy.eta / 60)}:{(buoy.eta % 60).toString().padStart(2, "0")}
           </div>
@@ -94,7 +100,7 @@ export function BuoyCard({ buoy, isSelected, onClick, compact = false }: BuoyCar
         {!isMoving && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Battery className={cn("w-4 h-4", batteryColor)} />
-            <span className="font-mono">{buoy.battery}%</span>
+            <span className={cn("font-mono", isLowBattery && "text-purple-500")}>{buoy.battery}%</span>
           </div>
         )}
       </div>
@@ -145,12 +151,12 @@ export function BuoyCard({ buoy, isSelected, onClick, compact = false }: BuoyCar
         </div>
 
         {buoy.state === "moving_to_target" && buoy.eta && (
-          <div className="flex items-center justify-between text-sm p-2 rounded bg-chart-1/10">
-            <span className="flex items-center gap-1.5 text-chart-1">
+          <div className="flex items-center justify-between text-sm p-2 rounded bg-orange-500/10">
+            <span className="flex items-center gap-1.5 text-orange-500">
               <Clock className="w-4 h-4" />
               ETA
             </span>
-            <span className="font-mono font-medium">
+            <span className="font-mono font-medium text-orange-500">
               {Math.floor(buoy.eta / 60)}:{(buoy.eta % 60).toString().padStart(2, "0")}
             </span>
           </div>
