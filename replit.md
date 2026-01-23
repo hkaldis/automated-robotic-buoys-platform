@@ -42,6 +42,38 @@ The application supports a 6-phase `SetupPanel` for course creation: setting sta
 ### UI/UX
 The design is tablet-first with large, touch-friendly controls (min 48px targets), a visual progress stepper, and maritime-themed aesthetics. Role-specific mark visualizations and adherence to World Sailing standards for course geometry are key.
 
+### Design System (`client/src/design-system.ts`)
+A comprehensive, rule-based design framework defining:
+
+**Visual Identity**: Maritime Professional theme using HSL 210 (nautical blue) as base hue.
+
+**Color System**:
+- **Primary**: `210 85% 42%` - CTAs, active states, links
+- **Secondary**: `210 8% 88%` - Subdued actions
+- **Accent**: `210 12% 92%` - Subtle highlights
+- **Neutral**: Derived from base hue for backgrounds, text, borders
+
+**Semantic Colors (Buoy States)**:
+- **Green** (`#22c55e`): Success/Loitering - `text-green-500`, `bg-green-500`
+- **Orange** (`#f97316`): Warning/Moving - `text-orange-500`, `bg-orange-500`
+- **Blue** (`#3b82f6`): Info/Idle - `text-blue-500`, `bg-blue-500`
+- **Red** (`#ef4444`): Error/Fault - `text-red-500`, `bg-destructive`
+- **Purple** (`#a855f7`): Alert/Low Battery (<20%) - `text-purple-500`, overlay ring
+
+**Interaction States** (ENFORCED RULES):
+- **Hover**: Use `hover-elevate` utility - NEVER `hover:bg-*`
+- **Active**: Use `active-elevate-2` utility - NEVER `active:bg-*`
+- **Focus**: `focus-visible:ring-1 focus-visible:ring-ring`
+- **Disabled**: `disabled:opacity-50 disabled:pointer-events-none`
+- **Toggle**: `toggle-elevate` + `toggle-elevated` classes
+
+**Forbidden Patterns**:
+- Manual hover/active color overrides
+- Arbitrary hex colors (`bg-[#...]`)
+- Setting h-*/w-* on Buttons (use size prop)
+- Nesting Cards inside Cards
+- Mixing color families (e.g., bg-primary + border-accent)
+
 ## External Dependencies
 
 ### UI Frameworks & Libraries
