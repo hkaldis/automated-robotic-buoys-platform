@@ -225,6 +225,7 @@ export const userSettings = pgTable("user_settings", {
   // Map settings
   mapLayer: text("map_layer").notNull().default("ocean"),
   showSeaMarks: boolean("show_sea_marks").notNull().default(true),
+  showSiblingBuoys: boolean("show_sibling_buoys").notNull().default(true),
   windArrowsMinZoom: integer("wind_arrows_min_zoom").notNull().default(13),
   // Start line settings
   startLineResizeMode: text("start_line_resize_mode").notNull().default("pin"),
@@ -533,4 +534,9 @@ export interface RaceTimeEstimate {
   windSpeedKnots: number;
   windDirectionDeg: number;
   boatClassName: string;
+}
+
+export interface SiblingBuoy extends Buoy {
+  eventName: string;
+  sourceEventId: string;
 }

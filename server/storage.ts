@@ -54,6 +54,7 @@ export interface IStorage {
   getBuoy(id: string): Promise<Buoy | undefined>;
   getBuoys(sailClubId?: string): Promise<Buoy[]>;
   getBuoysForEvent(eventId: string): Promise<Buoy[]>;
+  getSiblingEventBuoys(eventId: string): Promise<Array<Buoy & { eventName: string; sourceEventId: string }>>;
   getAvailableBuoys(): Promise<Buoy[]>;
   createBuoy(buoy: InsertBuoy): Promise<Buoy>;
   updateBuoy(id: string, buoy: Partial<InsertBuoy>): Promise<Buoy | undefined>;
@@ -570,6 +571,44 @@ export class MemStorage implements IStorage {
       .filter(a => a.eventId === eventId && a.status === "active");
     const buoyIds = new Set(activeAssignments.map(a => a.buoyId));
     return Array.from(this.buoys.values()).filter(b => buoyIds.has(b.id));
+  }
+
+  async getSiblingEventBuoys(eventId: string): Promise<Array<Buoy & { eventName: string; sourceEventId: string }>> {
+    const currentEvent = this.events.get(eventId);
+    if (!currentEvent || !currentEvent.startDate) {
+      return [];
+    }
+
+    const eventDate = new Date(currentEvent.startDate);
+    const eventDateStr = eventDate.toISOString().split('T')[0];
+
+    const siblingEvents = Array.from(this.events.values()).filter(e => {
+      if (e.id === eventId) return false;
+      if (e.sailClubId !== currentEvent.sailClubId) return false;
+      if (!e.startDate) return false;
+      const eDateStr = new Date(e.startDate).toISOString().split('T')[0];
+      return eDateStr === eventDateStr;
+    });
+
+    const result: Array<Buoy & { eventName: string; sourceEventId: string }> = [];
+
+    for (const sibEvent of siblingEvents) {
+      const activeAssignments = Array.from(this.buoyAssignments.values())
+        .filter(a => a.eventId === sibEvent.id && a.status === "active");
+      const buoyIds = new Set(activeAssignments.map(a => a.buoyId));
+      
+      const eventBuoys = Array.from(this.buoys.values())
+        .filter(b => buoyIds.has(b.id))
+        .map(b => ({
+          ...b,
+          eventName: sibEvent.name,
+          sourceEventId: sibEvent.id,
+        }));
+      
+      result.push(...eventBuoys);
+    }
+
+    return result;
   }
 
   async getAvailableBuoys(): Promise<Buoy[]> {

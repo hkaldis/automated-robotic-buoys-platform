@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import type { MapLayerType } from "@/lib/services/settings-service";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Buoy, Mark, GeoPosition, MarkRole } from "@shared/schema";
+import type { Buoy, Mark, GeoPosition, MarkRole, SiblingBuoy } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import type { PendingDeployment } from "@/hooks/use-buoy-follow";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,8 @@ interface LeafletMapProps {
   mapLayer?: MapLayerType;
   showSeaMarks?: boolean;
   pendingDeployments?: PendingDeployment[];
+  siblingBuoys?: SiblingBuoy[];
+  showSiblingBuoys?: boolean;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -142,6 +144,23 @@ function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
     `,
     iconSize: [40, 40],
     iconAnchor: [20, 20],
+  });
+}
+
+function createSiblingBuoyIcon(buoy: SiblingBuoy): L.DivIcon {
+  const initial = buoy.name.charAt(0).toUpperCase();
+  
+  return L.divIcon({
+    className: "custom-buoy-marker sibling-buoy",
+    html: `
+      <div style="position:relative;width:32px;height:32px;z-index:500;pointer-events:auto;opacity:0.5;">
+        <div style="width:32px;height:32px;background:#9ca3af;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,0.2);border:2px dashed #6b7280;">
+          ${initial}
+        </div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
   });
 }
 
@@ -755,6 +774,8 @@ export function LeafletMap({
   mapLayer = "osm",
   showSeaMarks = true,
   pendingDeployments = [],
+  siblingBuoys = [],
+  showSiblingBuoys = true,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -1122,6 +1143,23 @@ export function LeafletMap({
                 }}
               />
             )}
+          </Marker>
+        ))}
+
+        {showSiblingBuoys && siblingBuoys.map((buoy) => (
+          <Marker
+            key={`sibling-${buoy.id}`}
+            position={[buoy.lat ?? 0, buoy.lng ?? 0]}
+            icon={createSiblingBuoyIcon(buoy)}
+            zIndexOffset={500}
+          >
+            <Popup closeButton={false} className="sibling-buoy-popup">
+              <div className="text-sm font-medium text-muted-foreground" data-testid={`popup-sibling-buoy-${buoy.id}`}>
+                <span className="font-semibold">{buoy.name}</span>
+                <br />
+                <span className="text-xs">Event: {buoy.eventName}</span>
+              </div>
+            </Popup>
           </Marker>
         ))}
         

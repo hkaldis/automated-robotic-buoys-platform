@@ -97,6 +97,9 @@ export function useSettings() {
   const [showSeaMarks, setShowSeaMarksState] = useState<boolean>(
     settingsService.getShowSeaMarks()
   );
+  const [showSiblingBuoys, setShowSiblingBuoysState] = useState<boolean>(
+    settingsService.getShowSiblingBuoys()
+  );
   const [buoyDeployMode, setBuoyDeployModeState] = useState<BuoyDeployMode>(
     settingsService.getBuoyDeployMode()
   );
@@ -115,6 +118,7 @@ export function useSettings() {
         speedUnit: (settings.speedUnit as SpeedUnit) ?? "knots",
         mapLayer: (settings.mapLayer as MapLayerType) ?? DEFAULT_MAP_LAYER,
         showSeaMarks: settings.showSeaMarks ?? true,
+        showSiblingBuoys: settings.showSiblingBuoys ?? true,
         windArrowsMinZoom: settings.windArrowsMinZoom ?? DEFAULT_WIND_ARROWS_MIN_ZOOM,
         startLineResizeMode: (settings.startLineResizeMode as StartLineResizeMode) ?? DEFAULT_START_LINE_RESIZE_MODE,
         startLineFixBearingMode: (settings.startLineFixBearingMode as StartLineFixBearingMode) ?? DEFAULT_START_LINE_FIX_BEARING_MODE,
@@ -134,6 +138,7 @@ export function useSettings() {
         speedUnit: payload.speedUnit,
         mapLayer: payload.mapLayer,
         showSeaMarks: payload.showSeaMarks,
+        showSiblingBuoys: payload.showSiblingBuoys,
         windArrowsMinZoom: payload.windArrowsMinZoom,
         startLineResizeMode: payload.startLineResizeMode,
         startLineFixBearingMode: payload.startLineFixBearingMode,
@@ -156,6 +161,7 @@ export function useSettings() {
       setBuoyFollowSettingsState(settingsService.getBuoyFollowSettings());
       setMapLayerState(settingsService.getMapLayer());
       setShowSeaMarksState(settingsService.getShowSeaMarks());
+      setShowSiblingBuoysState(settingsService.getShowSiblingBuoys());
       setBuoyDeployModeState(settingsService.getBuoyDeployMode());
       setCourseAdjustmentSettingsState(settingsService.getCourseAdjustmentSettings());
       setWindArrowsMinZoomState(settingsService.getWindArrowsMinZoom());
@@ -197,6 +203,10 @@ export function useSettings() {
 
   const setShowSeaMarks = useCallback((show: boolean) => {
     settingsService.setShowSeaMarks(show);
+  }, []);
+
+  const setShowSiblingBuoys = useCallback((show: boolean) => {
+    settingsService.setShowSiblingBuoys(show);
   }, []);
 
   const setBuoyDeployMode = useCallback((mode: BuoyDeployMode) => {
@@ -266,6 +276,8 @@ export function useSettings() {
     setMapLayer,
     showSeaMarks,
     setShowSeaMarks,
+    showSiblingBuoys,
+    setShowSiblingBuoys,
     buoyDeployMode,
     setBuoyDeployMode,
     courseAdjustmentSettings,

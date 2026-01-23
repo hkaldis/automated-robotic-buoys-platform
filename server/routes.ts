@@ -1226,6 +1226,18 @@ export async function registerRoutes(
     }
   });
 
+  // Get buoys from sibling events (same club, same day, excluding current event)
+  // These are read-only, informational buoys shown greyed out on the map
+  app.get("/api/events/:id/sibling-buoys", requireAuth, requireEventAccess, async (req, res) => {
+    try {
+      const eventId = req.params.id as string;
+      const siblingBuoys = await storage.getSiblingEventBuoys(eventId);
+      res.json(siblingBuoys);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch sibling event buoys" });
+    }
+  });
+
   // Get buoy assignment history
   app.get("/api/buoys/:id/assignments", requireAuth, async (req, res) => {
     try {

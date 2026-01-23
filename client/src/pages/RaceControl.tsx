@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/use-settings";
-import type { Event, Buoy, Mark, Course, MarkRole, CourseShape, EventType } from "@shared/schema";
+import type { Event, Buoy, Mark, Course, MarkRole, CourseShape, EventType, SiblingBuoy } from "@shared/schema";
 import { 
   useBuoys, 
   useEvents, 
@@ -288,7 +288,7 @@ interface RaceControlProps {
 
 export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
   const { user } = useAuth();
-  const { mapLayer, showSeaMarks } = useSettings();
+  const { mapLayer, showSeaMarks, showSiblingBuoys } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [courseMenuSaveOpen, setCourseMenuSaveOpen] = useState(false);
@@ -369,6 +369,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const { data: eventBuoys = [], isLoading: eventBuoysLoading } = useQuery<Buoy[]>({
     queryKey: [`/api/events/${activeEventId}/buoys`],
+    enabled: !!activeEventId && !demoMode,
+  });
+
+  const { data: siblingBuoys = [] } = useQuery<SiblingBuoy[]>({
+    queryKey: [`/api/events/${activeEventId}/sibling-buoys`],
     enabled: !!activeEventId && !demoMode,
   });
   
@@ -2460,6 +2465,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             mapLayer={mapLayer}
             showSeaMarks={showSeaMarks}
             pendingDeployments={pendingDeployments}
+            siblingBuoys={siblingBuoys}
+            showSiblingBuoys={showSiblingBuoys}
           />
         </main>
 

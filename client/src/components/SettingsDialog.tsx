@@ -117,6 +117,8 @@ export function SettingsDialog({
     setMapLayer,
     showSeaMarks,
     setShowSeaMarks,
+    showSiblingBuoys,
+    setShowSiblingBuoys,
     buoyDeployMode,
     setBuoyDeployMode,
     courseAdjustmentSettings,
@@ -195,6 +197,17 @@ export function SettingsDialog({
                   checked={showSeaMarks}
                   onCheckedChange={(checked) => setShowSeaMarks(checked)}
                   data-testid="switch-sea-marks"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="sibling-buoys-toggle" className="text-sm">
+                  Show Buoys from Other Events
+                </Label>
+                <Switch
+                  id="sibling-buoys-toggle"
+                  checked={showSiblingBuoys}
+                  onCheckedChange={(checked) => setShowSiblingBuoys(checked)}
+                  data-testid="switch-sibling-buoys"
                 />
               </div>
               <div className="flex items-center justify-between">

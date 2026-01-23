@@ -69,6 +69,7 @@ interface UserSettings {
   buoyFollow: BuoyFollowSettings;
   mapLayer: MapLayerType;
   showSeaMarks: boolean;
+  showSiblingBuoys: boolean;
   buoyDeployMode: BuoyDeployMode;
   courseAdjustment: CourseAdjustmentSettings;
   windArrowsMinZoom: number;
@@ -84,6 +85,7 @@ class SettingsService {
     buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
     mapLayer: DEFAULT_MAP_LAYER,
     showSeaMarks: true,
+    showSiblingBuoys: true,
     buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
     courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
     windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
@@ -107,6 +109,7 @@ class SettingsService {
       buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
       mapLayer: DEFAULT_MAP_LAYER,
       showSeaMarks: true,
+      showSiblingBuoys: true,
       buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
       courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
       windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
@@ -258,6 +261,15 @@ class SettingsService {
 
   setShowSeaMarks(show: boolean): void {
     this.settings.showSeaMarks = show;
+    this.notify();
+  }
+
+  getShowSiblingBuoys(): boolean {
+    return this.settings.showSiblingBuoys;
+  }
+
+  setShowSiblingBuoys(show: boolean): void {
+    this.settings.showSiblingBuoys = show;
     this.notify();
   }
 

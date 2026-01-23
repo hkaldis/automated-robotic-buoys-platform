@@ -417,6 +417,7 @@ export interface UserSettingsData {
   selectedWindBuoyId: string | null;
   mapLayer: string;
   showSeaMarks: boolean;
+  showSiblingBuoys: boolean;
   windArrowsMinZoom: number;
   startLineResizeMode: string;
   startLineFixBearingMode: string;
