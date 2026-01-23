@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
-import type { Buoy, BuoyState, BuoyInventoryStatus, BuoyOwnership } from "@shared/schema";
+import type { Buoy, BuoyState, BuoyInventoryStatus, BuoyOwnership, SiblingBuoy } from "@shared/schema";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 
@@ -55,6 +55,25 @@ const DEMO_BUOYS_INITIAL: Buoy[] = [
   createDemoBuoy("demo-10", "Juliet", -0.0025, -0.0015, 82, 96, 12.5, 226),
 ];
 
+const createDemoSiblingBuoy = (
+  id: string,
+  name: string,
+  latOffset: number,
+  lngOffset: number,
+  eventName: string,
+  sourceEventId: string
+): SiblingBuoy => ({
+  ...createDemoBuoy(id, name, latOffset, lngOffset, 80, 90, 11.5, 220),
+  eventName,
+  sourceEventId,
+});
+
+const DEMO_SIBLING_BUOYS: SiblingBuoy[] = [
+  createDemoSiblingBuoy("sibling-1", "Kilo", 0.004, 0.005, "Youth Regatta", "demo-event-2"),
+  createDemoSiblingBuoy("sibling-2", "Lima", 0.005, 0.003, "Youth Regatta", "demo-event-2"),
+  createDemoSiblingBuoy("sibling-3", "Mike", 0.006, 0.001, "Training Session", "demo-event-3"),
+];
+
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const EARTH_RADIUS_NM = 3440.065;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -70,6 +89,7 @@ interface DemoModeContextType {
   setEnabled: (enabled: boolean) => void;
   toggleDemoMode: () => void;
   demoBuoys: Buoy[];
+  demoSiblingBuoys: SiblingBuoy[];
   sendCommand: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
   resetDemoBuoys: () => void;
   repositionDemoBuoys: (centerLat: number, centerLng: number) => void;
@@ -252,6 +272,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
       setEnabled,
       toggleDemoMode,
       demoBuoys,
+      demoSiblingBuoys: DEMO_SIBLING_BUOYS,
       sendCommand,
       resetDemoBuoys,
       repositionDemoBuoys,

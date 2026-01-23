@@ -361,7 +361,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const { toast } = useToast();
 
-  const { enabled: demoMode, toggleDemoMode, demoBuoys, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
+  const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
 
   const { data: allBuoys = [], isLoading: allBuoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
@@ -372,10 +372,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     enabled: !!activeEventId && !demoMode,
   });
 
-  const { data: siblingBuoys = [] } = useQuery<SiblingBuoy[]>({
+  const { data: apiSiblingBuoys = [] } = useQuery<SiblingBuoy[]>({
     queryKey: [`/api/events/${activeEventId}/sibling-buoys`],
     enabled: !!activeEventId && !demoMode,
   });
+  const siblingBuoys = demoMode ? demoSiblingBuoys : apiSiblingBuoys;
   
   const buoysLoading = activeEventId ? eventBuoysLoading : allBuoysLoading;
   const apiBuoys = activeEventId ? eventBuoys : allBuoys;
