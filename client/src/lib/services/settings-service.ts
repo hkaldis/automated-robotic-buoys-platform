@@ -60,6 +60,25 @@ export const DEFAULT_COURSE_ADJUSTMENT: CourseAdjustmentSettings = {
 
 export const DEFAULT_WIND_ARROWS_MIN_ZOOM = 13;
 
+export interface BoatTrackingIntegration {
+  enabled: boolean;
+  eventId: string;
+}
+
+export interface IntegrationSettings {
+  vakaros: BoatTrackingIntegration;
+  tractrac: BoatTrackingIntegration;
+  showBoatTrails: boolean;
+  boatRefreshRateSeconds: number;
+}
+
+export const DEFAULT_INTEGRATION_SETTINGS: IntegrationSettings = {
+  vakaros: { enabled: false, eventId: "" },
+  tractrac: { enabled: false, eventId: "" },
+  showBoatTrails: false,
+  boatRefreshRateSeconds: 3,
+};
+
 interface UserSettings {
   distanceUnit: DistanceUnit;
   speedUnit: SpeedUnit;
@@ -73,6 +92,7 @@ interface UserSettings {
   buoyDeployMode: BuoyDeployMode;
   courseAdjustment: CourseAdjustmentSettings;
   windArrowsMinZoom: number;
+  integrations: IntegrationSettings;
 }
 
 class SettingsService {
@@ -89,6 +109,7 @@ class SettingsService {
     buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
     courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
     windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
+    integrations: { ...DEFAULT_INTEGRATION_SETTINGS },
   };
   private listeners: Set<SettingsListener> = new Set();
   private userId: string | null = null;
@@ -113,6 +134,7 @@ class SettingsService {
       buoyDeployMode: DEFAULT_BUOY_DEPLOY_MODE,
       courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
       windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
+      integrations: { ...DEFAULT_INTEGRATION_SETTINGS },
     };
     this.userId = null;
     this.listeners.forEach(listener => listener());
@@ -145,6 +167,7 @@ class SettingsService {
       buoyDeployMode: this.settings.buoyDeployMode,
       courseAdjustment: this.settings.courseAdjustment,
       windArrowsMinZoom: this.settings.windArrowsMinZoom,
+      integrations: this.settings.integrations,
     };
   }
 
@@ -303,6 +326,53 @@ class SettingsService {
   setWindArrowsMinZoom(zoom: number): void {
     this.settings.windArrowsMinZoom = zoom;
     this.notify();
+  }
+
+  getIntegrationSettings(): IntegrationSettings {
+    return { 
+      ...this.settings.integrations,
+      vakaros: { ...this.settings.integrations.vakaros },
+      tractrac: { ...this.settings.integrations.tractrac },
+    };
+  }
+
+  setVakarosEnabled(enabled: boolean): void {
+    this.settings.integrations.vakaros.enabled = enabled;
+    this.notify();
+  }
+
+  setVakarosEventId(eventId: string): void {
+    this.settings.integrations.vakaros.eventId = eventId;
+    this.notify();
+  }
+
+  setTractracEnabled(enabled: boolean): void {
+    this.settings.integrations.tractrac.enabled = enabled;
+    this.notify();
+  }
+
+  setTractracEventId(eventId: string): void {
+    this.settings.integrations.tractrac.eventId = eventId;
+    this.notify();
+  }
+
+  setShowBoatTrails(show: boolean): void {
+    this.settings.integrations.showBoatTrails = show;
+    this.notify();
+  }
+
+  setBoatRefreshRate(seconds: number): void {
+    this.settings.integrations.boatRefreshRateSeconds = seconds;
+    this.notify();
+  }
+
+  resetIntegrationSettings(): void {
+    this.settings.integrations = { ...DEFAULT_INTEGRATION_SETTINGS };
+    this.notify();
+  }
+
+  isAnyBoatTrackingEnabled(): boolean {
+    return this.settings.integrations.vakaros.enabled || this.settings.integrations.tractrac.enabled;
   }
 
   formatDistance(valueNm: number): string {

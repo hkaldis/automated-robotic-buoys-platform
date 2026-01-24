@@ -3,6 +3,18 @@ import type { Buoy, BuoyState, BuoyInventoryStatus, BuoyOwnership, SiblingBuoy }
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 
+export interface TrackedBoat {
+  id: string;
+  sailNumber: string;
+  lat: number;
+  lng: number;
+  heading: number;
+  speed: number;
+  timestamp: Date;
+  source: "vakaros" | "tractrac";
+  fleetId?: string;
+}
+
 const createDemoBuoy = (
   id: string,
   name: string,
@@ -157,6 +169,38 @@ const DEMO_SIBLING_BUOYS: SiblingBuoy[] = [
   },
 ];
 
+const createDemoBoat = (
+  id: string,
+  sailNumber: string,
+  latOffset: number,
+  lngOffset: number,
+  heading: number,
+  speed: number,
+  source: "vakaros" | "tractrac"
+): TrackedBoat => ({
+  id,
+  sailNumber,
+  lat: MIKROLIMANO_CENTER.lat + latOffset,
+  lng: MIKROLIMANO_CENTER.lng + lngOffset,
+  heading,
+  speed,
+  timestamp: new Date(),
+  source,
+});
+
+const DEMO_BOATS_INITIAL: TrackedBoat[] = [
+  createDemoBoat("boat-1", "GRE 123", 0.0005, 0.0010, 45, 5.2, "vakaros"),
+  createDemoBoat("boat-2", "GRE 456", 0.0008, 0.0015, 48, 4.8, "vakaros"),
+  createDemoBoat("boat-3", "GRE 789", 0.0003, 0.0008, 42, 5.5, "tractrac"),
+  createDemoBoat("boat-4", "ITA 101", 0.0006, 0.0012, 50, 4.5, "vakaros"),
+  createDemoBoat("boat-5", "FRA 202", 0.0010, 0.0018, 44, 5.0, "tractrac"),
+  createDemoBoat("boat-6", "ESP 303", 0.0002, 0.0005, 46, 5.3, "vakaros"),
+  createDemoBoat("boat-7", "GBR 404", 0.0007, 0.0014, 52, 4.2, "tractrac"),
+  createDemoBoat("boat-8", "NED 505", 0.0004, 0.0009, 40, 5.8, "vakaros"),
+  createDemoBoat("boat-9", "AUS 606", 0.0009, 0.0016, 47, 4.6, "tractrac"),
+  createDemoBoat("boat-10", "USA 707", 0.0001, 0.0003, 43, 5.1, "vakaros"),
+];
+
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const EARTH_RADIUS_NM = 3440.065;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -173,6 +217,7 @@ interface DemoModeContextType {
   toggleDemoMode: () => void;
   demoBuoys: Buoy[];
   demoSiblingBuoys: SiblingBuoy[];
+  demoBoats: TrackedBoat[];
   sendCommand: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
   resetDemoBuoys: () => void;
   repositionDemoBuoys: (centerLat: number, centerLng: number) => void;
@@ -199,7 +244,10 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     return DEMO_BUOYS_INITIAL;
   });
 
+  const [demoBoats, setDemoBoats] = useState<TrackedBoat[]>(DEMO_BOATS_INITIAL);
+  
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const boatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     localStorage.setItem("demoMode", String(enabled));
@@ -263,6 +311,59 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+    };
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      if (boatIntervalRef.current) {
+        clearInterval(boatIntervalRef.current);
+        boatIntervalRef.current = null;
+      }
+      return;
+    }
+
+    boatIntervalRef.current = setInterval(() => {
+      setDemoBoats(prev => prev.map(boat => {
+        const headingRad = boat.heading * Math.PI / 180;
+        const speedKnots = boat.speed + (Math.random() - 0.5) * 0.5;
+        const moveDistanceNm = (speedKnots / 3600) * 3;
+        
+        const latDelta = moveDistanceNm * Math.cos(headingRad) / 60;
+        const lngDelta = moveDistanceNm * Math.sin(headingRad) / (60 * Math.cos(boat.lat * Math.PI / 180));
+        
+        let newLat = boat.lat + latDelta;
+        let newLng = boat.lng + lngDelta;
+        let newHeading = boat.heading + (Math.random() - 0.5) * 5;
+        
+        const distFromCenter = Math.sqrt(
+          Math.pow(newLat - MIKROLIMANO_CENTER.lat, 2) + 
+          Math.pow(newLng - MIKROLIMANO_CENTER.lng, 2)
+        );
+        if (distFromCenter > 0.003) {
+          const angleToCenter = Math.atan2(
+            MIKROLIMANO_CENTER.lng - newLng,
+            MIKROLIMANO_CENTER.lat - newLat
+          ) * 180 / Math.PI;
+          newHeading = angleToCenter + (Math.random() - 0.5) * 30;
+        }
+
+        return {
+          ...boat,
+          lat: newLat,
+          lng: newLng,
+          heading: ((newHeading % 360) + 360) % 360,
+          speed: Math.max(2, Math.min(8, speedKnots)),
+          timestamp: new Date(),
+        };
+      }));
+    }, 3000);
+
+    return () => {
+      if (boatIntervalRef.current) {
+        clearInterval(boatIntervalRef.current);
+        boatIntervalRef.current = null;
       }
     };
   }, [enabled]);
@@ -356,6 +457,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
       toggleDemoMode,
       demoBuoys,
       demoSiblingBuoys: DEMO_SIBLING_BUOYS,
+      demoBoats,
       sendCommand,
       resetDemoBuoys,
       repositionDemoBuoys,

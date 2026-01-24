@@ -425,6 +425,7 @@ export interface UserSettingsData {
   windAngleDefaults: Record<string, number> | null;
   buoyFollowSettings: Record<string, number> | null;
   courseAdjustmentSettings: Record<string, number> | null;
+  integrations: Record<string, unknown> | null;
 }
 
 export function useUserSettings() {

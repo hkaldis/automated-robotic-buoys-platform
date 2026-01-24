@@ -10,6 +10,7 @@ import type { MapLayerType } from "@/lib/services/settings-service";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Buoy, Mark, GeoPosition, MarkRole, SiblingBuoy } from "@shared/schema";
+import type { TrackedBoat } from "@/contexts/DemoModeContext";
 import { useSettings } from "@/hooks/use-settings";
 import type { PendingDeployment } from "@/hooks/use-buoy-follow";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,8 @@ interface LeafletMapProps {
   pendingDeployments?: PendingDeployment[];
   siblingBuoys?: SiblingBuoy[];
   showSiblingBuoys?: boolean;
+  trackedBoats?: TrackedBoat[];
+  showBoats?: boolean;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -161,6 +164,26 @@ function createSiblingBuoyIcon(buoy: SiblingBuoy): L.DivIcon {
     `,
     iconSize: [32, 32],
     iconAnchor: [16, 16],
+  });
+}
+
+function createBoatIcon(boat: TrackedBoat): L.DivIcon {
+  const color = boat.source === "vakaros" ? "#3b82f6" : "#f97316";
+  const rotation = boat.heading;
+  
+  return L.divIcon({
+    className: "tracked-boat-marker",
+    html: `
+      <div style="position:relative;width:24px;height:24px;z-index:400;pointer-events:auto;">
+        <div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;transform:rotate(${rotation}deg);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="1">
+            <path d="M12 2L4 22h16L12 2z" />
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 
@@ -776,6 +799,8 @@ export function LeafletMap({
   pendingDeployments = [],
   siblingBuoys = [],
   showSiblingBuoys = true,
+  trackedBoats = [],
+  showBoats = false,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -1160,6 +1185,25 @@ export function LeafletMap({
                 <span className="text-xs">Event: {buoy.eventName}</span>
               </div>
             </Popup>
+          </Marker>
+        ))}
+
+        {showBoats && trackedBoats.map((boat) => (
+          <Marker
+            key={`boat-${boat.id}`}
+            position={[boat.lat, boat.lng]}
+            icon={createBoatIcon(boat)}
+            zIndexOffset={400}
+          >
+            <Tooltip direction="top" permanent={false} offset={[0, -12]}>
+              <div className="text-xs font-medium" data-testid={`tooltip-boat-${boat.id}`}>
+                <span className="font-bold">{boat.sailNumber}</span>
+                <br />
+                <span className="text-muted-foreground">
+                  {boat.speed.toFixed(1)} kts • {Math.round(boat.heading)}°
+                </span>
+              </div>
+            </Tooltip>
           </Marker>
         ))}
         

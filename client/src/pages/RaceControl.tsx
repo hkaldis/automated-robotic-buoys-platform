@@ -288,7 +288,7 @@ interface RaceControlProps {
 
 export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
   const { user } = useAuth();
-  const { mapLayer, showSeaMarks, showSiblingBuoys } = useSettings();
+  const { mapLayer, showSeaMarks, showSiblingBuoys, integrationSettings } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [courseMenuSaveOpen, setCourseMenuSaveOpen] = useState(false);
@@ -361,7 +361,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const { toast } = useToast();
 
-  const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
+  const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, demoBoats, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
 
   const { data: allBuoys = [], isLoading: allBuoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
@@ -2468,6 +2468,11 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             pendingDeployments={pendingDeployments}
             siblingBuoys={siblingBuoys}
             showSiblingBuoys={showSiblingBuoys}
+            trackedBoats={demoMode ? demoBoats.filter(b => 
+              (b.source === 'vakaros' && integrationSettings.vakaros.enabled) || 
+              (b.source === 'tractrac' && integrationSettings.tractrac.enabled)
+            ) : []}
+            showBoats={demoMode && (integrationSettings.vakaros.enabled || integrationSettings.tractrac.enabled)}
           />
         </main>
 

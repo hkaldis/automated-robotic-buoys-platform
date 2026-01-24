@@ -238,6 +238,8 @@ export const userSettings = pgTable("user_settings", {
   buoyFollowSettings: jsonb("buoy_follow_settings"),
   // Course adjustment settings (stored as JSON)
   courseAdjustmentSettings: jsonb("course_adjustment_settings"),
+  // Integration settings (Vakaros, Tractrac, etc.)
+  integrations: jsonb("integrations"),
 });
 
 // Visibility scope for saved course snapshots
@@ -419,6 +421,7 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).pick({
   selectedWindBuoyId: true,
   mapLayer: true,
   showSeaMarks: true,
+  showSiblingBuoys: true,
   windArrowsMinZoom: true,
   startLineResizeMode: true,
   startLineFixBearingMode: true,
@@ -426,6 +429,7 @@ export const insertUserSettingsSchema = createInsertSchema(userSettings).pick({
   windAngleDefaults: true,
   buoyFollowSettings: true,
   courseAdjustmentSettings: true,
+  integrations: true,
 });
 
 export const insertCourseSnapshotSchema = createInsertSchema(courseSnapshots).pick({

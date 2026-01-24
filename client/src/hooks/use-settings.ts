@@ -2,8 +2,8 @@ import { useCallback, useState, useEffect, useRef } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
 import { useAuth } from "./useAuth";
-import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_INTEGRATION_SETTINGS } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -109,6 +109,9 @@ export function useSettings() {
   const [windArrowsMinZoom, setWindArrowsMinZoomState] = useState<number>(
     settingsService.getWindArrowsMinZoom()
   );
+  const [integrationSettings, setIntegrationSettingsState] = useState<IntegrationSettings>(
+    settingsService.getIntegrationSettings()
+  );
 
   // Load settings from database when they arrive or change
   useEffect(() => {
@@ -126,6 +129,7 @@ export function useSettings() {
         windAngleDefaults: (settings.windAngleDefaults as unknown as WindAngleDefaults) ?? { ...DEFAULT_WIND_ANGLES },
         buoyFollow: (settings.buoyFollowSettings as unknown as BuoyFollowSettings) ?? { ...DEFAULT_BUOY_FOLLOW },
         courseAdjustment: (settings.courseAdjustmentSettings as unknown as CourseAdjustmentSettings) ?? { ...DEFAULT_COURSE_ADJUSTMENT },
+        integrations: (settings.integrations as unknown as IntegrationSettings) ?? { ...DEFAULT_INTEGRATION_SETTINGS },
       });
     }
   }, [settings, user]);
@@ -146,6 +150,7 @@ export function useSettings() {
         windAngleDefaults: payload.windAngleDefaults as unknown as Record<string, number>,
         buoyFollowSettings: payload.buoyFollow as unknown as Record<string, number>,
         courseAdjustmentSettings: payload.courseAdjustment as unknown as Record<string, number>,
+        integrations: payload.integrations as unknown as Record<string, unknown>,
       });
     });
     return () => settingsService.setSaveCallback(null);
@@ -165,6 +170,7 @@ export function useSettings() {
       setBuoyDeployModeState(settingsService.getBuoyDeployMode());
       setCourseAdjustmentSettingsState(settingsService.getCourseAdjustmentSettings());
       setWindArrowsMinZoomState(settingsService.getWindArrowsMinZoom());
+      setIntegrationSettingsState(settingsService.getIntegrationSettings());
     });
     return unsubscribe;
   }, []);
@@ -223,6 +229,38 @@ export function useSettings() {
 
   const setWindArrowsMinZoom = useCallback((zoom: number) => {
     settingsService.setWindArrowsMinZoom(zoom);
+  }, []);
+
+  const setVakarosEnabled = useCallback((enabled: boolean) => {
+    settingsService.setVakarosEnabled(enabled);
+  }, []);
+
+  const setVakarosEventId = useCallback((eventId: string) => {
+    settingsService.setVakarosEventId(eventId);
+  }, []);
+
+  const setTractracEnabled = useCallback((enabled: boolean) => {
+    settingsService.setTractracEnabled(enabled);
+  }, []);
+
+  const setTractracEventId = useCallback((eventId: string) => {
+    settingsService.setTractracEventId(eventId);
+  }, []);
+
+  const setShowBoatTrails = useCallback((show: boolean) => {
+    settingsService.setShowBoatTrails(show);
+  }, []);
+
+  const setBoatRefreshRate = useCallback((seconds: number) => {
+    settingsService.setBoatRefreshRate(seconds);
+  }, []);
+
+  const resetIntegrationSettings = useCallback(() => {
+    settingsService.resetIntegrationSettings();
+  }, []);
+
+  const isAnyBoatTrackingEnabled = useCallback(() => {
+    return settingsService.isAnyBoatTrackingEnabled();
   }, []);
 
   const setDistanceUnit = useCallback((unit: DistanceUnit) => {
@@ -285,8 +323,17 @@ export function useSettings() {
     resetCourseAdjustmentSettings,
     windArrowsMinZoom,
     setWindArrowsMinZoom,
+    integrationSettings,
+    setVakarosEnabled,
+    setVakarosEventId,
+    setTractracEnabled,
+    setTractracEventId,
+    setShowBoatTrails,
+    setBoatRefreshRate,
+    resetIntegrationSettings,
+    isAnyBoatTrackingEnabled,
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE };
-export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_INTEGRATION_SETTINGS };
+export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings };

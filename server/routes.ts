@@ -1515,6 +1515,7 @@ export async function registerRoutes(
       selectedWindBuoyId: settings.selectedWindBuoyId,
       mapLayer: settings.mapLayer,
       showSeaMarks: settings.showSeaMarks,
+      showSiblingBuoys: settings.showSiblingBuoys,
       windArrowsMinZoom: settings.windArrowsMinZoom,
       startLineResizeMode: settings.startLineResizeMode,
       startLineFixBearingMode: settings.startLineFixBearingMode,
@@ -1522,6 +1523,7 @@ export async function registerRoutes(
       windAngleDefaults: settings.windAngleDefaults,
       buoyFollowSettings: settings.buoyFollowSettings,
       courseAdjustmentSettings: settings.courseAdjustmentSettings,
+      integrations: settings.integrations,
     });
   });
 
@@ -1533,9 +1535,9 @@ export async function registerRoutes(
     const userId = req.session.userId;
     const { 
       distanceUnit, speedUnit, windSource, selectedWindBuoyId,
-      mapLayer, showSeaMarks, windArrowsMinZoom,
+      mapLayer, showSeaMarks, showSiblingBuoys, windArrowsMinZoom,
       startLineResizeMode, startLineFixBearingMode, buoyDeployMode,
-      windAngleDefaults, buoyFollowSettings, courseAdjustmentSettings
+      windAngleDefaults, buoyFollowSettings, courseAdjustmentSettings, integrations
     } = req.body;
     
     let settings = await storage.getUserSettings(userId);
@@ -1558,6 +1560,7 @@ export async function registerRoutes(
       ...(selectedWindBuoyId !== undefined && { selectedWindBuoyId }),
       ...(mapLayer !== undefined && { mapLayer }),
       ...(showSeaMarks !== undefined && { showSeaMarks }),
+      ...(showSiblingBuoys !== undefined && { showSiblingBuoys }),
       ...(windArrowsMinZoom !== undefined && { windArrowsMinZoom }),
       ...(startLineResizeMode !== undefined && { startLineResizeMode }),
       ...(startLineFixBearingMode !== undefined && { startLineFixBearingMode }),
@@ -1565,6 +1568,7 @@ export async function registerRoutes(
       ...(windAngleDefaults !== undefined && { windAngleDefaults }),
       ...(buoyFollowSettings !== undefined && { buoyFollowSettings }),
       ...(courseAdjustmentSettings !== undefined && { courseAdjustmentSettings }),
+      ...(integrations !== undefined && { integrations }),
     });
 
     res.json({
@@ -1574,6 +1578,7 @@ export async function registerRoutes(
       selectedWindBuoyId: settings?.selectedWindBuoyId,
       mapLayer: settings?.mapLayer,
       showSeaMarks: settings?.showSeaMarks,
+      showSiblingBuoys: settings?.showSiblingBuoys,
       windArrowsMinZoom: settings?.windArrowsMinZoom,
       startLineResizeMode: settings?.startLineResizeMode,
       startLineFixBearingMode: settings?.startLineFixBearingMode,
@@ -1581,6 +1586,7 @@ export async function registerRoutes(
       windAngleDefaults: settings?.windAngleDefaults,
       buoyFollowSettings: settings?.buoyFollowSettings,
       courseAdjustmentSettings: settings?.courseAdjustmentSettings,
+      integrations: settings?.integrations,
     });
   });
 

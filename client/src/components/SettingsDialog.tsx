@@ -1,4 +1,4 @@
-import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map, Ship, Move } from "lucide-react";
+import { Ruler, Gauge, Wind, Eye, Anchor, Compass, RotateCcw, Map, Ship, Move, Radio, Sailboat } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -126,6 +126,12 @@ export function SettingsDialog({
     resetCourseAdjustmentSettings,
     windArrowsMinZoom,
     setWindArrowsMinZoom,
+    integrationSettings,
+    setVakarosEnabled,
+    setVakarosEventId,
+    setTractracEnabled,
+    setTractracEventId,
+    setShowBoatTrails,
   } = useSettings();
 
   const [windSource, setWindSource] = useState<WindSource>("buoy");
@@ -718,6 +724,95 @@ export function SettingsDialog({
                 <RotateCcw className="w-3 h-3" />
                 Reset to Defaults
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Radio className="w-4 h-4" />
+                Boat Tracking Integrations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Connect to external tracking services to display competing boats on the map.
+              </p>
+              
+              <div className="space-y-3 border rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sailboat className="w-4 h-4 text-blue-500" />
+                    <Label htmlFor="vakaros-toggle" className="text-sm font-medium">Vakaros</Label>
+                  </div>
+                  <Switch
+                    id="vakaros-toggle"
+                    checked={integrationSettings.vakaros.enabled}
+                    onCheckedChange={(checked) => setVakarosEnabled(checked)}
+                    data-testid="switch-vakaros"
+                  />
+                </div>
+                {integrationSettings.vakaros.enabled && (
+                  <div className="space-y-2 pl-6">
+                    <Label htmlFor="vakaros-event-id" className="text-xs text-muted-foreground">
+                      Event ID
+                    </Label>
+                    <Input
+                      id="vakaros-event-id"
+                      placeholder="Enter Vakaros event ID"
+                      value={integrationSettings.vakaros.eventId}
+                      onChange={(e) => setVakarosEventId(e.target.value)}
+                      className="h-8 text-sm"
+                      data-testid="input-vakaros-event-id"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3 border rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sailboat className="w-4 h-4 text-orange-500" />
+                    <Label htmlFor="tractrac-toggle" className="text-sm font-medium">Tractrac</Label>
+                  </div>
+                  <Switch
+                    id="tractrac-toggle"
+                    checked={integrationSettings.tractrac.enabled}
+                    onCheckedChange={(checked) => setTractracEnabled(checked)}
+                    data-testid="switch-tractrac"
+                  />
+                </div>
+                {integrationSettings.tractrac.enabled && (
+                  <div className="space-y-2 pl-6">
+                    <Label htmlFor="tractrac-event-id" className="text-xs text-muted-foreground">
+                      Event ID
+                    </Label>
+                    <Input
+                      id="tractrac-event-id"
+                      placeholder="Enter Tractrac event ID"
+                      value={integrationSettings.tractrac.eventId}
+                      onChange={(e) => setTractracEventId(e.target.value)}
+                      className="h-8 text-sm"
+                      data-testid="input-tractrac-event-id"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {(integrationSettings.vakaros.enabled || integrationSettings.tractrac.enabled) && (
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div>
+                    <Label htmlFor="boat-trails-toggle" className="text-sm">Show Boat Trails</Label>
+                    <p className="text-[10px] text-muted-foreground">Display position history trail behind boats</p>
+                  </div>
+                  <Switch
+                    id="boat-trails-toggle"
+                    checked={integrationSettings.showBoatTrails}
+                    onCheckedChange={(checked) => setShowBoatTrails(checked)}
+                    data-testid="switch-boat-trails"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
