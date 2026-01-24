@@ -732,6 +732,7 @@ export async function registerRoutes(
       
       // Get the current course and marks
       const { courseId, name, category, description, thumbnailSvg } = req.body;
+      console.log("[DEBUG] Save course - category:", category, "type:", typeof category);
       if (!courseId || !name) {
         return res.status(400).json({ error: "Course ID and name are required" });
       }
@@ -739,6 +740,7 @@ export async function registerRoutes(
       // Validate category if provided
       const validCategories = ["triangle", "trapezoid", "windward_leeward", "other"];
       const snapshotCategory = validCategories.includes(category) ? category : "other";
+      console.log("[DEBUG] Validated category:", snapshotCategory);
       
       const course = await storage.getCourse(courseId);
       if (!course) {

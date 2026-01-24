@@ -1769,6 +1769,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
   // Save course as immutable snapshot
   const handleSaveCourse = useCallback(async (data: { name: string; category?: string; description?: string; thumbnailSvg?: string }) => {
+    console.log("[DEBUG CLIENT] handleSaveCourse called with data:", data);
+    console.log("[DEBUG CLIENT] category value:", data.category, "type:", typeof data.category);
     if (!currentCourse) {
       toast({
         title: "No Course",
@@ -1788,13 +1790,15 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
     
     try {
-      await saveCourseSnapshot.mutateAsync({
+      const savePayload = {
         courseId: currentCourse.id,
         name: data.name,
         category: data.category,
         description: data.description,
         thumbnailSvg: data.thumbnailSvg,
-      });
+      };
+      console.log("[DEBUG CLIENT] Sending to API:", savePayload);
+      await saveCourseSnapshot.mutateAsync(savePayload);
       
       toast({
         title: "Course Saved",
