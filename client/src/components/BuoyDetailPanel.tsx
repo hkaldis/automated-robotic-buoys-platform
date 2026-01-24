@@ -20,6 +20,9 @@ interface BuoyDetailPanelProps {
   onTapMapToGoto?: () => void;
   isTapMapMode?: boolean;
   onNudgeBuoy?: (direction: "north" | "south" | "east" | "west") => void;
+  assignedMarkName?: string;
+  assignedMarkLat?: number;
+  assignedMarkLng?: number;
 }
 
 function getBuoyStateColor(state: BuoyState): string {
@@ -61,7 +64,7 @@ function getBuoyStateLabel(state: BuoyState): string {
   }
 }
 
-export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto, isTapMapMode, onNudgeBuoy }: BuoyDetailPanelProps) {
+export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto, isTapMapMode, onNudgeBuoy, assignedMarkName, assignedMarkLat, assignedMarkLng }: BuoyDetailPanelProps) {
   const { formatSpeed, formatBearing } = useSettings();
   const { toast } = useToast();
   const handleBuoyCommandError = useCallback((error: Error) => {
@@ -87,9 +90,33 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
 
   const isMoving = buoy.state === "moving_to_target";
   const isHolding = buoy.state === "holding_position";
+  
+  const hasAssignedMark = assignedMarkLat !== undefined && assignedMarkLng !== undefined;
+  const buoyLat = buoy.lat ?? 0;
+  const buoyLng = buoy.lng ?? 0;
+  const distanceToMarkMeters = hasAssignedMark
+    ? Math.sqrt(
+        Math.pow((buoyLat - assignedMarkLat!) * 111320, 2) +
+        Math.pow((buoyLng - assignedMarkLng!) * 111320 * Math.cos(buoyLat * Math.PI / 180), 2)
+      )
+    : 0;
+  const needsDeploy = hasAssignedMark && distanceToMarkMeters > 10 && !isMoving;
 
   const handleCommand = (command: "move_to_target" | "hold_position" | "cancel") => {
     buoyCommand.mutate({ id: buoy.id, command });
+  };
+
+  const handleDeploy = () => {
+    if (hasAssignedMark) {
+      buoyCommand.mutate(
+        { id: buoy.id, command: "move_to_target", targetLat: assignedMarkLat!, targetLng: assignedMarkLng! },
+        {
+          onSuccess: () => {
+            toast({ title: `Deploying to ${assignedMarkName || "assigned point"}` });
+          },
+        }
+      );
+    }
   };
 
   const handleGoToCoordinates = () => {
@@ -145,11 +172,11 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <span className="text-muted-foreground">Latitude</span>
-                <p className="font-mono font-medium">{buoy.lat.toFixed(6)}°</p>
+                <p className="font-mono font-medium">{buoyLat.toFixed(6)}°</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Longitude</span>
-                <p className="font-mono font-medium">{buoy.lng.toFixed(6)}°</p>
+                <p className="font-mono font-medium">{buoyLng.toFixed(6)}°</p>
               </div>
             </div>
             {buoy.speed > 0 && (
@@ -367,15 +394,15 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
       <div className="p-4 space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Commands</h3>
         
-        {!isMoving && (
+        {needsDeploy && (
           <Button 
             className="w-full h-12 gap-2" 
-            onClick={() => handleCommand("move_to_target")}
+            onClick={handleDeploy}
             disabled={buoyCommand.isPending}
-            data-testid="button-move-to-target"
+            data-testid="button-deploy"
           >
             <Play className="w-4 h-4" />
-            Move to Target
+            Deploy to {assignedMarkName || "Point"}
           </Button>
         )}
 

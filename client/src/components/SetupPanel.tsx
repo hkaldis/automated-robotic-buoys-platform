@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2, Crosshair } from "lucide-react";
+import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2, Crosshair, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -84,6 +84,7 @@ interface SetupPanelProps {
   externalLoadDialogOpen?: boolean;
   onExternalLoadDialogChange?: (open: boolean) => void;
   onAlignCourseToWind?: () => void;
+  onBulkBuoyCommand?: (buoyIds: string[], command: "hold_position" | "cancel") => void;
 }
 
 export function SetupPanel({
@@ -122,6 +123,7 @@ export function SetupPanel({
   externalLoadDialogOpen,
   onExternalLoadDialogChange,
   onAlignCourseToWind,
+  onBulkBuoyCommand,
 }: SetupPanelProps) {
   // Fetch boat classes for race time estimation
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
@@ -2247,6 +2249,32 @@ export function SetupPanel({
                 <p className="text-[9px] text-muted-foreground">Low Bat</p>
               </div>
             </div>
+
+            {/* Bulk Actions */}
+            {onBulkBuoyCommand && buoys.length > 0 && (
+              <div className="flex gap-2" data-testid="bulk-actions">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  onClick={() => onBulkBuoyCommand(buoys.map(b => b.id), "cancel")}
+                  data-testid="button-set-all-idle"
+                >
+                  <StopCircle className="w-3.5 h-3.5" />
+                  All Idle
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  onClick={() => onBulkBuoyCommand(buoys.map(b => b.id), "hold_position")}
+                  data-testid="button-set-all-loitering"
+                >
+                  <Anchor className="w-3.5 h-3.5" />
+                  All Loitering
+                </Button>
+              </div>
+            )}
 
             {/* Max ETA for Course Setup */}
             {maxEtaSeconds > 0 && (

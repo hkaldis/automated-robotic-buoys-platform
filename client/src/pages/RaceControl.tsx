@@ -415,6 +415,20 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const saveCourseSnapshot = useSaveCourseSnapshot(mutationErrorHandler);
   const deleteCourseSnapshot = useDeleteCourseSnapshot(mutationErrorHandler);
   const deleteAllMarks = useDeleteAllMarks(mutationErrorHandler);
+
+  const handleBulkBuoyCommand = useCallback((buoyIds: string[], command: "hold_position" | "cancel") => {
+    buoyIds.forEach(buoyId => {
+      if (demoMode) {
+        sendDemoCommand(buoyId, command);
+      } else {
+        buoyCommand.mutate({ id: buoyId, command });
+      }
+    });
+    toast({
+      title: command === "hold_position" ? "All Loitering" : "All Idle",
+      description: `Sent command to ${buoyIds.length} buoys`,
+    });
+  }, [demoMode, sendDemoCommand, buoyCommand, toast]);
   
   // State for no-course dialog
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
@@ -2494,16 +2508,54 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         </main>
 
         <aside className={`${showSidebar ? 'w-96 xl:w-[440px] border-l' : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
-          {selectedBuoy ? (
-            <BuoyDetailPanel 
-              buoy={selectedBuoy} 
-              onClose={() => { setSelectedBuoyId(null); setGotoMapClickBuoyId(null); }}
-              demoSendCommand={sendDemoCommand}
-              onTapMapToGoto={() => handleBuoyGotoMapClick(selectedBuoy.id)}
-              isTapMapMode={gotoMapClickBuoyId === selectedBuoy.id}
-              onNudgeBuoy={(direction) => handleNudgeBuoyDirect(selectedBuoy.id, direction)}
-            />
-          ) : selectedMark ? (
+          {selectedBuoy ? (() => {
+            const assignedMark = marks.find(m => 
+              m.assignedBuoyId === selectedBuoy.id || 
+              m.gatePortBuoyId === selectedBuoy.id || 
+              m.gateStarboardBuoyId === selectedBuoy.id
+            );
+            let markLat: number | undefined;
+            let markLng: number | undefined;
+            let markName: string | undefined;
+            if (assignedMark) {
+              markName = assignedMark.name;
+              if (assignedMark.gatePortBuoyId === selectedBuoy.id) {
+                const gateWidth = (assignedMark.gateWidthBoatLengths ?? 8) * (assignedMark.boatLengthMeters ?? 6);
+                const halfWidthDeg = (gateWidth / 2) / 111000;
+                const windDir = activeWeatherData?.windDirection ?? 225;
+                const perpAngle = (windDir + 90) % 360;
+                const perpRad = perpAngle * Math.PI / 180;
+                markLat = assignedMark.lat + halfWidthDeg * Math.cos(perpRad);
+                markLng = assignedMark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(assignedMark.lat * Math.PI / 180);
+                markName = `${assignedMark.name} (Port)`;
+              } else if (assignedMark.gateStarboardBuoyId === selectedBuoy.id) {
+                const gateWidth = (assignedMark.gateWidthBoatLengths ?? 8) * (assignedMark.boatLengthMeters ?? 6);
+                const halfWidthDeg = (gateWidth / 2) / 111000;
+                const windDir = activeWeatherData?.windDirection ?? 225;
+                const perpAngle = (windDir + 90) % 360;
+                const perpRad = perpAngle * Math.PI / 180;
+                markLat = assignedMark.lat - halfWidthDeg * Math.cos(perpRad);
+                markLng = assignedMark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(assignedMark.lat * Math.PI / 180);
+                markName = `${assignedMark.name} (Starboard)`;
+              } else {
+                markLat = assignedMark.lat;
+                markLng = assignedMark.lng;
+              }
+            }
+            return (
+              <BuoyDetailPanel 
+                buoy={selectedBuoy} 
+                onClose={() => { setSelectedBuoyId(null); setGotoMapClickBuoyId(null); }}
+                demoSendCommand={sendDemoCommand}
+                onTapMapToGoto={() => handleBuoyGotoMapClick(selectedBuoy.id)}
+                isTapMapMode={gotoMapClickBuoyId === selectedBuoy.id}
+                onNudgeBuoy={(direction) => handleNudgeBuoyDirect(selectedBuoy.id, direction)}
+                assignedMarkName={markName}
+                assignedMarkLat={markLat}
+                assignedMarkLng={markLng}
+              />
+            );
+          })() : selectedMark ? (
             <MarkEditPanel
               mark={selectedMark}
               buoys={buoys}
@@ -2565,6 +2617,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               externalLoadDialogOpen={courseMenuLoadOpen}
               onExternalLoadDialogChange={setCourseMenuLoadOpen}
               onAlignCourseToWind={handleAlignCourseToWind}
+              onBulkBuoyCommand={handleBulkBuoyCommand}
             />
           )}
         </aside>
