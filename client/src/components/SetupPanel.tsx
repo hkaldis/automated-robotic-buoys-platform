@@ -26,7 +26,7 @@ import type { TemplateCategory, SnapshotMark } from "@shared/schema";
 import { Textarea } from "@/components/ui/textarea";
 import { Triangle, Square, ArrowUpDown, Sparkles } from "lucide-react";
 
-type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
+type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys";
 
 function calculateStartLineLength(pinMark: Mark | undefined, cbMark: Mark | undefined): number {
   if (!pinMark || !cbMark) return 0;
@@ -239,7 +239,7 @@ export function SetupPanel({
   };
 
   // Phase order for comparison - with sequence step
-  const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "sequence", "summary", "assign_buoys", "ready"];
+  const phaseOrder: SetupPhase[] = ["start_line", "marks", "finish_line", "sequence", "summary", "assign_buoys"];
   
   // Check if sequence is valid (has start, finish, and at least one course mark)
   const hasCourseMarkInSequence = roundingSequence.filter(e => e !== "start" && e !== "finish").length > 0;
@@ -257,7 +257,7 @@ export function SetupPanel({
     if (!hasSequence) return "sequence";
     // Summary phase is optional - user can proceed after sequence is set
     if (!allAssigned) return "summary";
-    return "ready";
+    return "assign_buoys";
   };
 
   // State for save course dialog - supports external control from TopBar
@@ -336,13 +336,9 @@ export function SetupPanel({
   
   // Sync phase with data - only force phase back if current phase is invalid
   // But don't reset from later phases if user has progressed through the workflow
-  // Fleet ("ready") phase is always accessible - it's independent of the course setup workflow
   useEffect(() => {
     // Don't sync phase during pending finish update to avoid oscillation
     if (pendingFinishUpdate) return;
-    
-    // Fleet view is always accessible - never auto-reset from it
-    if (phase === "ready") return;
     
     const minPhase = getMinPhase();
     const currentIdx = phaseOrder.indexOf(phase);
@@ -879,7 +875,6 @@ export function SetupPanel({
   const hasPinEnd = startLineMarks.some(m => m.role === "pin" || m.name.toLowerCase().includes("pin"));
   const hasCommitteeBoat = startLineMarks.some(m => m.role === "start_boat" || m.name.toLowerCase().includes("committee") || m.name.toLowerCase().includes("starboard"));
 
-  // Updated phases with sequence step
   const phases = [
     { id: "start_line", label: "Start", number: 1 },
     { id: "marks", label: "Points", number: 2 },
@@ -887,7 +882,6 @@ export function SetupPanel({
     { id: "sequence", label: "Route", number: 4 },
     { id: "summary", label: "Course", number: 5 },
     { id: "assign_buoys", label: "Assign", number: 6 },
-    { id: "ready", label: "Fleet", number: 7 },
   ];
 
   const currentPhaseIndex = phases.findIndex(p => p.id === phase);
@@ -2123,12 +2117,12 @@ export function SetupPanel({
                 </Button>
                 <Button
                   className="flex-1 gap-2"
+                  variant="default"
                   disabled={!allAssigned}
-                  onClick={() => setPhase("ready")}
-                  data-testid="button-continue-ready"
+                  data-testid="button-course-complete"
                 >
-                  Continue
-                  <ChevronRight className="w-4 h-4" />
+                  Course Ready
+                  <Check className="w-4 h-4" />
                 </Button>
               </div>
               {!allAssigned && (
@@ -2137,276 +2131,6 @@ export function SetupPanel({
                 </p>
               )}
             </div>
-          </div>
-        );
-
-      case "ready":
-        // Build buoy status data with assignments
-        const assignedBuoyIds = new Set<string>();
-        const buoyToMarkMap = new Map<string, { markName: string; markRole: string }>();
-        
-        marks.forEach(mark => {
-          if (mark.isGate) {
-            if (mark.gatePortBuoyId) {
-              assignedBuoyIds.add(mark.gatePortBuoyId);
-              buoyToMarkMap.set(mark.gatePortBuoyId, { markName: `${mark.name} (Port)`, markRole: mark.role });
-            }
-            if (mark.gateStarboardBuoyId) {
-              assignedBuoyIds.add(mark.gateStarboardBuoyId);
-              buoyToMarkMap.set(mark.gateStarboardBuoyId, { markName: `${mark.name} (Stbd)`, markRole: mark.role });
-            }
-          } else if (mark.assignedBuoyId) {
-            assignedBuoyIds.add(mark.assignedBuoyId);
-            buoyToMarkMap.set(mark.assignedBuoyId, { markName: mark.name, markRole: mark.role });
-          }
-        });
-        
-        // Get assigned buoys with their data
-        const assignedBuoys = buoys.filter(b => assignedBuoyIds.has(b.id));
-        
-        // Get unassigned buoys
-        const unassignedBuoys = buoys.filter(b => !assignedBuoyIds.has(b.id));
-        
-        // GoTo buoys: moving to target but NOT assigned to a mark
-        const gotoBuoys = unassignedBuoys.filter(b => 
-          b.state === "moving_to_target" && b.targetLat != null && b.targetLng != null
-        );
-        
-        // Available buoys: idle and not moving, not assigned
-        const availableBuoys = unassignedBuoys.filter(b => 
-          (b.state === "idle" || b.state === "holding_position") && 
-          !gotoBuoys.includes(b)
-        );
-        
-        // Issue buoys: fault or unavailable (from all buoys)
-        const issueBuoys = buoys.filter(b => b.state === "fault" || b.state === "unavailable");
-        
-        // Calculate fleet status counts (for ALL buoys)
-        const allMovingBuoys = buoys.filter(b => b.state === "moving_to_target");
-        const allOnStationBuoys = buoys.filter(b => b.state === "holding_position");
-        const allFaultBuoys = buoys.filter(b => b.state === "fault" || b.state === "unavailable");
-        const allLowBatteryBuoys = buoys.filter(b => b.battery < 20);
-        const allIdleBuoys = buoys.filter(b => b.state === "idle");
-        
-        // Calculate maximum ETA across assigned buoys (for course setup)
-        const maxEtaSeconds = Math.max(0, ...assignedBuoys.map(b => b.eta ?? 0));
-        const maxEtaMinutes = Math.floor(maxEtaSeconds / 60);
-        const maxEtaSecondsRemainder = maxEtaSeconds % 60;
-        
-        // Format ETA helper
-        const formatEta = (etaSeconds: number | null | undefined) => {
-          if (!etaSeconds || etaSeconds <= 0) return null;
-          const mins = Math.floor(etaSeconds / 60);
-          const secs = etaSeconds % 60;
-          return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-        };
-        
-        // Get buoy state display info
-        const getBuoyStateInfo = (state: string) => {
-          switch (state) {
-            case "moving_to_target":
-              return { label: "Moving", color: "text-orange-600", bgColor: "bg-orange-100 dark:bg-orange-900/30" };
-            case "holding_position":
-              return { label: "Loitering", color: "text-green-600", bgColor: "bg-green-100 dark:bg-green-900/30" };
-            case "idle":
-              return { label: "Idle", color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30" };
-            case "fault":
-              return { label: "Fault", color: "text-red-600", bgColor: "bg-red-100 dark:bg-red-900/30" };
-            case "unavailable":
-              return { label: "Offline", color: "text-gray-500", bgColor: "bg-gray-100 dark:bg-gray-800/30" };
-            default:
-              return { label: state, color: "text-muted-foreground", bgColor: "bg-muted/50" };
-          }
-        };
-        
-        // Render a buoy card
-        const renderBuoyCard = (buoy: Buoy, subtitle: string) => {
-          const stateInfo = getBuoyStateInfo(buoy.state);
-          const etaFormatted = formatEta(buoy.eta);
-          
-          return (
-            <div
-              key={buoy.id}
-              className={cn(
-                "p-2.5 rounded-lg cursor-pointer hover-elevate",
-                stateInfo.bgColor
-              )}
-              onClick={() => onBuoySelect?.(buoy.id)}
-              data-testid={`buoy-status-${buoy.id}`}
-            >
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
-                  buoy.state === "fault" || buoy.state === "unavailable" 
-                    ? "bg-red-500 text-white" 
-                    : buoy.state === "moving_to_target"
-                    ? "bg-orange-500 text-white"
-                    : buoy.state === "idle"
-                    ? "bg-blue-500 text-white"
-                    : "bg-green-500 text-white",
-                  buoy.battery < 20 && "ring-2 ring-purple-500 ring-offset-1"
-                )}>
-                  <Anchor className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{buoy.name}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{subtitle}</p>
-                </div>
-                <div className="flex items-center gap-2 text-[11px] flex-shrink-0">
-                  <span className={cn("font-mono", buoy.battery < 20 ? "text-purple-500" : "text-muted-foreground")}>
-                    {buoy.battery}%
-                  </span>
-                  {buoy.state === "moving_to_target" && (
-                    <>
-                      <span className="font-mono text-orange-600">{buoy.speed?.toFixed(1) ?? 0}kts</span>
-                      {etaFormatted && <span className="font-mono font-medium text-orange-600">{etaFormatted}</span>}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        };
-        
-        return (
-          <div className="flex-1 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-primary/10">
-                <Radio className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-sm font-semibold">Fleet Status</h2>
-                <p className="text-xs text-muted-foreground">{buoys.length} buoys total</p>
-              </div>
-            </div>
-
-            {/* Status Summary - counts for ALL buoys */}
-            <div className="grid grid-cols-5 gap-1.5" data-testid="fleet-status-summary">
-              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-1.5 text-center" data-testid="status-on-station">
-                <p className="text-base font-bold text-green-600" data-testid="count-on-station">{allOnStationBuoys.length}</p>
-                <p className="text-[9px] text-muted-foreground">Loitering</p>
-              </div>
-              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-1.5 text-center" data-testid="status-moving">
-                <p className="text-base font-bold text-orange-600" data-testid="count-moving">{allMovingBuoys.length}</p>
-                <p className="text-[9px] text-muted-foreground">Moving</p>
-              </div>
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-1.5 text-center" data-testid="status-idle">
-                <p className="text-base font-bold text-blue-600" data-testid="count-idle">{allIdleBuoys.length}</p>
-                <p className="text-[9px] text-muted-foreground">Idle</p>
-              </div>
-              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-1.5 text-center" data-testid="status-fault">
-                <p className="text-base font-bold text-red-600" data-testid="count-fault">{allFaultBuoys.length}</p>
-                <p className="text-[9px] text-muted-foreground">Fault</p>
-              </div>
-              <div className={cn(
-                "rounded-lg p-1.5 text-center",
-                allLowBatteryBuoys.length > 0 ? "bg-purple-50 dark:bg-purple-900/20" : "bg-muted/50"
-              )} data-testid="status-low-battery">
-                <p className={cn("text-base font-bold", allLowBatteryBuoys.length > 0 ? "text-purple-600" : "text-muted-foreground")} data-testid="count-low-battery">
-                  {allLowBatteryBuoys.length}
-                </p>
-                <p className="text-[9px] text-muted-foreground">Low Bat</p>
-              </div>
-            </div>
-
-            {/* Bulk Actions */}
-            {onBulkBuoyCommand && buoys.length > 0 && (
-              <div className="flex gap-2" data-testid="bulk-actions">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1.5"
-                  onClick={() => onBulkBuoyCommand(buoys.map(b => b.id), "cancel")}
-                  data-testid="button-set-all-idle"
-                >
-                  <StopCircle className="w-3.5 h-3.5" />
-                  All Idle
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1.5"
-                  onClick={() => onBulkBuoyCommand(buoys.map(b => b.id), "hold_position")}
-                  data-testid="button-set-all-loitering"
-                >
-                  <Anchor className="w-3.5 h-3.5" />
-                  All Loitering
-                </Button>
-              </div>
-            )}
-
-            {/* Max ETA for Course Setup */}
-            {maxEtaSeconds > 0 && (
-              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 flex items-center gap-2" data-testid="course-setup-eta">
-                <Clock className="w-4 h-4 text-amber-600" />
-                <div className="flex-1">
-                  <p className="text-[10px] text-muted-foreground">Course Ready In</p>
-                  <p className="text-base font-bold text-amber-600" data-testid="text-max-eta">
-                    {maxEtaMinutes > 0 ? `${maxEtaMinutes}m ${maxEtaSecondsRemainder}s` : `${maxEtaSecondsRemainder}s`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Buoy List - organized by category */}
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="space-y-3">
-                {/* Assigned to Marks */}
-                {assignedBuoys.length > 0 && (
-                  <div className="space-y-1.5" data-testid="section-assigned">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
-                      Assigned to Points ({assignedBuoys.length})
-                    </p>
-                    {assignedBuoys.map(buoy => {
-                      const assignment = buoyToMarkMap.get(buoy.id);
-                      return renderBuoyCard(buoy, assignment?.markName ?? "Point");
-                    })}
-                  </div>
-                )}
-                
-                {/* GoTo Commands */}
-                {gotoBuoys.length > 0 && (
-                  <div className="space-y-1.5" data-testid="section-goto">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
-                      GoTo Target ({gotoBuoys.length})
-                    </p>
-                    {gotoBuoys.map(buoy => renderBuoyCard(buoy, "Manual GoTo"))}
-                  </div>
-                )}
-                
-                {/* Available */}
-                {availableBuoys.length > 0 && (
-                  <div className="space-y-1.5" data-testid="section-available">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
-                      Available ({availableBuoys.length})
-                    </p>
-                    {availableBuoys.map(buoy => renderBuoyCard(buoy, "Ready"))}
-                  </div>
-                )}
-                
-                {/* Issues */}
-                {issueBuoys.length > 0 && (
-                  <div className="space-y-1.5" data-testid="section-issues">
-                    <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1">
-                      Issues ({issueBuoys.length})
-                    </p>
-                    {issueBuoys.map(buoy => {
-                      const stateInfo = getBuoyStateInfo(buoy.state);
-                      return renderBuoyCard(buoy, stateInfo.label);
-                    })}
-                  </div>
-                )}
-                
-                {buoys.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Anchor className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No buoys in fleet</p>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-
           </div>
         );
     }
@@ -2434,7 +2158,7 @@ export function SetupPanel({
             const minPhaseIdx = phaseOrder.indexOf(minPhase);
             const isComplete = idx < currentPhaseIndex;
             const isCurrent = p.id === phase;
-            const canNavigate = (p.id === "ready" || idx <= minPhaseIdx) && !isCurrent;
+            const canNavigate = idx <= minPhaseIdx && !isCurrent;
             
             return (
               <button
@@ -2444,7 +2168,7 @@ export function SetupPanel({
                 className={cn(
                   "transition-opacity",
                   canNavigate ? "cursor-pointer hover:opacity-80" : "",
-                  !canNavigate && !isCurrent && idx > minPhaseIdx && p.id !== "ready" ? "opacity-40" : ""
+                  !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-40" : ""
                 )}
                 title={p.label}
                 data-testid={`button-phase-${p.id}-collapsed`}
@@ -2487,8 +2211,7 @@ export function SetupPanel({
               const minPhaseIdx = phaseOrder.indexOf(minPhase);
               const isComplete = idx < currentPhaseIndex;
               const isCurrent = p.id === phase;
-              // Fleet (ready) phase is always accessible regardless of previous steps
-              const canNavigate = (p.id === "ready" || idx <= minPhaseIdx) && !isCurrent;
+              const canNavigate = idx <= minPhaseIdx && !isCurrent;
               
               return (
                 <button
@@ -2498,7 +2221,7 @@ export function SetupPanel({
                   className={cn(
                     "flex-1 flex flex-col items-center gap-0.5 transition-opacity",
                     canNavigate ? "cursor-pointer hover:opacity-80" : "",
-                    !canNavigate && !isCurrent && idx > minPhaseIdx && p.id !== "ready" ? "opacity-40" : ""
+                    !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-40" : ""
                   )}
                   data-testid={`button-phase-${p.id}`}
                 >

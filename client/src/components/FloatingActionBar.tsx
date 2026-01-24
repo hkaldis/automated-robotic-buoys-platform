@@ -1,4 +1,4 @@
-import { Compass, Play, Square, Undo2, CheckCircle2 } from "lucide-react";
+import { Compass, Play, Square, Undo2, CheckCircle2, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,7 @@ interface FloatingActionBarProps {
   onDeployAll?: () => void;
   onHoldAll?: () => void;
   onUndo?: () => void;
+  onFleetClick?: () => void;
   canAlign?: boolean;
   canDeploy?: boolean;
   canHold?: boolean;
@@ -17,6 +18,8 @@ interface FloatingActionBarProps {
   totalBuoys?: number;
   onStationCount?: number;
   movingCount?: number;
+  needsWindAlignment?: boolean;
+  showFleet?: boolean;
 }
 
 export function FloatingActionBar({
@@ -24,6 +27,7 @@ export function FloatingActionBar({
   onDeployAll,
   onHoldAll,
   onUndo,
+  onFleetClick,
   canAlign = false,
   canDeploy = false,
   canHold = false,
@@ -33,19 +37,21 @@ export function FloatingActionBar({
   totalBuoys = 0,
   onStationCount = 0,
   movingCount = 0,
+  needsWindAlignment = false,
+  showFleet = false,
 }: FloatingActionBarProps) {
   const allOnStation = totalBuoys > 0 && onStationCount === totalBuoys && movingCount === 0;
   const hasAssignedBuoys = totalBuoys > 0;
+  const pendingDeploy = totalBuoys - onStationCount;
 
   return (
     <div 
       className={cn(
-        "absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 px-4 py-2 rounded-full bg-background/90 backdrop-blur-sm border shadow-lg transition-colors",
+        "absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 px-3 py-2 rounded-full bg-background/90 backdrop-blur-sm border shadow-lg transition-colors",
         allOnStation && "border-green-500 ring-2 ring-green-500/30"
       )}
       data-testid="floating-action-bar"
     >
-      {/* All Green Status Indicator */}
       {hasAssignedBuoys && (
         <div 
           className={cn(
@@ -64,62 +70,72 @@ export function FloatingActionBar({
           )}
         </div>
       )}
+      
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            size="lg"
-            variant="ghost"
-            className={cn(
-              "h-14 w-14 rounded-full p-0",
-              canAlign && "text-primary"
+          <div className="relative">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn(canAlign && "text-primary")}
+              onClick={onAlignToWind}
+              disabled={!canAlign}
+              data-testid="button-align-to-wind-fab"
+            >
+              <Compass className="h-5 w-5" />
+            </Button>
+            {needsWindAlignment && canAlign && (
+              <span 
+                className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"
+                data-testid="indicator-needs-alignment"
+              />
             )}
-            onClick={onAlignToWind}
-            disabled={!canAlign}
-            data-testid="button-align-to-wind-fab"
-          >
-            <Compass className="h-7 w-7" />
-          </Button>
+          </div>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p>Align Course to Wind</p>
+          <p>{needsWindAlignment ? "Course needs wind alignment" : "Align Course to Wind"}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="relative">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn(canDeploy && "text-green-500")}
+              onClick={onDeployAll}
+              disabled={!canDeploy || isDeploying}
+              data-testid="button-deploy-all-fab"
+            >
+              <Play className="h-5 w-5" />
+            </Button>
+            {pendingDeploy > 0 && canDeploy && (
+              <span 
+                className="absolute -top-1 -right-1 min-w-4 h-4 px-1 flex items-center justify-center bg-green-500 text-white text-[10px] font-bold rounded-full"
+                data-testid="badge-deploy-count"
+              >
+                {pendingDeploy}
+              </span>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>{isDeploying ? `Deploying ${deployingCount}/${totalBuoys}...` : `Deploy ${pendingDeploy} Buoy${pendingDeploy !== 1 ? 's' : ''}`}</p>
         </TooltipContent>
       </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            size="lg"
+            size="icon"
             variant="ghost"
-            className={cn(
-              "h-14 w-14 rounded-full p-0",
-              canDeploy && "text-green-500"
-            )}
-            onClick={onDeployAll}
-            disabled={!canDeploy || isDeploying}
-            data-testid="button-deploy-all-fab"
-          >
-            <Play className="h-7 w-7" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="top">
-          <p>{isDeploying ? `Deploying ${deployingCount}/${totalBuoys}...` : "Deploy All Buoys"}</p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            size="lg"
-            variant="ghost"
-            className={cn(
-              "h-14 w-14 rounded-full p-0",
-              canHold && "text-destructive"
-            )}
+            className={cn(canHold && "text-orange-500")}
             onClick={onHoldAll}
             disabled={!canHold}
             data-testid="button-hold-all-fab"
           >
-            <Square className="h-7 w-7" />
+            <Square className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -130,21 +146,34 @@ export function FloatingActionBar({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            size="lg"
-            variant="ghost"
-            className={cn(
-              "h-14 w-14 rounded-full p-0",
-              canUndo && "text-orange-500"
-            )}
+            size="icon"
+            variant={canUndo ? "destructive" : "ghost"}
             onClick={onUndo}
             disabled={!canUndo}
             data-testid="button-undo-fab"
           >
-            <Undo2 className="h-7 w-7" />
+            <Undo2 className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="top">
           <p>Undo Last Action</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn(showFleet && "bg-primary/10 text-primary")}
+            onClick={onFleetClick}
+            data-testid="button-fleet-fab"
+          >
+            <Radio className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Fleet Status</p>
         </TooltipContent>
       </Tooltip>
     </div>

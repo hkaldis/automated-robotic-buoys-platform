@@ -44,6 +44,7 @@ import { useBuoyFollow } from "@/hooks/use-buoy-follow";
 import { generateTemplateMarks, type ShapeTemplate } from "@/lib/shape-templates";
 import { WindShiftAlert } from "@/components/WindShiftAlert";
 import { FloatingActionBar } from "@/components/FloatingActionBar";
+import { FleetStatusPanel } from "@/components/FleetStatusPanel";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
@@ -330,6 +331,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [showWindArrows, setShowWindArrows] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
   const [isSetupPanelCollapsed, setIsSetupPanelCollapsed] = useState(false);
+  const [showFleetPanel, setShowFleetPanel] = useState(false);
   
   // Undo state for last mark position change
   const [lastMarkMove, setLastMarkMove] = useState<{ markId: string; prevLat: number; prevLng: number; timestamp: number } | null>(null);
@@ -2731,22 +2733,42 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
                 setLastMarkMove(null);
               } else if (lastCourseTransform && Date.now() - lastCourseTransform.timestamp < 30000) {
                 handleUndoCourseTransform();
+              } else if (lastAutoAdjust && Date.now() - lastAutoAdjust.timestamp < 30000) {
+                handleUndoAutoAdjust();
               }
+            }}
+            onFleetClick={() => {
+              setShowFleetPanel(!showFleetPanel);
+              setSelectedBuoyId(null);
+              setSelectedMarkId(null);
             }}
             canAlign={!!activeWeatherData && marks.length > 0}
             canDeploy={marks.some(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId)}
             canHold={buoys.some(b => b.state === "moving_to_target") || marks.some(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId)}
-            canUndo={!!lastMarkMove || (!!lastCourseTransform && Date.now() - lastCourseTransform.timestamp < 30000)}
+            canUndo={!!lastMarkMove || (!!lastCourseTransform && Date.now() - lastCourseTransform.timestamp < 30000) || (!!lastAutoAdjust && Date.now() - lastAutoAdjust.timestamp < 30000)}
             isDeploying={isDeployingAll}
             deployingCount={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
             totalBuoys={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
-            onStationCount={buoys.filter(b => b.state === "loitering" && marks.some(m => m.assignedBuoyId === b.id || m.gatePortBuoyId === b.id || m.gateStarboardBuoyId === b.id)).length}
+            onStationCount={buoys.filter(b => b.state === "holding_position" && marks.some(m => m.assignedBuoyId === b.id || m.gatePortBuoyId === b.id || m.gateStarboardBuoyId === b.id)).length}
             movingCount={buoys.filter(b => b.state === "moving_to_target").length}
+            needsWindAlignment={marks.length > 0 && !!activeWeatherData}
+            showFleet={showFleetPanel}
           />
         </main>
 
-        <aside className={`${showSidebar ? (isSetupPanelCollapsed && !selectedBuoy && !selectedMark ? 'w-14 border-l' : 'w-96 xl:w-[440px] border-l') : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
-          {selectedBuoy ? (() => {
+        <aside className={`${showSidebar ? (isSetupPanelCollapsed && !selectedBuoy && !selectedMark && !showFleetPanel ? 'w-14' : 'w-80 xl:w-96') : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-[width] duration-300 bg-card border-l`}>
+          {showFleetPanel ? (
+            <FleetStatusPanel
+              buoys={buoys}
+              marks={marks}
+              onBuoySelect={(buoyId) => {
+                setSelectedBuoyId(buoyId);
+                setShowFleetPanel(false);
+              }}
+              onBulkBuoyCommand={handleBulkBuoyCommand}
+              onClose={() => setShowFleetPanel(false)}
+            />
+          ) : selectedBuoy ? (() => {
             const assignedMark = marks.find(m => 
               m.assignedBuoyId === selectedBuoy.id || 
               m.gatePortBuoyId === selectedBuoy.id || 
