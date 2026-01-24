@@ -63,6 +63,7 @@ interface LeafletMapProps {
   showSiblingBuoys?: boolean;
   trackedBoats?: TrackedBoat[];
   showBoats?: boolean;
+  onLongPress?: (lat: number, lng: number) => void;
 }
 
 const MIKROLIMANO_CENTER: [number, number] = [37.9376, 23.6917];
@@ -239,17 +240,76 @@ function createMarkIcon(mark: Mark, isSelected: boolean): L.DivIcon {
   });
 }
 
-function MapClickHandler({ onMapClick, isPlacingMark }: { onMapClick?: (lat: number, lng: number) => void; isPlacingMark?: boolean }) {
+function MapClickHandler({ 
+  onMapClick, 
+  isPlacingMark,
+  onLongPress 
+}: { 
+  onMapClick?: (lat: number, lng: number) => void; 
+  isPlacingMark?: boolean;
+  onLongPress?: (lat: number, lng: number) => void;
+}) {
   const map = useMap();
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ lat: number; lng: number } | null>(null);
   
   useEffect(() => {
-    if (!onMapClick) return;
+    if (!onMapClick && !onLongPress) return;
     
     const handleClick = (e: L.LeafletMouseEvent) => {
-      onMapClick(e.latlng.lat, e.latlng.lng);
+      if (onMapClick) {
+        onMapClick(e.latlng.lat, e.latlng.lng);
+      }
     };
     
-    map.on("click", handleClick);
+    // Long press handling for touch devices
+    const handleTouchStart = (e: TouchEvent) => {
+      if (!onLongPress || e.touches.length !== 1) return;
+      
+      const touch = e.touches[0];
+      const containerPoint = map.containerPointToLatLng(
+        L.point(touch.clientX - map.getContainer().getBoundingClientRect().left, 
+                touch.clientY - map.getContainer().getBoundingClientRect().top)
+      );
+      
+      touchStartPosRef.current = { lat: containerPoint.lat, lng: containerPoint.lng };
+      
+      longPressTimerRef.current = setTimeout(() => {
+        if (touchStartPosRef.current) {
+          onLongPress(touchStartPosRef.current.lat, touchStartPosRef.current.lng);
+          touchStartPosRef.current = null;
+        }
+      }, 600); // 600ms hold for long press
+    };
+    
+    const handleTouchMove = () => {
+      // Cancel long press if user moves finger
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    };
+    
+    const handleTouchEnd = () => {
+      // Cancel long press on finger lift
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      touchStartPosRef.current = null;
+    };
+    
+    if (onMapClick) {
+      map.on("click", handleClick);
+    }
+    
+    if (onLongPress) {
+      const container = map.getContainer();
+      container.addEventListener("touchstart", handleTouchStart, { passive: true });
+      container.addEventListener("touchmove", handleTouchMove, { passive: true });
+      container.addEventListener("touchend", handleTouchEnd, { passive: true });
+      container.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+    }
     
     if (isPlacingMark) {
       map.getContainer().style.cursor = "crosshair";
@@ -260,8 +320,18 @@ function MapClickHandler({ onMapClick, isPlacingMark }: { onMapClick?: (lat: num
     return () => {
       map.off("click", handleClick);
       map.getContainer().style.cursor = "";
+      
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+      
+      const container = map.getContainer();
+      container.removeEventListener("touchstart", handleTouchStart as EventListener);
+      container.removeEventListener("touchmove", handleTouchMove);
+      container.removeEventListener("touchend", handleTouchEnd);
+      container.removeEventListener("touchcancel", handleTouchEnd);
     };
-  }, [map, onMapClick, isPlacingMark]);
+  }, [map, onMapClick, isPlacingMark, onLongPress]);
   
   return null;
 }
@@ -809,6 +879,7 @@ export function LeafletMap({
   showSiblingBuoys = true,
   trackedBoats = [],
   showBoats = false,
+  onLongPress,
 }: LeafletMapProps) {
   const { formatDistance, formatBearing } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
@@ -1043,7 +1114,7 @@ export function LeafletMap({
           />
         )}
         
-        <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} />
+        <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} onLongPress={onLongPress} />
         <MapMoveHandler onMapMoveEnd={onMapMoveEnd} />
         <TouchConfig />
         <MapResizeHandler showSidebar={showSidebar} />

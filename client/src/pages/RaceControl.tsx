@@ -43,6 +43,7 @@ import { executeAutoAssignWithRecovery } from "@/lib/batchedMutations";
 import { useBuoyFollow } from "@/hooks/use-buoy-follow";
 import { generateTemplateMarks, type ShapeTemplate } from "@/lib/shape-templates";
 import { WindShiftAlert } from "@/components/WindShiftAlert";
+import { FloatingActionBar } from "@/components/FloatingActionBar";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
@@ -328,6 +329,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [showLabels, setShowLabels] = useState(true);
   const [showWindArrows, setShowWindArrows] = useState(true);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isSetupPanelCollapsed, setIsSetupPanelCollapsed] = useState(false);
   
   // Undo state for last mark position change
   const [lastMarkMove, setLastMarkMove] = useState<{ markId: string; prevLat: number; prevLng: number; timestamp: number } | null>(null);
@@ -436,7 +438,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       description: `Sent command to ${buoyIds.length} buoys`,
     });
   }, [demoMode, sendDemoCommand, buoyCommand, toast]);
-  
+
   // State for no-course dialog
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
@@ -458,6 +460,97 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [demoMode, demoBuoys]);
 
   const activeWeatherData = demoMode ? demoWeatherData : weatherData;
+
+  // Deploy All: Send all assigned buoys to their mark positions
+  const [isDeployingAll, setIsDeployingAll] = useState(false);
+  const handleDeployAll = useCallback(() => {
+    const deploymentsToMake: Array<{ buoyId: string; targetLat: number; targetLng: number; markName: string }> = [];
+    
+    marks.forEach(mark => {
+      const windDir = activeWeatherData?.windDirection ?? 225;
+      
+      if (mark.isGate) {
+        // Gate marks need two buoys
+        const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+        const halfWidthDeg = (gateWidth / 2) / 111000;
+        const perpAngle = (windDir + 90) % 360;
+        const perpRad = perpAngle * Math.PI / 180;
+        
+        if (mark.gatePortBuoyId) {
+          const portLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
+          const portLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+          deploymentsToMake.push({ buoyId: mark.gatePortBuoyId, targetLat: portLat, targetLng: portLng, markName: `${mark.name} (Port)` });
+        }
+        if (mark.gateStarboardBuoyId) {
+          const stbdLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
+          const stbdLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+          deploymentsToMake.push({ buoyId: mark.gateStarboardBuoyId, targetLat: stbdLat, targetLng: stbdLng, markName: `${mark.name} (Starboard)` });
+        }
+      } else if (mark.assignedBuoyId) {
+        deploymentsToMake.push({ buoyId: mark.assignedBuoyId, targetLat: mark.lat, targetLng: mark.lng, markName: mark.name });
+      }
+    });
+    
+    if (deploymentsToMake.length === 0) {
+      toast({
+        title: "No Buoys to Deploy",
+        description: "Assign buoys to marks first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsDeployingAll(true);
+    deploymentsToMake.forEach(({ buoyId, targetLat, targetLng }) => {
+      if (demoMode) {
+        sendDemoCommand(buoyId, "move_to_target", targetLat, targetLng);
+      } else {
+        buoyCommand.mutate({ id: buoyId, command: "move_to_target", targetLat, targetLng });
+      }
+    });
+    
+    toast({
+      title: "Deploying All Buoys",
+      description: `Sending ${deploymentsToMake.length} buoys to their marks.`,
+    });
+    
+    setTimeout(() => setIsDeployingAll(false), 2000);
+  }, [marks, activeWeatherData, demoMode, sendDemoCommand, buoyCommand, toast]);
+
+  // Hold All: Emergency stop all moving buoys
+  const handleHoldAll = useCallback(() => {
+    const movingBuoyIds = buoys.filter(b => b.state === "moving_to_target").map(b => b.id);
+    const allAssignedBuoyIds = new Set<string>();
+    
+    marks.forEach(mark => {
+      if (mark.assignedBuoyId) allAssignedBuoyIds.add(mark.assignedBuoyId);
+      if (mark.gatePortBuoyId) allAssignedBuoyIds.add(mark.gatePortBuoyId);
+      if (mark.gateStarboardBuoyId) allAssignedBuoyIds.add(mark.gateStarboardBuoyId);
+    });
+    
+    const buoysToHold = movingBuoyIds.length > 0 ? movingBuoyIds : Array.from(allAssignedBuoyIds);
+    
+    if (buoysToHold.length === 0) {
+      toast({
+        title: "No Buoys to Hold",
+        description: "No assigned or moving buoys found.",
+      });
+      return;
+    }
+    
+    buoysToHold.forEach(buoyId => {
+      if (demoMode) {
+        sendDemoCommand(buoyId, "hold_position");
+      } else {
+        buoyCommand.mutate({ id: buoyId, command: "hold_position" });
+      }
+    });
+    
+    toast({
+      title: "Hold All",
+      description: `Sent hold command to ${buoysToHold.length} buoys.`,
+    });
+  }, [buoys, marks, demoMode, sendDemoCommand, buoyCommand, toast]);
 
   // Calculate map bearing for nudge direction transformation
   // When in head-to-wind mode, visual "up" on screen is not geographic north
@@ -1350,6 +1443,46 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       });
     }
   }, [isPlacingMark, pendingMarkData, currentCourse, marks.length, createMark, repositioningMarkId, updateMark, toast, continuousPlacement, markCounter, gotoMapClickMarkId, gotoMapClickBuoyId, marks, buoyCommand, moveCourseMode, applyCourseTransform]);
+
+  // Long press handler - directly place a course mark for wet-finger operation
+  // Only active when not in any other placement/editing mode
+  const handleLongPress = useCallback((lat: number, lng: number) => {
+    // Skip if in any other mode
+    if (isPlacingMark || repositioningMarkId || gotoMapClickMarkId || gotoMapClickBuoyId || moveCourseMode) {
+      return;
+    }
+    
+    if (!currentCourse) {
+      toast({
+        title: "No Course Available",
+        description: "Please wait for the course to load.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const courseMarksCount = marks.filter(m => m.isCourseMark === true).length;
+    const markName = `M${courseMarksCount + 1}`;
+    
+    createMark.mutate({
+      courseId: currentCourse.id,
+      name: markName,
+      role: "course" as MarkRole,
+      order: marks.length,
+      lat,
+      lng,
+      isStartLine: false,
+      isFinishLine: false,
+      isCourseMark: true,
+    }, {
+      onSuccess: () => {
+        toast({
+          title: "Mark Placed",
+          description: `${markName} placed at long-press location`,
+        });
+      },
+    });
+  }, [currentCourse, marks, createMark, toast, isPlacingMark, repositioningMarkId, gotoMapClickMarkId, gotoMapClickBuoyId, moveCourseMode]);
 
   const handleStopPlacement = useCallback(() => {
     setPendingMarkData(null);
@@ -2572,15 +2705,40 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             pendingDeployments={pendingDeployments}
             siblingBuoys={siblingBuoys}
             showSiblingBuoys={showSiblingBuoys}
+            onLongPress={handleLongPress}
             trackedBoats={demoMode ? demoBoats.filter(b => 
               (b.source === 'vakaros' && integrationSettings.vakaros.enabled) || 
               (b.source === 'tractrac' && integrationSettings.tractrac.enabled)
             ) : []}
             showBoats={demoMode && (integrationSettings.vakaros.enabled || integrationSettings.tractrac.enabled)}
           />
+          
+          {/* Floating Action Bar - always visible critical actions */}
+          <FloatingActionBar
+            onAlignToWind={handleAlignCourseToWind}
+            onDeployAll={handleDeployAll}
+            onHoldAll={handleHoldAll}
+            onUndo={() => {
+              if (lastMarkMove) {
+                updateMark.mutate({ id: lastMarkMove.markId, data: { lat: lastMarkMove.prevLat, lng: lastMarkMove.prevLng } });
+                setLastMarkMove(null);
+              } else if (lastCourseTransform && Date.now() - lastCourseTransform.timestamp < 30000) {
+                handleUndoCourseTransform();
+              }
+            }}
+            canAlign={!!activeWeatherData && marks.length > 0}
+            canDeploy={marks.some(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId)}
+            canHold={buoys.some(b => b.state === "moving_to_target") || marks.some(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId)}
+            canUndo={!!lastMarkMove || (!!lastCourseTransform && Date.now() - lastCourseTransform.timestamp < 30000)}
+            isDeploying={isDeployingAll}
+            deployingCount={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
+            totalBuoys={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
+            onStationCount={buoys.filter(b => b.state === "loitering" && marks.some(m => m.assignedBuoyId === b.id || m.gatePortBuoyId === b.id || m.gateStarboardBuoyId === b.id)).length}
+            movingCount={buoys.filter(b => b.state === "moving_to_target").length}
+          />
         </main>
 
-        <aside className={`${showSidebar ? 'w-96 xl:w-[440px] border-l' : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
+        <aside className={`${showSidebar ? (isSetupPanelCollapsed && !selectedBuoy && !selectedMark ? 'w-14 border-l' : 'w-96 xl:w-[440px] border-l') : 'w-0'} shrink-0 hidden lg:flex lg:flex-col h-full overflow-hidden transition-all duration-300`}>
           {selectedBuoy ? (() => {
             const assignedMark = marks.find(m => 
               m.assignedBuoyId === selectedBuoy.id || 
@@ -2691,6 +2849,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               onExternalLoadDialogChange={setCourseMenuLoadOpen}
               onAlignCourseToWind={handleAlignCourseToWind}
               onBulkBuoyCommand={handleBulkBuoyCommand}
+              isCollapsed={isSetupPanelCollapsed}
+              onToggleCollapse={() => setIsSetupPanelCollapsed(!isSetupPanelCollapsed)}
             />
           )}
         </aside>

@@ -20,6 +20,7 @@ import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSettings } from "@/hooks/use-settings";
 import { ALL_SHAPE_TEMPLATES, TRIANGLE_TEMPLATES, TRAPEZOID_TEMPLATES, type ShapeTemplate } from "@/lib/shape-templates";
+import { QuickStartDialog } from "./QuickStartDialog";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
@@ -85,6 +86,8 @@ interface SetupPanelProps {
   onExternalLoadDialogChange?: (open: boolean) => void;
   onAlignCourseToWind?: () => void;
   onBulkBuoyCommand?: (buoyIds: string[], command: "hold_position" | "cancel") => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export function SetupPanel({
@@ -124,6 +127,8 @@ export function SetupPanel({
   onExternalLoadDialogChange,
   onAlignCourseToWind,
   onBulkBuoyCommand,
+  isCollapsed = false,
+  onToggleCollapse,
 }: SetupPanelProps) {
   // Fetch boat classes for race time estimation
   const { data: eventBoatClass } = useBoatClass(event.boatClassId);
@@ -280,6 +285,7 @@ export function SetupPanel({
   const [pendingFinishUpdate, setPendingFinishUpdate] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showAutoAdjustDialog, setShowAutoAdjustDialog] = useState(false);
+  const [showQuickStartDialog, setShowQuickStartDialog] = useState(false);
   const [showCourseCoordinatesDialog, setShowCourseCoordinatesDialog] = useState(false);
   const [courseCoordLat, setCourseCoordLat] = useState("");
   const [courseCoordLng, setCourseCoordLng] = useState("");
@@ -662,6 +668,17 @@ export function SetupPanel({
     });
   };
 
+  // Quick Start - apply template and jump to buoy assignment
+  const handleQuickStartTemplate = (template: ShapeTemplate) => {
+    if (onApplyTemplate) {
+      onApplyTemplate(template);
+      // After template is applied, jump to assign_buoys phase
+      setTimeout(() => {
+        onPhaseChange?.("assign_buoys");
+      }, 100);
+    }
+  };
+
   // Get pin and committee boat marks for start line operations
   const pinMark = useMemo(() => startLineMarks.find(m => m.role === "pin"), [startLineMarks]);
   const committeeMark = useMemo(() => startLineMarks.find(m => m.role === "start_boat"), [startLineMarks]);
@@ -851,12 +868,25 @@ export function SetupPanel({
       case "start_line":
         return (
           <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
+            {/* Quick Start button - prominent placement for easy access */}
+            {!hasStartLine && (
+              <Button
+                size="lg"
+                className="w-full h-14 gap-2 text-base"
+                onClick={() => setShowQuickStartDialog(true)}
+                data-testid="button-quick-start"
+              >
+                <Compass className="h-5 w-5" />
+                Quick Start
+              </Button>
+            )}
+
             <div className="flex items-center gap-2 mb-1">
               <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/30">
                 <Flag className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold">Start Line</h2>
+                <h2 className="text-sm font-semibold">{hasStartLine ? "Start Line" : "Or Build Manually"}</h2>
                 <p className="text-xs text-muted-foreground">Add Pin End & Committee Boat</p>
               </div>
             </div>
@@ -2352,17 +2382,28 @@ export function SetupPanel({
     }
   };
 
-  return (
-    <div className="h-full flex flex-col overflow-hidden bg-card" data-testid="setup-panel">
-      {/* Compact progress stepper */}
-      <div className="px-3 py-2 border-b bg-muted/30">
-        <div className="flex items-center justify-between gap-1">
+  // Collapsed mode: just show vertical phase indicators
+  if (isCollapsed) {
+    return (
+      <div className="h-full flex flex-col items-center py-3 px-1 bg-card border-r" data-testid="setup-panel-collapsed">
+        {/* Expand button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleCollapse}
+          className="mb-3 h-10 w-10"
+          data-testid="button-expand-panel"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
+        
+        {/* Vertical phase indicators */}
+        <div className="flex flex-col gap-2">
           {phases.map((p, idx) => {
             const minPhase = getMinPhase();
             const minPhaseIdx = phaseOrder.indexOf(minPhase);
             const isComplete = idx < currentPhaseIndex;
             const isCurrent = p.id === phase;
-            // Fleet (ready) phase is always accessible regardless of previous steps
             const canNavigate = (p.id === "ready" || idx <= minPhaseIdx) && !isCurrent;
             
             return (
@@ -2371,29 +2412,84 @@ export function SetupPanel({
                 onClick={() => canNavigate && setPhase(p.id as SetupPhase)}
                 disabled={!canNavigate && !isCurrent}
                 className={cn(
-                  "flex-1 flex flex-col items-center gap-0.5 transition-opacity",
+                  "transition-opacity",
                   canNavigate ? "cursor-pointer hover:opacity-80" : "",
                   !canNavigate && !isCurrent && idx > minPhaseIdx && p.id !== "ready" ? "opacity-40" : ""
                 )}
-                data-testid={`button-phase-${p.id}`}
+                title={p.label}
+                data-testid={`button-phase-${p.id}-collapsed`}
               >
                 <div className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center font-semibold text-xs transition-colors",
+                  "w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs transition-colors",
                   isComplete ? "bg-green-500 text-white" :
-                  isCurrent ? "bg-primary text-primary-foreground" :
+                  isCurrent ? "bg-primary text-primary-foreground ring-2 ring-primary/30" :
                   "bg-muted text-muted-foreground"
                 )}>
-                  {isComplete ? <Check className="w-3.5 h-3.5" /> : p.number}
+                  {isComplete ? <Check className="w-4 h-4" /> : p.number}
                 </div>
-                <span className={cn(
-                  "text-[10px] font-medium",
-                  isCurrent ? "text-primary" : "text-muted-foreground"
-                )}>
-                  {p.label}
-                </span>
               </button>
             );
           })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col overflow-hidden bg-card" data-testid="setup-panel">
+      {/* Compact progress stepper with collapse button */}
+      <div className="px-3 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-1">
+          {onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className="h-8 w-8 mr-1 shrink-0"
+              data-testid="button-collapse-panel"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <div className="flex-1 flex items-center justify-between gap-1">
+            {phases.map((p, idx) => {
+              const minPhase = getMinPhase();
+              const minPhaseIdx = phaseOrder.indexOf(minPhase);
+              const isComplete = idx < currentPhaseIndex;
+              const isCurrent = p.id === phase;
+              // Fleet (ready) phase is always accessible regardless of previous steps
+              const canNavigate = (p.id === "ready" || idx <= minPhaseIdx) && !isCurrent;
+              
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => canNavigate && setPhase(p.id as SetupPhase)}
+                  disabled={!canNavigate && !isCurrent}
+                  className={cn(
+                    "flex-1 flex flex-col items-center gap-0.5 transition-opacity",
+                    canNavigate ? "cursor-pointer hover:opacity-80" : "",
+                    !canNavigate && !isCurrent && idx > minPhaseIdx && p.id !== "ready" ? "opacity-40" : ""
+                  )}
+                  data-testid={`button-phase-${p.id}`}
+                >
+                  <div className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center font-semibold text-xs transition-colors",
+                    isComplete ? "bg-green-500 text-white" :
+                    isCurrent ? "bg-primary text-primary-foreground" :
+                    "bg-muted text-muted-foreground"
+                  )}>
+                    {isComplete ? <Check className="w-3.5 h-3.5" /> : p.number}
+                  </div>
+                  <span className={cn(
+                    "text-[10px] font-medium",
+                    isCurrent ? "text-primary" : "text-muted-foreground"
+                  )}>
+                    {p.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -2919,6 +3015,14 @@ export function SetupPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Start Dialog */}
+      <QuickStartDialog
+        open={showQuickStartDialog}
+        onOpenChange={setShowQuickStartDialog}
+        onSelectTemplate={handleQuickStartTemplate}
+        hasWindData={windDirection !== undefined}
+      />
     </div>
   );
 }

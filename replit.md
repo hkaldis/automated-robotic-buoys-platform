@@ -41,7 +41,16 @@ The application supports a 6-phase `SetupPanel` for course creation: setting sta
 - **Boat Tracking Integrations**: Display competing boats on the map via Vakaros and Tractrac tracking services. Configured in Settings Dialog "Integrations" section with per-service toggles and optional event IDs. In Demo Mode, simulates 10 boats (5 Vakaros blue, 5 Tractrac orange) with realistic sailing movement patterns. Boat markers show heading-oriented triangles with tooltips displaying sail number, speed (kts), and heading (degrees). Integration settings stored in `user_settings.integrations` (jsonb). Supports `showBoatTrails` and `boatRefreshRateSeconds` for future boat trail rendering.
 
 ### UI/UX
-The design is tablet-first with large, touch-friendly controls (min 48px targets), a visual progress stepper, and maritime-themed aesthetics. Role-specific mark visualizations and adherence to World Sailing standards for course geometry are key.
+The design is tablet-first with large, touch-friendly controls (min 56px targets for critical actions), a visual progress stepper, and maritime-themed aesthetics. Role-specific mark visualizations and adherence to World Sailing standards for course geometry are key.
+
+**Wet-Finger UX (Recent Improvements)**:
+- **FloatingActionBar**: Always-visible action bar at bottom of map with 4 critical actions: Align to Wind, Deploy All, Hold All, Undo. All buttons are 56px touch targets for wet-finger operation at sea.
+- **Deploy All**: One-tap deployment sends all assigned buoys to their mark positions, handling gates with port/starboard positioning.
+- **Hold All**: Emergency stop for all moving/assigned buoys.
+- **All Green Indicator**: Status display in FloatingActionBar shows buoy deployment progress ("X/Y On Station") and lights up green when all buoys reach position.
+- **Collapsible SetupPanel**: Panel collapses to 56px-wide status strip with phase indicator dots, maximizing map view for race officers.
+- **Quick Start Mode**: Template selection dialog (Triangle, Trapezoid, Windward-Leeward) bypasses 6-phase wizard for rapid course setup.
+- **Tap-and-Hold Gesture**: Long-press (600ms) on map directly places a course mark, designed for intuitive wet-finger operation. Only active when not in other placement/editing modes.
 
 ### Design System (`client/src/design-system.ts`)
 A comprehensive, rule-based design framework defining:
