@@ -191,8 +191,8 @@ function createBoatIcon(boat: TrackedBoat): L.DivIcon {
 
 function createMarkIcon(mark: Mark, isSelected: boolean): L.DivIcon {
   const roleColors: Record<string, string> = {
-    start_boat: "#22c55e",
-    pin: "#22c55e",
+    start_boat: "#166534",
+    pin: "#166534",
     windward: "#ef4444",
     wing: "#8b5cf6",
     leeward: "#3b82f6",
