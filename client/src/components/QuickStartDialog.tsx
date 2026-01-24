@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Zap, Triangle, Square, ArrowUpDown, Sparkles, Loader2 } from "lucide-react";
+import { Zap, Triangle, Square, ArrowUpDown, Sparkles, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +14,9 @@ interface QuickStartDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLoadCourse?: (snapshot: CourseSnapshot, mode: "exact" | "shape_only") => void;
+  onCreateCustom?: () => void;
   hasWindData: boolean;
+  showCustomOption?: boolean;
 }
 
 const CATEGORIES: { id: TemplateCategory; label: string; icon: typeof Triangle; description: string }[] = [
@@ -48,7 +50,9 @@ export function QuickStartDialog({
   open,
   onOpenChange,
   onLoadCourse,
+  onCreateCustom,
   hasWindData,
+  showCustomOption = false,
 }: QuickStartDialogProps) {
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -115,12 +119,20 @@ export function QuickStartDialog({
     setSelectedTemplateId(id);
   };
 
+  const allowDismiss = !showCustomOption;
+  
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      onOpenChange(isOpen);
-      if (!isOpen) resetState();
+      if (allowDismiss || isOpen) {
+        onOpenChange(isOpen);
+        if (!isOpen) resetState();
+      }
     }}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+      <DialogContent 
+        className="max-w-lg max-h-[85vh] flex flex-col"
+        onPointerDownOutside={(e) => !allowDismiss && e.preventDefault()}
+        onEscapeKeyDown={(e) => !allowDismiss && e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
@@ -149,6 +161,30 @@ export function QuickStartDialog({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3 py-2">
+                {showCustomOption && onCreateCustom && (
+                  <Card
+                    className="cursor-pointer hover-elevate border-2 border-dashed"
+                    onClick={() => {
+                      onCreateCustom();
+                      onOpenChange(false);
+                      resetState();
+                    }}
+                    data-testid="card-create-custom"
+                  >
+                    <CardContent className="p-4 flex flex-col items-center gap-3 text-center min-h-[140px] justify-center">
+                      <div className="w-14 h-14 rounded-full bg-accent/50 flex items-center justify-center">
+                        <Plus className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-base">Custom</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Build from scratch</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        Manual setup
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                )}
                 {CATEGORIES.map((category) => {
                   const Icon = category.icon;
                   const count = categoryCounts[category.id];
@@ -215,24 +251,27 @@ export function QuickStartDialog({
         )}
 
         <DialogFooter className="mt-4 gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              if (selectedCategory) {
-                handleBack();
-              } else {
-                onOpenChange(false);
-              }
-            }}
-            className="h-14"
-            data-testid="button-cancel"
-          >
-            {selectedCategory ? "Back" : "Cancel"}
-          </Button>
+          {(selectedCategory || allowDismiss) && (
+            <Button 
+              variant="outline" 
+              size="lg"
+              onClick={() => {
+                if (selectedCategory) {
+                  handleBack();
+                } else {
+                  onOpenChange(false);
+                }
+              }}
+              data-testid="button-cancel"
+            >
+              {selectedCategory ? "Back" : "Cancel"}
+            </Button>
+          )}
           <Button 
             onClick={handleConfirm} 
             disabled={!selectedTemplateId}
-            className="gap-2 h-14 flex-1"
+            size="lg"
+            className="gap-2 flex-1"
             data-testid="button-confirm-quick-start"
           >
             <Zap className="h-5 w-5" />

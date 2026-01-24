@@ -35,7 +35,7 @@ import {
   type CourseSnapshot,
   type SnapshotMark,
 } from "@/hooks/use-api";
-import { NoCourseDialog } from "@/components/NoCourseDialog";
+import { QuickStartDialog } from "@/components/QuickStartDialog";
 import { queryClient, apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
 import { useDemoModeContext } from "@/contexts/DemoModeContext";
 import { useToast } from "@/hooks/use-toast";
@@ -698,6 +698,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [startLineMarkCount, courseSetupWindDirection, activeWeatherData]);
 
   // Template setup workflow effect - handles the automated steps after loading a template
+  // Workflow order: fetch weather → boat count dialog → resize start line → align to wind (LAST)
   // This is a simple state machine that runs once per step transition
   const templateSetupProcessedRef = useRef<string | null>(null);
   
@@ -711,6 +712,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     const stepKey = `${pendingTemplateSetup.step}-${marks.length}`;
     if (templateSetupProcessedRef.current === stepKey) return;
     
+    // Step 1: Show boat count dialog immediately (weather is fetched in handleLoadCourse)
+    if (pendingTemplateSetup.step === "boat_count") {
+      // Guard: need marks to proceed
+      if (marks.length === 0) return;
+      
+      templateSetupProcessedRef.current = stepKey;
+      setShowBoatCountDialog(true);
+    }
+    
+    // Step 2: Align to wind AFTER resize (triggered by handleBoatCountConfirm)
     if (pendingTemplateSetup.step === "align_wind") {
       // Guard: need weather and marks to proceed
       if (!activeWeatherData || marks.length === 0) return;
@@ -755,18 +766,29 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           })).then(() => {
             queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
             setCourseSetupWindDirection(windDirection);
+            // Workflow complete - clear pending state
+            setPendingTemplateSetup(null);
+            toast({
+              title: "Course Ready",
+              description: "Course aligned to wind and start line sized.",
+            });
           });
         } else {
           // Already aligned, just capture wind direction
           setCourseSetupWindDirection(windDirection);
+          // Workflow complete - clear pending state
+          setPendingTemplateSetup(null);
+          toast({
+            title: "Course Ready",
+            description: "Start line sized and course ready.",
+          });
         }
+      } else {
+        // No valid alignment possible, complete workflow
+        setPendingTemplateSetup(null);
       }
-      
-      // Proceed to boat count dialog regardless of alignment result
-      setPendingTemplateSetup({ step: "boat_count" });
-      setShowBoatCountDialog(true);
     }
-  }, [pendingTemplateSetup, activeWeatherData, marks, courseId]);
+  }, [pendingTemplateSetup, activeWeatherData, marks, courseId, toast]);
 
   // Determine if we should show the no-course dialog
   const showNoCourseDialog = !coursesLoading && !eventsLoading && currentEvent && !currentEvent.courseId && !activeCourseId;
@@ -2052,24 +2074,23 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     });
     
     // Start the automated template setup workflow
-    // Step 1: Fetch weather if not already available
+    // Order: fetch weather → boat count dialog → resize → align to wind (LAST)
     if (!activeWeatherData) {
       setPendingTemplateSetup({ step: "fetch_weather" });
       // Trigger weather fetch at map center
       weatherByLocation.mutate({ lat: mapCenter.lat, lng: mapCenter.lng }, {
         onSuccess: () => {
-          // Weather fetched, move to next step
-          setPendingTemplateSetup({ step: "align_wind" });
+          // Weather fetched, move to boat count dialog
+          setPendingTemplateSetup({ step: "boat_count" });
         },
         onError: () => {
-          // Weather fetch failed, skip to boat count dialog
+          // Weather fetch failed, still show boat count dialog
           setPendingTemplateSetup({ step: "boat_count" });
-          setShowBoatCountDialog(true);
         }
       });
     } else {
-      // Weather available, proceed to align to wind then show boat count dialog
-      setPendingTemplateSetup({ step: "align_wind" });
+      // Weather available, proceed to boat count dialog
+      setPendingTemplateSetup({ step: "boat_count" });
     }
   }, [currentCourse, marks, mapCenter, createMark, deleteAllMarks, updateCourse, activeWeatherData, toast, weatherByLocation]);
 
@@ -2770,10 +2791,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const handleBoatCountConfirm = useCallback(async (result: { raceType: "fleet" | "match" | "team"; boatCount?: number }) => {
     await resizeStartLine(result);
     
-    // Complete template setup - switch to course view (marks phase)
+    // Switch to course view (marks phase)
     setCurrentSetupPhase("marks");
-    setPendingTemplateSetup(null);
     setShowBoatCountDialog(false);
+    
+    // Now trigger align to wind as the FINAL step
+    setPendingTemplateSetup({ step: "align_wind" });
   }, [resizeStartLine]);
 
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
@@ -3160,14 +3183,14 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         hasWeatherData={!!activeWeatherData}
       />
 
-      {/* Dialog for events without a course */}
-      <NoCourseDialog
-        open={showNoCourseDialog}
-        eventName={currentEvent?.name}
+      {/* Quick Start dialog for events without a course */}
+      <QuickStartDialog
+        open={!!showNoCourseDialog}
+        onOpenChange={() => {}}
+        onLoadCourse={handleLoadCourse}
         onCreateCustom={handleCreateCustomCourse}
-        onLoadSaved={handleLoadSavedCourse}
-        isCreating={isCreatingCourse}
-        isLoading={isLoadingCourse}
+        hasWindData={!!activeWeatherData}
+        showCustomOption={true}
       />
 
       {/* Boat count dialog for template setup workflow */}
