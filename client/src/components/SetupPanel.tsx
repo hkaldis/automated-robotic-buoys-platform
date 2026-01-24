@@ -3139,7 +3139,6 @@ export function SetupPanel({
       <QuickStartDialog
         open={showQuickStartDialog}
         onOpenChange={setShowQuickStartDialog}
-        onSelectTemplate={handleQuickStartTemplate}
         onLoadCourse={onLoadCourse}
         hasWindData={windDirection !== undefined}
       />

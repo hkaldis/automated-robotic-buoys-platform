@@ -1,14 +1,11 @@
 import { useState, useMemo } from "react";
-import { Zap, Triangle, Square, ArrowUpDown, Check, Star, Building2, User, Search, Sparkles } from "lucide-react";
+import { Zap, Triangle, Square, ArrowUpDown, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { ALL_SHAPE_TEMPLATES, type ShapeTemplate } from "@/lib/shape-templates";
 import { useCourseSnapshots, type CourseSnapshot } from "@/hooks/use-api";
 import { getCategoryLabel } from "@/lib/course-thumbnail";
 import type { TemplateCategory } from "@shared/schema";
@@ -16,77 +13,48 @@ import type { TemplateCategory } from "@shared/schema";
 interface QuickStartDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectTemplate: (template: ShapeTemplate) => void;
   onLoadCourse?: (snapshot: CourseSnapshot, mode: "exact" | "shape_only") => void;
   hasWindData: boolean;
 }
 
-const BUILTIN_TEMPLATES = [
+const CATEGORIES: { id: TemplateCategory; label: string; icon: typeof Triangle; description: string }[] = [
   { 
-    id: "triangle_60_60_60", 
-    name: "Triangle 60°",
-    description: "Classic equilateral",
+    id: "triangle", 
+    label: "Triangle", 
     icon: Triangle,
-    category: "triangle" as TemplateCategory,
+    description: "Olympic triangle courses"
   },
   { 
-    id: "triangle_45_90_45", 
-    name: "Right Triangle",
-    description: "90° at wing mark",
-    icon: Triangle,
-    category: "triangle" as TemplateCategory,
-  },
-  { 
-    id: "trapezoid_60", 
-    name: "Trapezoid 60°",
-    description: "With leeward gate",
+    id: "trapezoid", 
+    label: "Trapezoid", 
     icon: Square,
-    category: "trapezoid" as TemplateCategory,
+    description: "Courses with leeward gate"
   },
   { 
     id: "windward_leeward", 
-    name: "Windward-Leeward",
-    description: "Pure up/down",
+    label: "Windward-Leeward", 
     icon: ArrowUpDown,
-    category: "windward_leeward" as TemplateCategory,
+    description: "Pure upwind/downwind"
+  },
+  { 
+    id: "other", 
+    label: "Other", 
+    icon: Sparkles,
+    description: "Custom course shapes"
   },
 ];
-
-const CATEGORY_ORDER: TemplateCategory[] = ["triangle", "trapezoid", "windward_leeward", "other"];
-
-const CATEGORY_ICONS: Record<TemplateCategory, typeof Triangle> = {
-  triangle: Triangle,
-  trapezoid: Square,
-  windward_leeward: ArrowUpDown,
-  other: Sparkles,
-};
 
 export function QuickStartDialog({
   open,
   onOpenChange,
-  onSelectTemplate,
   onLoadCourse,
   hasWindData,
 }: QuickStartDialogProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedType, setSelectedType] = useState<"builtin" | "saved">("builtin");
-  const [activeTab, setActiveTab] = useState<"templates" | "my_courses">("templates");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<TemplateCategory | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
-  const { data: snapshotsData } = useCourseSnapshots({ search: searchQuery || undefined });
+  const { data: snapshotsData, isLoading } = useCourseSnapshots({});
   
-  const globalTemplates = useMemo(() => {
-    return snapshotsData?.snapshots.filter(s => s.visibilityScope === "global") || [];
-  }, [snapshotsData]);
-
-  const clubCourses = useMemo(() => {
-    return snapshotsData?.snapshots.filter(s => s.visibilityScope === "club") || [];
-  }, [snapshotsData]);
-
-  const userCourses = useMemo(() => {
-    return snapshotsData?.snapshots.filter(s => s.visibilityScope === "user") || [];
-  }, [snapshotsData]);
-
   const templatesByCategory = useMemo(() => {
     const grouped: Record<TemplateCategory, CourseSnapshot[]> = {
       triangle: [],
@@ -94,6 +62,7 @@ export function QuickStartDialog({
       windward_leeward: [],
       other: [],
     };
+    const globalTemplates = snapshotsData?.snapshots.filter(s => s.visibilityScope === "global") || [];
     globalTemplates.forEach(t => {
       const cat = (t.category as TemplateCategory) || "other";
       if (grouped[cat]) {
@@ -103,280 +72,171 @@ export function QuickStartDialog({
       }
     });
     return grouped;
-  }, [globalTemplates]);
+  }, [snapshotsData]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<TemplateCategory, number> = {
+      triangle: 0,
+      trapezoid: 0,
+      windward_leeward: 0,
+      other: 0,
+    };
+    CATEGORIES.forEach(cat => {
+      counts[cat.id] = templatesByCategory[cat.id].length;
+    });
+    return counts;
+  }, [templatesByCategory]);
+
+  const currentTemplates = selectedCategory ? templatesByCategory[selectedCategory] : [];
+  const hasTemplates = currentTemplates.length > 0;
 
   const handleConfirm = () => {
-    if (!selectedId) return;
+    if (!selectedTemplateId || !onLoadCourse) return;
     
-    if (selectedType === "builtin") {
-      const template = ALL_SHAPE_TEMPLATES.find(t => t.id === selectedId);
-      if (template) {
-        onSelectTemplate(template);
-        onOpenChange(false);
-        resetState();
-      }
-    } else if (selectedType === "saved" && onLoadCourse) {
-      const snapshot = snapshotsData?.snapshots.find(s => s.id === selectedId);
-      if (snapshot) {
-        onLoadCourse(snapshot, "shape_only");
-        onOpenChange(false);
-        resetState();
-      }
+    const snapshot = snapshotsData?.snapshots.find(s => s.id === selectedTemplateId);
+    if (snapshot) {
+      onLoadCourse(snapshot, "shape_only");
+      onOpenChange(false);
+      resetState();
     }
   };
 
   const resetState = () => {
-    setSelectedId(null);
-    setSelectedType("builtin");
-    setSearchQuery("");
-    setActiveTab("templates");
+    setSelectedCategory(null);
+    setSelectedTemplateId(null);
   };
 
-  const handleSelectBuiltin = (id: string) => {
-    setSelectedId(id);
-    setSelectedType("builtin");
+  const handleBack = () => {
+    setSelectedCategory(null);
+    setSelectedTemplateId(null);
   };
 
-  const handleSelectSaved = (id: string) => {
-    setSelectedId(id);
-    setSelectedType("saved");
+  const handleSelectTemplate = (id: string) => {
+    setSelectedTemplateId(id);
   };
-
-  const hasGlobalTemplates = globalTemplates.length > 0;
-  const hasMyCourses = clubCourses.length > 0 || userCourses.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={(open) => {
-      onOpenChange(open);
-      if (!open) resetState();
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      onOpenChange(isOpen);
+      if (!isOpen) resetState();
     }}>
-      <DialogContent className="max-w-xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-primary" />
-            Quick Start
+            {selectedCategory 
+              ? getCategoryLabel(selectedCategory)
+              : "Quick Start"
+            }
           </DialogTitle>
         </DialogHeader>
         
-        <p className="text-sm text-muted-foreground">
-          Select a course template to get started quickly. The course will be positioned at map center.
-        </p>
+        {!selectedCategory ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Select a course category to browse templates.
+            </p>
 
-        {!hasWindData && (
-          <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-3 py-2 rounded-md text-sm">
-            Wind data required. Templates will use default 225° wind direction.
-          </div>
-        )}
+            {!hasWindData && (
+              <div className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-3 py-2 rounded-md text-sm">
+                Wind data required. Templates will use default 225° wind direction.
+              </div>
+            )}
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "templates" | "my_courses")} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid w-full grid-cols-2 h-16 p-1">
-            <TabsTrigger value="templates" className="gap-2 h-14 text-sm" data-testid="tab-templates">
-              <Star className="h-5 w-5" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger value="my_courses" className="gap-2 h-14 text-sm" data-testid="tab-my-courses">
-              <User className="h-5 w-5" />
-              My Courses
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="templates" className="flex-1 min-h-0 mt-3">
-            <ScrollArea className="h-[320px] pr-2">
-              {hasGlobalTemplates ? (
-                <div className="space-y-4">
-                  {CATEGORY_ORDER.map((category) => {
-                    const templates = templatesByCategory[category];
-                    if (templates.length === 0) return null;
-                    const Icon = CATEGORY_ICONS[category];
-                    
-                    return (
-                      <div key={category} className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          <Icon className="h-4 w-4" />
-                          {getCategoryLabel(category).toUpperCase()}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 py-2">
+                {CATEGORIES.map((category) => {
+                  const Icon = category.icon;
+                  const count = categoryCounts[category.id];
+                  
+                  return (
+                    <Card
+                      key={category.id}
+                      className="cursor-pointer hover-elevate"
+                      onClick={() => setSelectedCategory(category.id)}
+                      data-testid={`card-category-${category.id}`}
+                    >
+                      <CardContent className="p-4 flex flex-col items-center gap-3 text-center min-h-[140px] justify-center">
+                        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Icon className="h-7 w-7 text-primary" />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {templates.map((template) => (
-                            <TemplateCard
-                              key={template.id}
-                              id={template.id}
-                              name={template.name}
-                              description={template.description}
-                              thumbnailSvg={template.thumbnailSvg}
-                              badge="Official"
-                              badgeIcon={<Star className="h-3 w-3" />}
-                              isSelected={selectedId === template.id && selectedType === "saved"}
-                              onClick={() => handleSelectSaved(template.id)}
-                            />
-                          ))}
+                        <div>
+                          <h3 className="font-semibold text-base">{category.label}</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">{category.description}</p>
                         </div>
-                      </div>
-                    );
-                  })}
+                        <Badge variant="secondary" className="text-xs">
+                          {count} {count === 1 ? "template" : "templates"}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Select a template to create your course.
+            </p>
+
+            <ScrollArea className="flex-1 h-[320px] pr-2">
+              {hasTemplates ? (
+                <div className="grid grid-cols-1 gap-3 py-2">
+                  {currentTemplates.map((template) => (
+                    <TemplateListItem
+                      key={template.id}
+                      id={template.id}
+                      name={template.name}
+                      description={template.description}
+                      thumbnailSvg={template.thumbnailSvg}
+                      isSelected={selectedTemplateId === template.id}
+                      onClick={() => handleSelectTemplate(template.id)}
+                    />
+                  ))}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    No official templates yet. Use these built-in shapes:
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Sparkles className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">No templates in this category</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Super admins can create templates here
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {BUILTIN_TEMPLATES.map((template) => {
-                      const Icon = template.icon;
-                      const isSelected = selectedId === template.id && selectedType === "builtin";
-                      
-                      return (
-                        <Card
-                          key={template.id}
-                          className={cn(
-                            "cursor-pointer transition-all hover-elevate",
-                            isSelected && "ring-2 ring-primary bg-primary/5"
-                          )}
-                          onClick={() => handleSelectBuiltin(template.id)}
-                          data-testid={`card-template-${template.id}`}
-                        >
-                          <CardContent className="p-4 flex flex-col items-center gap-2 text-center">
-                            <div className={cn(
-                              "w-12 h-12 rounded-full flex items-center justify-center",
-                              isSelected ? "bg-primary text-primary-foreground" : "bg-muted"
-                            )}>
-                              {isSelected ? <Check className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-sm">{template.name}</h3>
-                              <p className="text-xs text-muted-foreground">{template.description}</p>
-                            </div>
-                            <Badge variant="secondary" className="text-xs">
-                              Built-in
-                            </Badge>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              
-              {hasGlobalTemplates && (
-                <div className="mt-4 pt-4 border-t space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">BUILT-IN SHAPES</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {BUILTIN_TEMPLATES.map((template) => {
-                      const Icon = template.icon;
-                      const isSelected = selectedId === template.id && selectedType === "builtin";
-                      
-                      return (
-                        <Button
-                          key={template.id}
-                          variant={isSelected ? "default" : "outline"}
-                          className={cn("h-14 flex-col gap-1", isSelected && "ring-2 ring-offset-2")}
-                          onClick={() => handleSelectBuiltin(template.id)}
-                          data-testid={`button-builtin-${template.id}`}
-                        >
-                          <Icon className="h-5 w-5" />
-                          <span className="text-[10px] truncate max-w-full">{template.name.split(" ")[0]}</span>
-                        </Button>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
             </ScrollArea>
-          </TabsContent>
+          </>
+        )}
 
-          <TabsContent value="my_courses" className="flex-1 min-h-0 mt-3">
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search courses..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
-                  data-testid="input-search-courses"
-                />
-              </div>
-              
-              <ScrollArea className="h-[280px] pr-2">
-                {hasMyCourses ? (
-                  <div className="space-y-4">
-                    {clubCourses.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          <Building2 className="h-4 w-4" />
-                          CLUB COURSES
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {clubCourses.map((course) => (
-                            <TemplateCard
-                              key={course.id}
-                              id={course.id}
-                              name={course.name}
-                              description={course.sailClubName || undefined}
-                              thumbnailSvg={course.thumbnailSvg}
-                              badge="Club"
-                              badgeIcon={<Building2 className="h-3 w-3" />}
-                              isSelected={selectedId === course.id && selectedType === "saved"}
-                              onClick={() => handleSelectSaved(course.id)}
-                              createdAt={course.createdAt}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {userCourses.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          MY COURSES
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {userCourses.map((course) => (
-                            <TemplateCard
-                              key={course.id}
-                              id={course.id}
-                              name={course.name}
-                              description={course.description || undefined}
-                              thumbnailSvg={course.thumbnailSvg}
-                              badge="Mine"
-                              badgeIcon={<User className="h-3 w-3" />}
-                              isSelected={selectedId === course.id && selectedType === "saved"}
-                              onClick={() => handleSelectSaved(course.id)}
-                              createdAt={course.createdAt}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                      <User className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium">No saved courses yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Create a course and save it to see it here
-                    </p>
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        <DialogFooter className="mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+        <DialogFooter className="mt-4 gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              if (selectedCategory) {
+                handleBack();
+              } else {
+                onOpenChange(false);
+              }
+            }}
+            className="h-14"
+            data-testid="button-cancel"
+          >
+            {selectedCategory ? "Back" : "Cancel"}
           </Button>
           <Button 
             onClick={handleConfirm} 
-            disabled={!selectedId}
-            className="gap-2"
+            disabled={!selectedTemplateId}
+            className="gap-2 h-14 flex-1"
             data-testid="button-confirm-quick-start"
           >
-            <Zap className="h-4 w-4" />
-            {selectedType === "saved" ? "Load Course" : "Create Course"}
+            <Zap className="h-5 w-5" />
+            Create Course
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -384,33 +244,23 @@ export function QuickStartDialog({
   );
 }
 
-interface TemplateCardProps {
+interface TemplateListItemProps {
   id: string;
   name: string;
   description?: string | null;
   thumbnailSvg?: string | null;
-  badge?: string;
-  badgeIcon?: React.ReactNode;
   isSelected: boolean;
   onClick: () => void;
-  createdAt?: string | null;
 }
 
-function TemplateCard({
+function TemplateListItem({
   id,
   name,
   description,
   thumbnailSvg,
-  badge,
-  badgeIcon,
   isSelected,
   onClick,
-  createdAt,
-}: TemplateCardProps) {
-  const formattedDate = createdAt 
-    ? new Date(createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-    : null;
-
+}: TemplateListItemProps) {
   return (
     <Card
       className={cn(
@@ -418,36 +268,30 @@ function TemplateCard({
         isSelected && "ring-2 ring-primary bg-primary/5"
       )}
       onClick={onClick}
-      data-testid={`card-course-${id}`}
+      data-testid={`card-template-${id}`}
     >
-      <CardContent className="p-3 flex flex-col items-center gap-2 text-center min-h-[120px]">
-        <div className="w-16 h-16 flex-shrink-0 bg-muted/50 rounded flex items-center justify-center overflow-hidden">
+      <CardContent className="p-4 flex items-center gap-4 min-h-[80px]">
+        <div className="w-16 h-16 flex-shrink-0 bg-muted/50 rounded-lg flex items-center justify-center overflow-hidden">
           {thumbnailSvg ? (
             <div 
               className="w-full h-full"
               dangerouslySetInnerHTML={{ __html: thumbnailSvg }}
             />
           ) : (
-            <Sparkles className="h-6 w-6 text-muted-foreground" />
+            <Triangle className="h-7 w-7 text-muted-foreground" />
           )}
         </div>
-        <div className="flex-1 min-w-0 w-full">
-          <h3 className="font-semibold text-xs truncate">{name}</h3>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-base truncate">{name}</h3>
           {description && (
-            <p className="text-[10px] text-muted-foreground truncate">{description}</p>
+            <p className="text-sm text-muted-foreground line-clamp-2 mt-0.5">{description}</p>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          {badge && (
-            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 gap-0.5">
-              {badgeIcon}
-              {badge}
-            </Badge>
-          )}
-          {formattedDate && (
-            <span className="text-[9px] text-muted-foreground">{formattedDate}</span>
-          )}
-        </div>
+        {isSelected && (
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+            <Zap className="h-4 w-4 text-primary-foreground" />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
