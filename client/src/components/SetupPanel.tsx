@@ -1689,8 +1689,8 @@ export function SetupPanel({
                         
                         {lastAutoAdjust && onUndoAutoAdjust && (Date.now() - lastAutoAdjust.timestamp) < 60000 && (
                           <Button
-                            variant="outline"
-                            className="w-full gap-2 border-orange-500 text-orange-600"
+                            variant="destructive"
+                            className="w-full gap-2"
                             onClick={onUndoAutoAdjust}
                             data-testid="button-undo-auto-adjust"
                           >

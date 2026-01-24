@@ -53,6 +53,8 @@ interface LeafletMapProps {
   onToggleSidebar?: () => void;
   lastMarkMove?: { markId: string; prevLat: number; prevLng: number; timestamp: number } | null;
   onUndoMarkMove?: () => void;
+  lastCourseTransform?: { positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null;
+  onUndoCourseTransform?: () => void;
   onMapMoveEnd?: (lat: number, lng: number) => void;
   mapLayer?: MapLayerType;
   showSeaMarks?: boolean;
@@ -793,6 +795,8 @@ export function LeafletMap({
   onToggleSidebar,
   lastMarkMove,
   onUndoMarkMove,
+  lastCourseTransform,
+  onUndoCourseTransform,
   onMapMoveEnd,
   mapLayer = "osm",
   showSeaMarks = true,
@@ -1357,10 +1361,11 @@ export function LeafletMap({
         </div>
       )}
 
-      {lastMarkMove && onUndoMarkMove && (Date.now() - lastMarkMove.timestamp) < 30000 && (
-        <div className="absolute bottom-4 right-4 z-[500]">
+      {/* Undo buttons container - stacks vertically if multiple are active */}
+      <div className="absolute bottom-4 right-4 z-[500] flex flex-col gap-2">
+        {lastMarkMove && onUndoMarkMove && (Date.now() - lastMarkMove.timestamp) < 30000 && (
           <Button 
-            variant="secondary" 
+            variant="destructive" 
             size="lg"
             className="gap-2 shadow-lg"
             onClick={onUndoMarkMove}
@@ -1369,8 +1374,21 @@ export function LeafletMap({
             <Undo2 className="w-5 h-5" />
             Undo Move
           </Button>
-        </div>
-      )}
+        )}
+
+        {lastCourseTransform && onUndoCourseTransform && (Date.now() - lastCourseTransform.timestamp) < 30000 && (
+          <Button 
+            variant="destructive" 
+            size="lg"
+            className="gap-2 shadow-lg"
+            onClick={onUndoCourseTransform}
+            data-testid="button-undo-course-transform"
+          >
+            <Undo2 className="w-5 h-5" />
+            Undo Course Move
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

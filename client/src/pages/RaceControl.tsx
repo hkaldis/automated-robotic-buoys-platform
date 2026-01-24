@@ -335,6 +335,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Undo state for auto-adjust
   const [lastAutoAdjust, setLastAutoAdjust] = useState<{ positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null>(null);
   
+  // Undo state for course transform (move/rotate/scale)
+  const [lastCourseTransform, setLastCourseTransform] = useState<{ positions: Array<{ id: string; lat: number; lng: number }>; timestamp: number } | null>(null);
+  
   // Current map center for loading courses at current location
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>(DEFAULT_CENTER);
   const [currentSetupPhase, setCurrentSetupPhase] = useState<string>("start_line");
@@ -1108,6 +1111,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     try {
       // Take a snapshot of current positions to prevent race conditions
       const markSnapshot = marks.map(m => ({ ...m }));
+      
+      // Save positions for undo
+      setLastCourseTransform({
+        positions: markSnapshot.map(m => ({ id: m.id, lat: m.lat, lng: m.lng })),
+        timestamp: Date.now(),
+      });
 
       // Find the committee boat (pivot point for rotation)
       const committeeBoat = markSnapshot.find(m => m.role === "start_boat" || m.name === "Committee Boat" || m.name === "Start Boat");
@@ -2368,6 +2377,34 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [lastAutoAdjust, courseId, toast]);
 
+  // Undo course transform handler (for move/rotate/scale)
+  const handleUndoCourseTransform = useCallback(async () => {
+    if (!lastCourseTransform) return;
+    
+    try {
+      for (const pos of lastCourseTransform.positions) {
+        await apiRequest("PATCH", `/api/marks/${pos.id}`, {
+          lat: pos.lat,
+          lng: pos.lng,
+        });
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      setLastCourseTransform(null);
+      
+      toast({
+        title: "Undo Complete",
+        description: "Course restored to previous position",
+      });
+    } catch (error) {
+      toast({
+        title: "Undo Failed",
+        description: "Failed to restore course position",
+        variant: "destructive",
+      });
+    }
+  }, [lastCourseTransform, courseId, toast]);
+
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
   if (isLoading && !demoMode) {
@@ -2493,6 +2530,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
                 setLastMarkMove(null);
               }
             }}
+            lastCourseTransform={lastCourseTransform}
+            onUndoCourseTransform={handleUndoCourseTransform}
             onMapMoveEnd={(lat, lng) => setMapCenter({ lat, lng })}
             mapLayer={mapLayer}
             showSeaMarks={showSeaMarks}

@@ -584,9 +584,9 @@ export function MarkEditPanel({
         {/* Undo button - appears after any position change */}
         {lastMovePosition && onUndoMove && (Date.now() - lastMovePosition.timestamp) < 60000 && (
           <Button
-            variant="outline"
+            variant="destructive"
             size="lg"
-            className="w-full mt-3 gap-2 border-orange-500 text-orange-600"
+            className="w-full mt-3 gap-2"
             onClick={onUndoMove}
             data-testid="button-undo-move"
           >
