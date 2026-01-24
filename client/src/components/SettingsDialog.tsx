@@ -610,6 +610,25 @@ export function SettingsDialog({
                     <span className="text-xs text-muted-foreground w-6">%</span>
                   </div>
                 </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="move-meters" className="text-sm">Move Course</Label>
+                    <p className="text-[10px] text-muted-foreground">Meters per move step</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      id="move-meters"
+                      type="number"
+                      min={10}
+                      max={500}
+                      value={courseAdjustmentSettings.moveMeters}
+                      onChange={(e) => setCourseAdjustmentSetting("moveMeters", parseInt(e.target.value) || 100)}
+                      className="w-16 font-mono text-center"
+                      data-testid="input-move-meters"
+                    />
+                    <span className="text-xs text-muted-foreground w-6">m</span>
+                  </div>
+                </div>
               </div>
               <Button
                 variant="outline"

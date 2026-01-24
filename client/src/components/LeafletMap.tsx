@@ -978,6 +978,8 @@ export function LeafletMap({
           className="w-full h-full"
           ref={mapRef}
           zoomControl={false}
+          zoomSnap={0.25}
+          zoomDelta={0.5}
           rotate={true}
           bearing={0}
           touchRotate={false}

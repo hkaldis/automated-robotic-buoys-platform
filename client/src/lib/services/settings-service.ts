@@ -51,11 +51,13 @@ export const DEFAULT_START_LINE_FIX_BEARING_MODE: StartLineFixBearingMode = "pin
 export interface CourseAdjustmentSettings {
   rotationDegrees: number;
   resizePercent: number;
+  moveMeters: number;
 }
 
 export const DEFAULT_COURSE_ADJUSTMENT: CourseAdjustmentSettings = {
   rotationDegrees: 5,
   resizePercent: 10,
+  moveMeters: 100,
 };
 
 export const DEFAULT_WIND_ARROWS_MIN_ZOOM = 13;

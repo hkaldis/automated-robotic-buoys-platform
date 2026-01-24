@@ -1580,7 +1580,7 @@ export function SetupPanel({
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => onTransformCourse?.(getTransformedCourseMove("north", 0.001))}
+                        onClick={() => onTransformCourse?.(getTransformedCourseMove("north", courseAdjustmentSettings.moveMeters / 111000))}
                         data-testid="button-move-north"
                       >
                         <ChevronLeft className="w-4 h-4 rotate-90" />
@@ -1589,7 +1589,7 @@ export function SetupPanel({
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => onTransformCourse?.(getTransformedCourseMove("west", 0.001))}
+                          onClick={() => onTransformCourse?.(getTransformedCourseMove("west", courseAdjustmentSettings.moveMeters / 111000))}
                           data-testid="button-move-west"
                         >
                           <ChevronLeft className="w-4 h-4" />
@@ -1600,7 +1600,7 @@ export function SetupPanel({
                         <Button
                           variant="outline"
                           size="icon"
-                          onClick={() => onTransformCourse?.(getTransformedCourseMove("east", 0.001))}
+                          onClick={() => onTransformCourse?.(getTransformedCourseMove("east", courseAdjustmentSettings.moveMeters / 111000))}
                           data-testid="button-move-east"
                         >
                           <ChevronRight className="w-4 h-4" />
@@ -1609,7 +1609,7 @@ export function SetupPanel({
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => onTransformCourse?.(getTransformedCourseMove("south", 0.001))}
+                        onClick={() => onTransformCourse?.(getTransformedCourseMove("south", courseAdjustmentSettings.moveMeters / 111000))}
                         data-testid="button-move-south"
                       >
                         <ChevronRight className="w-4 h-4 rotate-90" />
