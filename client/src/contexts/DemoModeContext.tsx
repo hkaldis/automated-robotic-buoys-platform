@@ -189,16 +189,32 @@ function generateRandomPositionInRadius(
 
 function createDemoBoatsNearPosition(centerLat: number, centerLng: number): TrackedBoat[] {
   const boatConfigs = [
-    { id: "boat-1", sailNumber: "GRE 123", source: "vakaros" as const },
-    { id: "boat-2", sailNumber: "GRE 456", source: "vakaros" as const },
-    { id: "boat-3", sailNumber: "GRE 789", source: "tractrac" as const },
-    { id: "boat-4", sailNumber: "ITA 101", source: "vakaros" as const },
-    { id: "boat-5", sailNumber: "FRA 202", source: "tractrac" as const },
-    { id: "boat-6", sailNumber: "ESP 303", source: "vakaros" as const },
-    { id: "boat-7", sailNumber: "GBR 404", source: "tractrac" as const },
-    { id: "boat-8", sailNumber: "NED 505", source: "vakaros" as const },
-    { id: "boat-9", sailNumber: "AUS 606", source: "tractrac" as const },
-    { id: "boat-10", sailNumber: "USA 707", source: "vakaros" as const },
+    // Vakaros boats (12)
+    { id: "vak-1", sailNumber: "GRE 123", source: "vakaros" as const },
+    { id: "vak-2", sailNumber: "GRE 456", source: "vakaros" as const },
+    { id: "vak-3", sailNumber: "ITA 101", source: "vakaros" as const },
+    { id: "vak-4", sailNumber: "ESP 303", source: "vakaros" as const },
+    { id: "vak-5", sailNumber: "NED 505", source: "vakaros" as const },
+    { id: "vak-6", sailNumber: "USA 707", source: "vakaros" as const },
+    { id: "vak-7", sailNumber: "GER 112", source: "vakaros" as const },
+    { id: "vak-8", sailNumber: "SUI 234", source: "vakaros" as const },
+    { id: "vak-9", sailNumber: "DEN 345", source: "vakaros" as const },
+    { id: "vak-10", sailNumber: "SWE 456", source: "vakaros" as const },
+    { id: "vak-11", sailNumber: "NOR 567", source: "vakaros" as const },
+    { id: "vak-12", sailNumber: "FIN 678", source: "vakaros" as const },
+    // Tractrac boats (12)
+    { id: "trac-1", sailNumber: "GRE 789", source: "tractrac" as const },
+    { id: "trac-2", sailNumber: "FRA 202", source: "tractrac" as const },
+    { id: "trac-3", sailNumber: "GBR 404", source: "tractrac" as const },
+    { id: "trac-4", sailNumber: "AUS 606", source: "tractrac" as const },
+    { id: "trac-5", sailNumber: "NZL 808", source: "tractrac" as const },
+    { id: "trac-6", sailNumber: "CAN 909", source: "tractrac" as const },
+    { id: "trac-7", sailNumber: "BRA 111", source: "tractrac" as const },
+    { id: "trac-8", sailNumber: "ARG 222", source: "tractrac" as const },
+    { id: "trac-9", sailNumber: "POL 333", source: "tractrac" as const },
+    { id: "trac-10", sailNumber: "CRO 444", source: "tractrac" as const },
+    { id: "trac-11", sailNumber: "JPN 555", source: "tractrac" as const },
+    { id: "trac-12", sailNumber: "KOR 666", source: "tractrac" as const },
   ];
 
   return boatConfigs.map(config => {
