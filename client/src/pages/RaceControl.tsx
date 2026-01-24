@@ -45,6 +45,7 @@ import { generateTemplateMarks, type ShapeTemplate } from "@/lib/shape-templates
 import { WindShiftAlert } from "@/components/WindShiftAlert";
 import { FloatingActionBar } from "@/components/FloatingActionBar";
 import { FleetStatusPanel } from "@/components/FleetStatusPanel";
+import { BoatCountDialog } from "@/components/BoatCountDialog";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
@@ -370,6 +371,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Wind direction when course was last aligned - for wind shift detection
   const [courseSetupWindDirection, setCourseSetupWindDirection] = useState<number | null>(null);
   
+  // Template loading workflow state
+  const [showBoatCountDialog, setShowBoatCountDialog] = useState(false);
+  const [pendingTemplateSetup, setPendingTemplateSetup] = useState<{
+    step: "fetch_weather" | "align_wind" | "boat_count" | "resize_start";
+    snapshotId?: string;
+  } | null>(null);
+  
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, demoBoats, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys, repositionDemoBoats } = useDemoModeContext();
@@ -688,6 +696,77 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setCourseSetupWindDirection(activeWeatherData.windDirection);
     }
   }, [startLineMarkCount, courseSetupWindDirection, activeWeatherData]);
+
+  // Template setup workflow effect - handles the automated steps after loading a template
+  // This is a simple state machine that runs once per step transition
+  const templateSetupProcessedRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    if (!pendingTemplateSetup) {
+      templateSetupProcessedRef.current = null;
+      return;
+    }
+    
+    // Prevent re-processing the same step
+    const stepKey = `${pendingTemplateSetup.step}-${marks.length}`;
+    if (templateSetupProcessedRef.current === stepKey) return;
+    
+    if (pendingTemplateSetup.step === "align_wind") {
+      // Guard: need weather and marks to proceed
+      if (!activeWeatherData || marks.length === 0) return;
+      
+      templateSetupProcessedRef.current = stepKey;
+      
+      const windDirection = activeWeatherData.windDirection;
+      const startMarks = marks.filter(m => m.isStartLine);
+      const windwardMark = marks.find(m => m.role === "windward" || (m.isCourseMark && m.name === "M1"));
+      
+      // If we have valid start line and windward mark, try to align
+      if (startMarks.length >= 2 && windwardMark) {
+        const startCenter = {
+          lat: startMarks.reduce((sum, m) => sum + m.lat, 0) / startMarks.length,
+          lng: startMarks.reduce((sum, m) => sum + m.lng, 0) / startMarks.length,
+        };
+        const latRad = startCenter.lat * Math.PI / 180;
+        const lngScale = Math.cos(latRad);
+        const dLat = windwardMark.lat - startCenter.lat;
+        const dLng = (windwardMark.lng - startCenter.lng) * lngScale;
+        let currentCourseAngle = Math.atan2(dLng, dLat) * 180 / Math.PI;
+        currentCourseAngle = ((currentCourseAngle % 360) + 360) % 360;
+        let rotationDelta = windDirection - currentCourseAngle;
+        while (rotationDelta > 180) rotationDelta -= 360;
+        while (rotationDelta < -180) rotationDelta += 360;
+        
+        // Only align if rotation needed is more than 5 degrees
+        if (Math.abs(rotationDelta) > 5) {
+          const pivotLat = startCenter.lat;
+          const pivotLng = startCenter.lng;
+          const rotationRad = rotationDelta * Math.PI / 180;
+          
+          // Batch all updates with Promise.all for consistency
+          Promise.all(marks.map(mark => {
+            const relLat = mark.lat - pivotLat;
+            const relLng = (mark.lng - pivotLng) * lngScale;
+            const newRelLat = relLat * Math.cos(rotationRad) - relLng * Math.sin(rotationRad);
+            const newRelLng = relLat * Math.sin(rotationRad) + relLng * Math.cos(rotationRad);
+            const newLat = pivotLat + newRelLat;
+            const newLng = pivotLng + newRelLng / lngScale;
+            return apiRequest("PATCH", `/api/marks/${mark.id}`, { lat: newLat, lng: newLng });
+          })).then(() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+            setCourseSetupWindDirection(windDirection);
+          });
+        } else {
+          // Already aligned, just capture wind direction
+          setCourseSetupWindDirection(windDirection);
+        }
+      }
+      
+      // Proceed to boat count dialog regardless of alignment result
+      setPendingTemplateSetup({ step: "boat_count" });
+      setShowBoatCountDialog(true);
+    }
+  }, [pendingTemplateSetup, activeWeatherData, marks, courseId]);
 
   // Determine if we should show the no-course dialog
   const showNoCourseDialog = !coursesLoading && !eventsLoading && currentEvent && !currentEvent.courseId && !activeCourseId;
@@ -1971,7 +2050,28 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         ? "Race course has been loaded at its saved location."
         : "Course shape has been placed at your current map location.",
     });
-  }, [currentCourse, marks, mapCenter, createMark, deleteAllMarks, updateCourse, activeWeatherData, toast]);
+    
+    // Start the automated template setup workflow
+    // Step 1: Fetch weather if not already available
+    if (!activeWeatherData) {
+      setPendingTemplateSetup({ step: "fetch_weather" });
+      // Trigger weather fetch at map center
+      weatherByLocation.mutate({ lat: mapCenter.lat, lng: mapCenter.lng }, {
+        onSuccess: () => {
+          // Weather fetched, move to next step
+          setPendingTemplateSetup({ step: "align_wind" });
+        },
+        onError: () => {
+          // Weather fetch failed, skip to boat count dialog
+          setPendingTemplateSetup({ step: "boat_count" });
+          setShowBoatCountDialog(true);
+        }
+      });
+    } else {
+      // Weather available, proceed to align to wind then show boat count dialog
+      setPendingTemplateSetup({ step: "align_wind" });
+    }
+  }, [currentCourse, marks, mapCenter, createMark, deleteAllMarks, updateCourse, activeWeatherData, toast, weatherByLocation]);
 
   // Clear all marks from the current course and set assigned buoys to idle
   const handleClearAllMarks = useCallback(async () => {
@@ -2574,6 +2674,108 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [lastCourseTransform, courseId, toast]);
 
+  // Resize start line based on boat count or crossing time target
+  const resizeStartLine = useCallback(async (params: { 
+    raceType: "fleet" | "match" | "team";
+    boatCount?: number;
+  }) => {
+    const pinMark = marks.find(m => m.role === "pin");
+    const cbMark = marks.find(m => m.role === "start_boat");
+    
+    if (!pinMark || !cbMark) {
+      toast({
+        title: "No Start Line",
+        description: "Please set up the start line first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Calculate current start line properties using average lat for cos correction
+    const avgLat = (pinMark.lat + cbMark.lat) / 2;
+    const cosLat = Math.cos(avgLat * Math.PI / 180);
+    const dLatMeters = (cbMark.lat - pinMark.lat) * 111000;
+    const dLngMeters = (cbMark.lng - pinMark.lng) * 111000 * cosLat;
+    const currentLength = Math.sqrt(dLatMeters * dLatMeters + dLngMeters * dLngMeters);
+    
+    // Guard against zero or near-zero length (overlapping marks)
+    if (currentLength < 1) {
+      toast({
+        title: "Invalid Start Line",
+        description: "Start line marks are too close together. Please reposition them.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Calculate target length
+    let targetLengthMeters: number;
+    const defaultBoatLength = 4.5; // Default boat length in meters (ILCA 7)
+    
+    if (params.raceType === "fleet" && params.boatCount) {
+      // Fleet race: boats × 1.5 boat lengths
+      targetLengthMeters = params.boatCount * defaultBoatLength * 1.5;
+    } else {
+      // Match/Team race: 25 seconds crossing at 2 knots broad reach
+      // Speed: 2 knots = 1.03 m/s
+      // Distance = speed × time = 1.03 × 25 = 25.75 meters
+      targetLengthMeters = 25.75;
+    }
+    
+    // Calculate scale factor with reasonable bounds
+    const scaleFactor = Math.min(Math.max(targetLengthMeters / currentLength, 0.1), 10);
+    
+    // Calculate start line center
+    const centerLat = (pinMark.lat + cbMark.lat) / 2;
+    const centerLng = (pinMark.lng + cbMark.lng) / 2;
+    
+    // Scale pin and CB from center
+    const pinOffset = {
+      lat: (pinMark.lat - centerLat) * scaleFactor,
+      lng: (pinMark.lng - centerLng) * scaleFactor,
+    };
+    const cbOffset = {
+      lat: (cbMark.lat - centerLat) * scaleFactor,
+      lng: (cbMark.lng - centerLng) * scaleFactor,
+    };
+    
+    const newPinLat = centerLat + pinOffset.lat;
+    const newPinLng = centerLng + pinOffset.lng;
+    const newCbLat = centerLat + cbOffset.lat;
+    const newCbLng = centerLng + cbOffset.lng;
+    
+    try {
+      await Promise.all([
+        apiRequest("PATCH", `/api/marks/${pinMark.id}`, { lat: newPinLat, lng: newPinLng }),
+        apiRequest("PATCH", `/api/marks/${cbMark.id}`, { lat: newCbLat, lng: newCbLng }),
+      ]);
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+      
+      toast({
+        title: "Start Line Sized",
+        description: params.raceType === "fleet" 
+          ? `Start line set for ${params.boatCount} boats (${Math.round(targetLengthMeters)}m)`
+          : `Start line set for ${params.raceType} racing (${Math.round(targetLengthMeters)}m)`,
+      });
+    } catch (error) {
+      toast({
+        title: "Resize Failed",
+        description: "Could not resize start line",
+        variant: "destructive",
+      });
+    }
+  }, [marks, courseId, toast]);
+
+  // Handle boat count dialog confirmation
+  const handleBoatCountConfirm = useCallback(async (result: { raceType: "fleet" | "match" | "team"; boatCount?: number }) => {
+    await resizeStartLine(result);
+    
+    // Complete template setup - switch to course view (marks phase)
+    setCurrentSetupPhase("marks");
+    setPendingTemplateSetup(null);
+    setShowBoatCountDialog(false);
+  }, [resizeStartLine]);
+
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
   if (isLoading && !demoMode) {
@@ -2966,6 +3168,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         onLoadSaved={handleLoadSavedCourse}
         isCreating={isCreatingCourse}
         isLoading={isLoadingCourse}
+      />
+
+      {/* Boat count dialog for template setup workflow */}
+      <BoatCountDialog
+        open={showBoatCountDialog}
+        onOpenChange={setShowBoatCountDialog}
+        onConfirm={handleBoatCountConfirm}
       />
 
       {/* Confirmation dialog for moving marks with assigned buoys */}
