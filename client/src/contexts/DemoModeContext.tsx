@@ -169,37 +169,57 @@ const DEMO_SIBLING_BUOYS: SiblingBuoy[] = [
   },
 ];
 
-const createDemoBoat = (
-  id: string,
-  sailNumber: string,
-  latOffset: number,
-  lngOffset: number,
-  heading: number,
-  speed: number,
-  source: "vakaros" | "tractrac"
-): TrackedBoat => ({
-  id,
-  sailNumber,
-  lat: MIKROLIMANO_CENTER.lat + latOffset,
-  lng: MIKROLIMANO_CENTER.lng + lngOffset,
-  heading,
-  speed,
-  timestamp: new Date(),
-  source,
-});
+const METERS_TO_LAT = 1 / 111320;
+const metersToLng = (lat: number) => 1 / (111320 * Math.cos(lat * Math.PI / 180));
 
-const DEMO_BOATS_INITIAL: TrackedBoat[] = [
-  createDemoBoat("boat-1", "GRE 123", 0.0005, 0.0010, 45, 5.2, "vakaros"),
-  createDemoBoat("boat-2", "GRE 456", 0.0008, 0.0015, 48, 4.8, "vakaros"),
-  createDemoBoat("boat-3", "GRE 789", 0.0003, 0.0008, 42, 5.5, "tractrac"),
-  createDemoBoat("boat-4", "ITA 101", 0.0006, 0.0012, 50, 4.5, "vakaros"),
-  createDemoBoat("boat-5", "FRA 202", 0.0010, 0.0018, 44, 5.0, "tractrac"),
-  createDemoBoat("boat-6", "ESP 303", 0.0002, 0.0005, 46, 5.3, "vakaros"),
-  createDemoBoat("boat-7", "GBR 404", 0.0007, 0.0014, 52, 4.2, "tractrac"),
-  createDemoBoat("boat-8", "NED 505", 0.0004, 0.0009, 40, 5.8, "vakaros"),
-  createDemoBoat("boat-9", "AUS 606", 0.0009, 0.0016, 47, 4.6, "tractrac"),
-  createDemoBoat("boat-10", "USA 707", 0.0001, 0.0003, 43, 5.1, "vakaros"),
-];
+function generateRandomPositionInRadius(
+  centerLat: number,
+  centerLng: number,
+  radiusMeters: number
+): { lat: number; lng: number } {
+  const angle = Math.random() * 2 * Math.PI;
+  const distance = Math.random() * radiusMeters;
+  const latOffset = distance * Math.cos(angle) * METERS_TO_LAT;
+  const lngOffset = distance * Math.sin(angle) * metersToLng(centerLat);
+  return {
+    lat: centerLat + latOffset,
+    lng: centerLng + lngOffset,
+  };
+}
+
+function createDemoBoatsNearPosition(centerLat: number, centerLng: number): TrackedBoat[] {
+  const boatConfigs = [
+    { id: "boat-1", sailNumber: "GRE 123", source: "vakaros" as const },
+    { id: "boat-2", sailNumber: "GRE 456", source: "vakaros" as const },
+    { id: "boat-3", sailNumber: "GRE 789", source: "tractrac" as const },
+    { id: "boat-4", sailNumber: "ITA 101", source: "vakaros" as const },
+    { id: "boat-5", sailNumber: "FRA 202", source: "tractrac" as const },
+    { id: "boat-6", sailNumber: "ESP 303", source: "vakaros" as const },
+    { id: "boat-7", sailNumber: "GBR 404", source: "tractrac" as const },
+    { id: "boat-8", sailNumber: "NED 505", source: "vakaros" as const },
+    { id: "boat-9", sailNumber: "AUS 606", source: "tractrac" as const },
+    { id: "boat-10", sailNumber: "USA 707", source: "vakaros" as const },
+  ];
+
+  return boatConfigs.map(config => {
+    const pos = generateRandomPositionInRadius(centerLat, centerLng, 200);
+    return {
+      id: config.id,
+      sailNumber: config.sailNumber,
+      lat: pos.lat,
+      lng: pos.lng,
+      heading: Math.random() * 360,
+      speed: 3 + Math.random() * 4,
+      timestamp: new Date(),
+      source: config.source,
+    };
+  });
+}
+
+const DEMO_BOATS_INITIAL: TrackedBoat[] = createDemoBoatsNearPosition(
+  MIKROLIMANO_CENTER.lat,
+  MIKROLIMANO_CENTER.lng
+);
 
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const EARTH_RADIUS_NM = 3440.065;
@@ -221,6 +241,7 @@ interface DemoModeContextType {
   sendCommand: (buoyId: string, command: "move_to_target" | "hold_position" | "cancel", targetLat?: number, targetLng?: number) => void;
   resetDemoBuoys: () => void;
   repositionDemoBuoys: (centerLat: number, centerLng: number) => void;
+  repositionDemoBoats: (centerLat: number, centerLng: number) => void;
   updateDemoWeather: (windSpeed: number, windDirection: number) => void;
 }
 
@@ -245,6 +266,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
   });
 
   const [demoBoats, setDemoBoats] = useState<TrackedBoat[]>(DEMO_BOATS_INITIAL);
+  const boatCenterRef = useRef<{ lat: number; lng: number }>(MIKROLIMANO_CENTER);
   
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const boatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -325,6 +347,11 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     }
 
     boatIntervalRef.current = setInterval(() => {
+      const center = boatCenterRef.current;
+      const maxRadiusMeters = 200;
+      const maxRadiusLat = maxRadiusMeters * METERS_TO_LAT;
+      const maxRadiusLng = maxRadiusMeters * metersToLng(center.lat);
+      
       setDemoBoats(prev => prev.map(boat => {
         const headingRad = boat.heading * Math.PI / 180;
         const speedKnots = boat.speed + (Math.random() - 0.5) * 0.5;
@@ -337,14 +364,17 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
         let newLng = boat.lng + lngDelta;
         let newHeading = boat.heading + (Math.random() - 0.5) * 5;
         
-        const distFromCenter = Math.sqrt(
-          Math.pow(newLat - MIKROLIMANO_CENTER.lat, 2) + 
-          Math.pow(newLng - MIKROLIMANO_CENTER.lng, 2)
+        const distLatFromCenter = Math.abs(newLat - center.lat);
+        const distLngFromCenter = Math.abs(newLng - center.lng);
+        const normalizedDist = Math.sqrt(
+          Math.pow(distLatFromCenter / maxRadiusLat, 2) + 
+          Math.pow(distLngFromCenter / maxRadiusLng, 2)
         );
-        if (distFromCenter > 0.003) {
+        
+        if (normalizedDist > 1) {
           const angleToCenter = Math.atan2(
-            MIKROLIMANO_CENTER.lng - newLng,
-            MIKROLIMANO_CENTER.lat - newLat
+            center.lng - newLng,
+            center.lat - newLat
           ) * 180 / Math.PI;
           newHeading = angleToCenter + (Math.random() - 0.5) * 30;
         }
@@ -446,6 +476,11 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     })));
   }, []);
 
+  const repositionDemoBoats = useCallback((centerLat: number, centerLng: number) => {
+    boatCenterRef.current = { lat: centerLat, lng: centerLng };
+    setDemoBoats(createDemoBoatsNearPosition(centerLat, centerLng));
+  }, []);
+
   const toggleDemoMode = useCallback(() => {
     setEnabled(prev => !prev);
   }, []);
@@ -461,6 +496,7 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
       sendCommand,
       resetDemoBuoys,
       repositionDemoBuoys,
+      repositionDemoBoats,
       updateDemoWeather,
     }}>
       {children}

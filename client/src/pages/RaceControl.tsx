@@ -361,7 +361,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   
   const { toast } = useToast();
 
-  const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, demoBoats, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys } = useDemoModeContext();
+  const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, demoBoats, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys, repositionDemoBoats } = useDemoModeContext();
 
   const { data: allBuoys = [], isLoading: allBuoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
@@ -545,6 +545,23 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
     // If event has no course, leave activeCourseId as null - dialog will show
   }, [coursesLoading, courses, activeCourseId, currentEvent?.courseId]);
+
+  // Reposition demo boats near the committee boat when boat tracking is enabled
+  useEffect(() => {
+    if (!demoMode) return;
+    if (!integrationSettings.vakaros.enabled && !integrationSettings.tractrac.enabled) return;
+    if (marks.length === 0) return;
+    
+    const committeeBoat = marks.find(m => m.role === "start_boat" || m.name === "Committee Boat" || m.name === "Start Boat");
+    if (committeeBoat) {
+      repositionDemoBoats(committeeBoat.lat, committeeBoat.lng);
+    } else {
+      // Fall back to course center if no committee boat
+      const avgLat = marks.reduce((sum, m) => sum + m.lat, 0) / marks.length;
+      const avgLng = marks.reduce((sum, m) => sum + m.lng, 0) / marks.length;
+      repositionDemoBoats(avgLat, avgLng);
+    }
+  }, [demoMode, integrationSettings.vakaros.enabled, integrationSettings.tractrac.enabled, marks.length > 0, repositionDemoBoats]);
 
   // Determine if we should show the no-course dialog
   const showNoCourseDialog = !coursesLoading && !eventsLoading && currentEvent && !currentEvent.courseId && !activeCourseId;
