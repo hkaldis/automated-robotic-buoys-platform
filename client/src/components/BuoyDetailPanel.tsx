@@ -406,6 +406,19 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
           </Button>
         )}
 
+        {/* Show Loitering button for idle buoys without assigned marks */}
+        {buoy.state === "idle" && !hasAssignedMark && (
+          <Button 
+            className="w-full h-12 gap-2" 
+            onClick={() => handleCommand("hold_position")}
+            disabled={buoyCommand.isPending}
+            data-testid="button-start-loitering"
+          >
+            <Pause className="w-4 h-4" />
+            Start Loitering
+          </Button>
+        )}
+
         {isMoving && (
           <Button 
             className="w-full h-12 gap-2" 
