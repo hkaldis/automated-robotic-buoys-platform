@@ -134,10 +134,14 @@ function createBuoyIcon(buoy: Buoy, isSelected: boolean): L.DivIcon {
   const baseColor = stateColors[buoy.state] || "#3b82f6";
   const initial = buoy.name.charAt(0).toUpperCase();
   const ring = isSelected ? `<div style="position:absolute;top:-4px;left:-4px;width:48px;height:48px;border:3px solid #3b82f6;border-radius:50%;"></div>` : "";
-  const batteryRing = isLowBattery ? `<div style="position:absolute;top:-2px;left:-2px;width:44px;height:44px;border:2px dashed #a855f7;border-radius:50%;"></div>` : "";
+  
+  // Low battery pulsing ring with animation (uses CSS class from index.css)
+  const batteryRing = isLowBattery ? `
+    <div class="low-battery-pulse" style="position:absolute;top:-6px;left:-6px;width:52px;height:52px;border:3px solid #a855f7;border-radius:50%;"></div>
+  ` : "";
 
   return L.divIcon({
-    className: "custom-buoy-marker",
+    className: `custom-buoy-marker${isLowBattery ? ' low-battery' : ''}`,
     html: `
       <div style="position:relative;width:40px;height:40px;z-index:1000;pointer-events:auto;">
         ${ring}

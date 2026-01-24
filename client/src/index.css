@@ -25,6 +25,16 @@
   border: none !important;
 }
 
+/* Low battery buoy pulsing animation */
+@keyframes batteryPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.1); }
+}
+
+.low-battery-pulse {
+  animation: batteryPulse 1.5s ease-in-out infinite;
+}
+
 .custom-mark-marker {
   cursor: grab;
   transition: transform 0.15s ease-out, filter 0.15s ease-out;

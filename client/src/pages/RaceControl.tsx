@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { executeAutoAssignWithRecovery } from "@/lib/batchedMutations";
 import { useBuoyFollow } from "@/hooks/use-buoy-follow";
 import { generateTemplateMarks, type ShapeTemplate } from "@/lib/shape-templates";
+import { WindShiftAlert } from "@/components/WindShiftAlert";
 
 const MIKROLIMANO_CENTER = { lat: 37.9376, lng: 23.6917 };
 const DEFAULT_CENTER = MIKROLIMANO_CENTER;
@@ -362,6 +363,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Move course mode - when enabled, clicking on map moves entire course to that location
   const [moveCourseMode, setMoveCourseMode] = useState(false);
   
+  // Wind direction when course was last aligned - for wind shift detection
+  const [courseSetupWindDirection, setCourseSetupWindDirection] = useState<number | null>(null);
+  
   const { toast } = useToast();
 
   const { enabled: demoMode, toggleDemoMode, demoBuoys, demoSiblingBuoys, demoBoats, sendCommand: sendDemoCommand, updateDemoWeather, repositionDemoBuoys, repositionDemoBoats } = useDemoModeContext();
@@ -579,6 +583,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       repositionDemoBoats(avgLat, avgLng);
     }
   }, [demoMode, integrationSettings.vakaros.enabled, integrationSettings.tractrac.enabled, marks.length > 0, repositionDemoBoats]);
+
+  // Capture wind direction when start line is first completed (for wind shift detection)
+  // This handles manual course setup scenarios where align/template/load aren't used
+  const startLineMarkCount = useMemo(() => marks.filter(m => m.isStartLine).length, [marks]);
+  useEffect(() => {
+    // Only capture when start line becomes complete (2 marks) and we haven't set setup wind yet
+    if (startLineMarkCount >= 2 && courseSetupWindDirection === null && activeWeatherData) {
+      setCourseSetupWindDirection(activeWeatherData.windDirection);
+    }
+  }, [startLineMarkCount, courseSetupWindDirection, activeWeatherData]);
 
   // Determine if we should show the no-course dialog
   const showNoCourseDialog = !coursesLoading && !eventsLoading && currentEvent && !currentEvent.courseId && !activeCourseId;
@@ -1802,13 +1816,18 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     
     queryClient.invalidateQueries({ queryKey: ["/api/courses", currentCourse.id, "marks"] });
     
+    // Capture current wind direction as the "setup" wind for shift detection
+    if (activeWeatherData) {
+      setCourseSetupWindDirection(activeWeatherData.windDirection);
+    }
+    
     toast({
       title: mode === "exact" ? "Course Loaded" : "Course Shape Loaded",
       description: mode === "exact" 
         ? "Race course has been loaded at its saved location."
         : "Course shape has been placed at your current map location.",
     });
-  }, [currentCourse, marks, mapCenter, createMark, deleteAllMarks, updateCourse, toast]);
+  }, [currentCourse, marks, mapCenter, createMark, deleteAllMarks, updateCourse, activeWeatherData, toast]);
 
   // Clear all marks from the current course and set assigned buoys to idle
   const handleClearAllMarks = useCallback(async () => {
@@ -1937,6 +1956,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         });
       }
       
+      // Capture current wind direction as the "setup" wind for shift detection
+      setCourseSetupWindDirection(windDir);
+      
       toast({
         title: "Template Applied",
         description: `${template.name} - ${generatedMarks.length} course points added.`,
@@ -2005,6 +2027,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     while (rotationDelta < -180) rotationDelta += 360;
     
     handleTransformCourse({ rotation: rotationDelta });
+    
+    // Save the wind direction when course was aligned for wind shift detection
+    setCourseSetupWindDirection(windDirection);
     
     toast({
       title: "Course Aligned to Wind",
@@ -2483,6 +2508,15 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         <main className="flex-1 relative min-w-0 overflow-hidden">
+          {/* Wind Shift Alert - shows when wind shifts >10° from course setup */}
+          {courseSetupWindDirection !== null && activeWeatherData && (
+            <WindShiftAlert
+              setupWindDirection={courseSetupWindDirection}
+              currentWindDirection={activeWeatherData.windDirection}
+              onRealign={handleAlignCourseToWind}
+            />
+          )}
+          
           <LeafletMap 
             buoys={buoys}
             marks={marks}
