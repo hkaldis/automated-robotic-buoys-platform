@@ -2751,7 +2751,44 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             isDeploying={isDeployingAll}
             deployingCount={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
             totalBuoys={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
-            onStationCount={buoys.filter(b => b.state === "holding_position" && marks.some(m => m.assignedBuoyId === b.id || m.gatePortBuoyId === b.id || m.gateStarboardBuoyId === b.id)).length}
+            onStationCount={(() => {
+              const THRESHOLD_METERS = 15;
+              const windDir = activeWeatherData?.windDirection ?? 225;
+              let count = 0;
+              marks.forEach(mark => {
+                if (mark.isGate) {
+                  const gateWidth = (mark.gateWidthBoatLengths ?? 8) * (mark.boatLengthMeters ?? 6);
+                  const halfWidthDeg = (gateWidth / 2) / 111000;
+                  const perpAngle = (windDir + 90) % 360;
+                  const perpRad = perpAngle * Math.PI / 180;
+                  if (mark.gatePortBuoyId) {
+                    const buoy = buoys.find(b => b.id === mark.gatePortBuoyId);
+                    if (buoy) {
+                      const targetLat = mark.lat + halfWidthDeg * Math.cos(perpRad);
+                      const targetLng = mark.lng + halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+                      const dist = Math.sqrt(Math.pow((buoy.lat - targetLat) * 111000, 2) + Math.pow((buoy.lng - targetLng) * 111000 * Math.cos(buoy.lat * Math.PI / 180), 2));
+                      if (dist < THRESHOLD_METERS) count++;
+                    }
+                  }
+                  if (mark.gateStarboardBuoyId) {
+                    const buoy = buoys.find(b => b.id === mark.gateStarboardBuoyId);
+                    if (buoy) {
+                      const targetLat = mark.lat - halfWidthDeg * Math.cos(perpRad);
+                      const targetLng = mark.lng - halfWidthDeg * Math.sin(perpRad) / Math.cos(mark.lat * Math.PI / 180);
+                      const dist = Math.sqrt(Math.pow((buoy.lat - targetLat) * 111000, 2) + Math.pow((buoy.lng - targetLng) * 111000 * Math.cos(buoy.lat * Math.PI / 180), 2));
+                      if (dist < THRESHOLD_METERS) count++;
+                    }
+                  }
+                } else if (mark.assignedBuoyId) {
+                  const buoy = buoys.find(b => b.id === mark.assignedBuoyId);
+                  if (buoy) {
+                    const dist = Math.sqrt(Math.pow((buoy.lat - mark.lat) * 111000, 2) + Math.pow((buoy.lng - mark.lng) * 111000 * Math.cos(buoy.lat * Math.PI / 180), 2));
+                    if (dist < THRESHOLD_METERS) count++;
+                  }
+                }
+              });
+              return count;
+            })()}
             movingCount={buoys.filter(b => b.state === "moving_to_target").length}
             needsWindAlignment={(() => {
               if (!activeWeatherData || marks.length === 0) return false;
