@@ -891,196 +891,200 @@ export function SetupPanel({
     switch (phase) {
       case "start_line":
         return (
-          <div className="flex-1 flex flex-col p-3 gap-2 min-h-0 overflow-hidden">
-            {/* Quick Start button - prominent placement for easy access */}
-            {!hasStartLine && (
-              <Button
-                size="lg"
-                className="w-full h-14 gap-2 text-base"
-                onClick={() => setShowQuickStartDialog(true)}
-                data-testid="button-quick-start"
-              >
-                <Compass className="h-5 w-5" />
-                Quick Start
-              </Button>
-            )}
-
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/30">
-                <Flag className="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-sm font-semibold">{hasStartLine ? "Start Line" : "Or Build Manually"}</h2>
-                <p className="text-xs text-muted-foreground">Add Pin End & Committee Boat</p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {/* Committee Boat row - use committeeMark directly for consistent detection */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={committeeMark ? "secondary" : "default"}
-                  className={cn(
-                    "flex-1 gap-2 justify-start",
-                    committeeMark && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  )}
-                  onClick={() => committeeMark ? onMarkSelect?.(committeeMark.id) : handleAddStartLineMark("committee_boat")}
-                  data-testid="button-add-committee-boat"
-                >
-                  {committeeMark ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Ship className="w-4 h-4" />
-                  )}
-                  Committee Boat
-                </Button>
-                {committeeMark && (
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="p-3 space-y-2">
+                {/* Quick Start button - prominent placement for easy access */}
+                {!hasStartLine && (
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onMarkSelect?.(committeeMark.id)}
-                    data-testid="button-edit-committee-boat"
+                    size="lg"
+                    className="w-full h-14 gap-2 text-base"
+                    onClick={() => setShowQuickStartDialog(true)}
+                    data-testid="button-quick-start"
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Compass className="h-5 w-5" />
+                    Quick Start
                   </Button>
                 )}
-              </div>
 
-              {/* Pin End row - use pinMark directly for consistent detection */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={pinMark ? "secondary" : "default"}
-                  className={cn(
-                    "flex-1 gap-2 justify-start",
-                    pinMark && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  )}
-                  onClick={() => pinMark ? onMarkSelect?.(pinMark.id) : handleAddStartLineMark("pin")}
-                  data-testid="button-add-pin-end"
-                >
-                  {pinMark ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Plus className="w-4 h-4" />
-                  )}
-                  Pin End
-                </Button>
-                {pinMark && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => onMarkSelect?.(pinMark.id)}
-                    data-testid="button-edit-pin-end"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {hasStartLine && (
-              <div className="space-y-3 pt-2">
-                {/* Move Start Line controls */}
-                <div className="p-2 rounded-lg bg-muted/50">
-                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                    <Move className="w-3 h-3" />
-                    Move Start Line
-                  </p>
-                  <div className="flex items-center justify-center gap-1">
-                    <Button 
-                      variant="outline" 
-                      className="h-10 w-10 p-0" 
-                      onClick={() => handleNudgeStartLine("west")} 
-                      data-testid="button-nudge-startline-west"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </Button>
-                    <div className="flex flex-col gap-1">
-                      <Button 
-                        variant="outline" 
-                        className="h-10 w-10 p-0" 
-                        onClick={() => handleNudgeStartLine("north")} 
-                        data-testid="button-nudge-startline-north"
-                      >
-                        <ChevronUp className="w-5 h-5" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="h-10 w-10 p-0" 
-                        onClick={() => handleNudgeStartLine("south")} 
-                        data-testid="button-nudge-startline-south"
-                      >
-                        <ChevronDown className="w-5 h-5" />
-                      </Button>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      className="h-10 w-10 p-0" 
-                      onClick={() => handleNudgeStartLine("east")} 
-                      data-testid="button-nudge-startline-east"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </Button>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center bg-green-100 dark:bg-green-900/30">
+                    <Flag className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold">{hasStartLine ? "Start Line" : "Or Build Manually"}</h2>
+                    <p className="text-xs text-muted-foreground">Add Pin End & Committee Boat</p>
                   </div>
                 </div>
 
-                {/* Line Length widget */}
-                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Line Length</p>
-                    <p className="text-sm font-semibold">{startLineLength.toFixed(0)} m</p>
-                    {boatClass?.lengthMeters && (
-                      <p className="text-xs text-muted-foreground">
-                        ({(startLineLength / boatClass.lengthMeters).toFixed(1)} boat lengths)
-                      </p>
+                <div className="space-y-2">
+                  {/* Committee Boat row - use committeeMark directly for consistent detection */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={committeeMark ? "secondary" : "default"}
+                      className={cn(
+                        "flex-1 gap-2 justify-start",
+                        committeeMark && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      )}
+                      onClick={() => committeeMark ? onMarkSelect?.(committeeMark.id) : handleAddStartLineMark("committee_boat")}
+                      data-testid="button-add-committee-boat"
+                    >
+                      {committeeMark ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Ship className="w-4 h-4" />
+                      )}
+                      Committee Boat
+                    </Button>
+                    {committeeMark && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onMarkSelect?.(committeeMark.id)}
+                        data-testid="button-edit-committee-boat"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
                     )}
                   </div>
-                  <div className="flex gap-1">
+
+                  {/* Pin End row - use pinMark directly for consistent detection */}
+                  <div className="flex items-center gap-2">
                     <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleResizeStartLine(false)}
-                      data-testid="button-shrink-line"
+                      variant={pinMark ? "secondary" : "default"}
+                      className={cn(
+                        "flex-1 gap-2 justify-start",
+                        pinMark && "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                      )}
+                      onClick={() => pinMark ? onMarkSelect?.(pinMark.id) : handleAddStartLineMark("pin")}
+                      data-testid="button-add-pin-end"
                     >
-                      <Minus className="w-4 h-4" />
+                      {pinMark ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      Pin End
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleResizeStartLine(true)}
-                      data-testid="button-grow-line"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
+                    {pinMark && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => onMarkSelect?.(pinMark.id)}
+                        data-testid="button-edit-pin-end"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                {startLineCrossingTime && (
-                  <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Crossing time
-                    </p>
-                    <p className="text-sm font-semibold">{startLineCrossingTime.timeFormatted}</p>
-                    <p className="text-xs text-muted-foreground">
-                      ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
-                    </p>
+                {hasStartLine && (
+                  <div className="space-y-3 pt-2">
+                    {/* Move Start Line controls */}
+                    <div className="p-2 rounded-lg bg-muted/50">
+                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <Move className="w-3 h-3" />
+                        Move Start Line
+                      </p>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button 
+                          variant="outline" 
+                          className="h-10 w-10 p-0" 
+                          onClick={() => handleNudgeStartLine("west")} 
+                          data-testid="button-nudge-startline-west"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </Button>
+                        <div className="flex flex-col gap-1">
+                          <Button 
+                            variant="outline" 
+                            className="h-10 w-10 p-0" 
+                            onClick={() => handleNudgeStartLine("north")} 
+                            data-testid="button-nudge-startline-north"
+                          >
+                            <ChevronUp className="w-5 h-5" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            className="h-10 w-10 p-0" 
+                            onClick={() => handleNudgeStartLine("south")} 
+                            data-testid="button-nudge-startline-south"
+                          >
+                            <ChevronDown className="w-5 h-5" />
+                          </Button>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          className="h-10 w-10 p-0" 
+                          onClick={() => handleNudgeStartLine("east")} 
+                          data-testid="button-nudge-startline-east"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Line Length widget */}
+                    <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-muted/50">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Line Length</p>
+                        <p className="text-sm font-semibold">{startLineLength.toFixed(0)} m</p>
+                        {boatClass?.lengthMeters && (
+                          <p className="text-xs text-muted-foreground">
+                            ({(startLineLength / boatClass.lengthMeters).toFixed(1)} boat lengths)
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleResizeStartLine(false)}
+                          data-testid="button-shrink-line"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleResizeStartLine(true)}
+                          data-testid="button-grow-line"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {startLineCrossingTime && (
+                      <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20">
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Crossing time
+                        </p>
+                        <p className="text-sm font-semibold">{startLineCrossingTime.timeFormatted}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ({startLineCrossingTime.pointOfSail.replace("_", " ")} @ {windSpeed?.toFixed(0) ?? "?"} kts wind)
+                        </p>
+                      </div>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={handleFixBearing}
+                      disabled={windDirection === undefined}
+                      data-testid="button-fix-bearing"
+                    >
+                      <Compass className="w-4 h-4" />
+                      Fix Bearing to Wind
+                    </Button>
                   </div>
                 )}
-
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={handleFixBearing}
-                  disabled={windDirection === undefined}
-                  data-testid="button-fix-bearing"
-                >
-                  <Compass className="w-4 h-4" />
-                  Fix Bearing to Wind
-                </Button>
               </div>
-            )}
+            </ScrollArea>
 
-            <div className="pt-3 border-t mt-auto">
+            <div className="p-3 border-t shrink-0 bg-card">
               <Button
                 className="w-full gap-2"
                 disabled={!hasStartLine}

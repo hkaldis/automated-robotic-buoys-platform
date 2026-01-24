@@ -8,6 +8,10 @@ This project is a tablet-first web application designed for Race Officers to man
 
 Preferred communication style: Simple, everyday language.
 
+## Test Credentials
+- Username: Alconadmin
+- Password: Marks
+
 ## System Architecture
 
 ### Frontend
