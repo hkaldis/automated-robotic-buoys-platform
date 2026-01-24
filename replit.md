@@ -55,7 +55,7 @@ The design is tablet-first with large, touch-friendly controls (min 56px targets
 - **Hold All**: Emergency stop for all moving/assigned buoys.
 - **All Green Indicator**: Status display in FloatingActionBar shows buoy deployment progress ("X/Y On Station") and lights up green when all buoys reach position.
 - **Collapsible SetupPanel**: Panel collapses to 56px-wide status strip with phase indicator dots, maximizing map view for race officers.
-- **Quick Start Mode**: Template selection dialog (Triangle, Trapezoid, Windward-Leeward) bypasses 6-phase wizard for rapid course setup.
+- **Quick Start Mode**: Category-first template selection dialog. First select category (Triangle, Trapezoid, Windward-Leeward, Other), then browse templates in that category with thumbnails and metadata. Single back button for simple navigation. All touch targets 56px+ for wet-finger operation.
 - **Tap-and-Hold Gesture**: Long-press (600ms) on map directly places a course mark, designed for intuitive wet-finger operation. Only active when not in other placement/editing modes.
 
 ### Design System (`client/src/design-system.ts`)
