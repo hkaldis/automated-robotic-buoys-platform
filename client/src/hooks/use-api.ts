@@ -471,6 +471,9 @@ export interface CourseSnapshot {
   sailClubId: string | null;
   sailClubName: string | null;
   visibilityScope: string;
+  category: string;
+  description: string | null;
+  thumbnailSvg: string | null;
   shape: string;
   centerLat: number;
   centerLng: number;
@@ -517,11 +520,19 @@ export function useCourseSnapshots(params: CourseSnapshotListParams = {}) {
   });
 }
 
+export interface SaveCourseSnapshotData {
+  courseId: string;
+  name: string;
+  category?: string;
+  description?: string;
+  thumbnailSvg?: string;
+}
+
 export function useSaveCourseSnapshot(onError?: (error: Error) => void) {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { courseId: string; name: string }) => {
+    mutationFn: async (data: SaveCourseSnapshotData) => {
       const res = await apiRequest("POST", "/api/course-snapshots", data);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

@@ -264,6 +264,10 @@ export const snapshotMarkSchema = z.object({
 });
 export type SnapshotMark = z.infer<typeof snapshotMarkSchema>;
 
+// Course template categories
+export const templateCategorySchema = z.enum(["triangle", "trapezoid", "windward_leeward", "other"]);
+export type TemplateCategory = z.infer<typeof templateCategorySchema>;
+
 // Immutable course snapshots - complete copy of course state at save time
 export const courseSnapshots = pgTable("course_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -275,6 +279,11 @@ export const courseSnapshots = pgTable("course_snapshots", {
   sailClubId: varchar("sail_club_id"),            // Club association (null for super_admin global)
   sailClubName: text("sail_club_name"),           // For display without joins
   visibilityScope: text("visibility_scope").notNull().default("user"), // global, club, user
+  
+  // Template metadata (enhanced for Quick Start integration)
+  category: text("category").notNull().default("other"), // triangle, trapezoid, windward_leeward, other
+  description: text("description"),               // Optional description for templates
+  thumbnailSvg: text("thumbnail_svg"),            // Auto-generated SVG preview
   
   // Course metadata snapshot
   shape: text("shape").notNull(),
@@ -439,6 +448,9 @@ export const insertCourseSnapshotSchema = createInsertSchema(courseSnapshots).pi
   sailClubId: true,
   sailClubName: true,
   visibilityScope: true,
+  category: true,
+  description: true,
+  thumbnailSvg: true,
   shape: true,
   centerLat: true,
   centerLng: true,

@@ -21,6 +21,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSettings } from "@/hooks/use-settings";
 import { ALL_SHAPE_TEMPLATES, TRIANGLE_TEMPLATES, TRAPEZOID_TEMPLATES, type ShapeTemplate } from "@/lib/shape-templates";
 import { QuickStartDialog } from "./QuickStartDialog";
+import { generateCourseThumbnail, getCategoryLabel } from "@/lib/course-thumbnail";
+import type { TemplateCategory, SnapshotMark } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
+import { Triangle, Square, ArrowUpDown, Sparkles } from "lucide-react";
 
 type SetupPhase = "start_line" | "marks" | "finish_line" | "sequence" | "summary" | "assign_buoys" | "ready";
 
@@ -62,7 +66,7 @@ interface SetupPanelProps {
   onSaveMark?: (id: string, data: Partial<Mark>) => void | Promise<void>;
   onAddMark?: (data: { name: string; role: MarkRole; lat?: number; lng?: number; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
   onPlaceMarkOnMap?: (data: { name: string; role: MarkRole; isStartLine?: boolean; isFinishLine?: boolean; isCourseMark?: boolean }) => void;
-  onSaveCourse?: (name: string) => void;
+  onSaveCourse?: (data: { name: string; category?: TemplateCategory; description?: string; thumbnailSvg?: string }) => void;
   onLoadCourse?: (snapshot: CourseSnapshot, mode: "exact" | "shape_only") => void;
   mapCenter?: { lat: number; lng: number };
   onTransformCourse?: (transform: { scale?: number; rotation?: number; translateLat?: number; translateLng?: number }) => void;
@@ -267,6 +271,8 @@ export function SetupPanel({
     }
   };
   const [courseName, setCourseName] = useState("");
+  const [courseCategory, setCourseCategory] = useState<TemplateCategory>("other");
+  const [courseDescription, setCourseDescription] = useState("");
   
   // State for load course dialog - supports external control from TopBar
   const [internalShowLoadDialog, setInternalShowLoadDialog] = useState(false);
@@ -630,9 +636,33 @@ export function SetupPanel({
 
   const handleSaveCourse = () => {
     if (courseName.trim() && onSaveCourse) {
-      onSaveCourse(courseName.trim());
+      const snapshotMarks: SnapshotMark[] = marks.map(m => ({
+        name: m.name,
+        role: m.role,
+        order: m.order,
+        lat: m.lat,
+        lng: m.lng,
+        isStartLine: m.isStartLine,
+        isFinishLine: m.isFinishLine,
+        isCourseMark: m.isCourseMark,
+        isGate: m.isGate,
+        gateWidthBoatLengths: m.gateWidthBoatLengths,
+        boatLengthMeters: m.boatLengthMeters,
+        gatePartnerId: m.gatePartnerId,
+        gateSide: m.gateSide,
+      }));
+      const thumbnailSvg = generateCourseThumbnail(snapshotMarks, roundingSequence);
+      
+      onSaveCourse({
+        name: courseName.trim(),
+        category: courseCategory,
+        description: courseDescription.trim() || undefined,
+        thumbnailSvg,
+      });
       setShowSaveDialog(false);
       setCourseName("");
+      setCourseCategory("other");
+      setCourseDescription("");
     }
   };
 
@@ -2496,26 +2526,115 @@ export function SetupPanel({
       {/* Phase content */}
       {renderPhaseContent()}
 
-      {/* Save Course Dialog */}
-      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
-        <DialogContent>
+      {/* Save Course Dialog - Enhanced with category and preview */}
+      <Dialog open={showSaveDialog} onOpenChange={(open) => {
+        setShowSaveDialog(open);
+        if (!open) {
+          setCourseName("");
+          setCourseCategory("other");
+          setCourseDescription("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Save Race Course</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Save className="h-5 w-5" />
+              Save Race Course
+            </DialogTitle>
           </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Enter course name..."
-              value={courseName}
-              onChange={(e) => setCourseName(e.target.value)}
-              data-testid="input-course-name"
-            />
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="course-name">Course Name</Label>
+              <Input
+                id="course-name"
+                placeholder="e.g., Olympic Triangle 60°"
+                value={courseName}
+                onChange={(e) => setCourseName(e.target.value)}
+                data-testid="input-course-name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {(["triangle", "trapezoid", "windward_leeward", "other"] as TemplateCategory[]).map((cat) => {
+                  const isSelected = courseCategory === cat;
+                  const icons: Record<TemplateCategory, typeof Triangle> = {
+                    triangle: Triangle,
+                    trapezoid: Square,
+                    windward_leeward: ArrowUpDown,
+                    other: Sparkles,
+                  };
+                  const Icon = icons[cat];
+                  return (
+                    <Button
+                      key={cat}
+                      variant={isSelected ? "default" : "outline"}
+                      className={cn("h-14 flex-col gap-1", isSelected && "ring-2 ring-offset-2")}
+                      onClick={() => setCourseCategory(cat)}
+                      data-testid={`button-category-${cat}`}
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-[10px]">{getCategoryLabel(cat)}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="course-description">Description (optional)</Label>
+              <Textarea
+                id="course-description"
+                placeholder="e.g., Good for 8-12kt winds"
+                value={courseDescription}
+                onChange={(e) => setCourseDescription(e.target.value)}
+                className="resize-none h-16"
+                data-testid="input-course-description"
+              />
+            </div>
+            
+            {marks.length > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                <div 
+                  className="w-16 h-16 flex-shrink-0 bg-background rounded border"
+                  dangerouslySetInnerHTML={{ 
+                    __html: generateCourseThumbnail(
+                      marks.map(m => ({
+                        name: m.name,
+                        role: m.role,
+                        order: m.order,
+                        lat: m.lat,
+                        lng: m.lng,
+                        isStartLine: m.isStartLine,
+                        isFinishLine: m.isFinishLine,
+                        isCourseMark: m.isCourseMark,
+                        isGate: m.isGate,
+                        gateWidthBoatLengths: m.gateWidthBoatLengths,
+                        boatLengthMeters: m.boatLengthMeters,
+                        gatePartnerId: m.gatePartnerId,
+                        gateSide: m.gateSide,
+                      })),
+                      roundingSequence
+                    )
+                  }}
+                />
+                <div className="text-sm text-muted-foreground">
+                  <p><strong>{marks.length}</strong> marks</p>
+                  {roundingSequence.length > 0 && (
+                    <p><strong>{roundingSequence.length}</strong> waypoints</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
               Cancel
             </Button>
             <Button onClick={handleSaveCourse} disabled={!courseName.trim()} data-testid="button-confirm-save">
-              Save
+              <Save className="h-4 w-4 mr-2" />
+              Save Course
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3021,6 +3140,7 @@ export function SetupPanel({
         open={showQuickStartDialog}
         onOpenChange={setShowQuickStartDialog}
         onSelectTemplate={handleQuickStartTemplate}
+        onLoadCourse={onLoadCourse}
         hasWindData={windDirection !== undefined}
       />
     </div>

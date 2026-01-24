@@ -1768,7 +1768,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [marks, updateMark]);
 
   // Save course as immutable snapshot
-  const handleSaveCourse = useCallback(async (name: string) => {
+  const handleSaveCourse = useCallback(async (data: { name: string; category?: string; description?: string; thumbnailSvg?: string }) => {
     if (!currentCourse) {
       toast({
         title: "No Course",
@@ -1790,12 +1790,15 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     try {
       await saveCourseSnapshot.mutateAsync({
         courseId: currentCourse.id,
-        name,
+        name: data.name,
+        category: data.category,
+        description: data.description,
+        thumbnailSvg: data.thumbnailSvg,
       });
       
       toast({
         title: "Course Saved",
-        description: `Race course "${name}" has been saved.`,
+        description: `Race course "${data.name}" has been saved.`,
       });
     } catch (error) {
       toast({

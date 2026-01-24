@@ -731,10 +731,14 @@ export async function registerRoutes(
       }
       
       // Get the current course and marks
-      const { courseId, name } = req.body;
+      const { courseId, name, category, description, thumbnailSvg } = req.body;
       if (!courseId || !name) {
         return res.status(400).json({ error: "Course ID and name are required" });
       }
+      
+      // Validate category if provided
+      const validCategories = ["triangle", "trapezoid", "windward_leeward", "other"];
+      const snapshotCategory = validCategories.includes(category) ? category : "other";
       
       const course = await storage.getCourse(courseId);
       if (!course) {
@@ -810,6 +814,9 @@ export async function registerRoutes(
         sailClubId: snapshotSailClubId,
         sailClubName,
         visibilityScope,
+        category: snapshotCategory,
+        description: description || null,
+        thumbnailSvg: thumbnailSvg || null,
         shape: course.shape,
         centerLat: course.centerLat,
         centerLng: course.centerLng,
