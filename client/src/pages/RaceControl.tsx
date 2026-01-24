@@ -1003,6 +1003,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const handleBuoyClick = useCallback((buoyId: string) => {
     setSelectedBuoyId(buoyId);
     setSelectedMarkId(null);
+    setShowFleetPanel(false);
   }, []);
 
   const handleMarkClick = useCallback((markId: string) => {
@@ -1011,6 +1012,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
     setSelectedMarkId(markId);
     setSelectedBuoyId(null);
+    setShowFleetPanel(false);
   }, [repositioningMarkId]);
 
   // Handle mark selection from SetupPanel (supports gate slot format: "markId:port" or "markId:starboard")
@@ -2725,7 +2727,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
           {/* Floating Action Bar - always visible critical actions */}
           <FloatingActionBar
             onAlignToWind={handleAlignCourseToWind}
-            onDeployAll={handleDeployAll}
+            onDeployAll={handleDeployCourse}
             onHoldAll={handleHoldAll}
             onUndo={() => {
               if (lastMarkMove) {
@@ -2751,8 +2753,29 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             totalBuoys={marks.filter(m => m.assignedBuoyId || m.gatePortBuoyId || m.gateStarboardBuoyId).length}
             onStationCount={buoys.filter(b => b.state === "holding_position" && marks.some(m => m.assignedBuoyId === b.id || m.gatePortBuoyId === b.id || m.gateStarboardBuoyId === b.id)).length}
             movingCount={buoys.filter(b => b.state === "moving_to_target").length}
-            needsWindAlignment={marks.length > 0 && !!activeWeatherData}
+            needsWindAlignment={(() => {
+              if (!activeWeatherData || marks.length === 0) return false;
+              const windDirection = activeWeatherData.windDirection;
+              const startMarks = marks.filter(m => m.isStartLine);
+              const windwardMark = marks.find(m => m.role === "windward" || (m.isCourseMark && m.name === "M1"));
+              if (startMarks.length < 2 || !windwardMark) return false;
+              const startCenter = {
+                lat: startMarks.reduce((sum, m) => sum + m.lat, 0) / startMarks.length,
+                lng: startMarks.reduce((sum, m) => sum + m.lng, 0) / startMarks.length,
+              };
+              const latRad = startCenter.lat * Math.PI / 180;
+              const lngScale = Math.cos(latRad);
+              const dLat = windwardMark.lat - startCenter.lat;
+              const dLng = (windwardMark.lng - startCenter.lng) * lngScale;
+              let currentCourseAngle = Math.atan2(dLng, dLat) * 180 / Math.PI;
+              currentCourseAngle = ((currentCourseAngle % 360) + 360) % 360;
+              let rotationDelta = windDirection - currentCourseAngle;
+              if (rotationDelta > 180) rotationDelta -= 360;
+              if (rotationDelta < -180) rotationDelta += 360;
+              return Math.abs(rotationDelta) > 5;
+            })()}
             showFleet={showFleetPanel}
+            hasFaultOrLowBattery={buoys.some(b => b.state === "fault" || (b.batteryLevel !== null && b.batteryLevel < 20))}
           />
         </main>
 

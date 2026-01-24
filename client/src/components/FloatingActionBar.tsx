@@ -20,6 +20,7 @@ interface FloatingActionBarProps {
   movingCount?: number;
   needsWindAlignment?: boolean;
   showFleet?: boolean;
+  hasFaultOrLowBattery?: boolean;
 }
 
 export function FloatingActionBar({
@@ -39,6 +40,7 @@ export function FloatingActionBar({
   movingCount = 0,
   needsWindAlignment = false,
   showFleet = false,
+  hasFaultOrLowBattery = false,
 }: FloatingActionBarProps) {
   const allOnStation = totalBuoys > 0 && onStationCount === totalBuoys && movingCount === 0;
   const hasAssignedBuoys = totalBuoys > 0;
@@ -162,18 +164,26 @@ export function FloatingActionBar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            className={cn(showFleet && "bg-primary/10 text-primary")}
-            onClick={onFleetClick}
-            data-testid="button-fleet-fab"
-          >
-            <Radio className="h-5 w-5" />
-          </Button>
+          <div className="relative">
+            <Button
+              size="icon"
+              variant="ghost"
+              className={cn(showFleet && "bg-primary/10 text-primary")}
+              onClick={onFleetClick}
+              data-testid="button-fleet-fab"
+            >
+              <Radio className="h-5 w-5" />
+            </Button>
+            {hasFaultOrLowBattery && (
+              <span 
+                className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"
+                data-testid="indicator-fleet-alert"
+              />
+            )}
+          </div>
         </TooltipTrigger>
         <TooltipContent side="top">
-          <p>Fleet Status</p>
+          <p>{hasFaultOrLowBattery ? "Fleet Status - Attention Required" : "Fleet Status"}</p>
         </TooltipContent>
       </Tooltip>
     </div>
