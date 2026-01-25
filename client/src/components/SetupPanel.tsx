@@ -1648,10 +1648,6 @@ export function SetupPanel({
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent side="bottom" align="end" className="w-64 p-3">
-                          <div className="text-sm font-medium mb-3 flex items-center gap-2">
-                            <Move className="w-4 h-4" />
-                            Adjustment Steps
-                          </div>
                           <div className="space-y-4">
                             <div>
                               <Label className="text-xs text-muted-foreground mb-2 block">Resize Step (%)</Label>
@@ -1690,7 +1686,7 @@ export function SetupPanel({
                             <div>
                               <Label className="text-xs text-muted-foreground mb-2 block">Move Step (m)</Label>
                               <div className="flex gap-1">
-                                {[25, 50, 100, 200].map(val => (
+                                {[5, 25, 50, 100].map(val => (
                                   <Button
                                     key={val}
                                     variant={courseAdjustmentSettings.moveMeters === val ? "default" : "outline"}
