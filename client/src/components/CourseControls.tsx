@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import type { Course, Mark } from "@shared/schema";
+import { useSettings } from "@/hooks/use-settings";
 
 interface CourseControlsProps {
   course: Course;
@@ -78,6 +79,7 @@ const SCALE_FACTOR_UP = 1.2;
 const SCALE_FACTOR_DOWN = 0.8;
 
 export function CourseControls({ course, marks, windDirection, onUpdateCourse, onUpdateMarks }: CourseControlsProps) {
+  const { courseResizeStartLineMode } = useSettings();
   const [rotation, setRotation] = useState(course.rotation);
   const [scale, setScale] = useState(course.scale);
 
@@ -123,7 +125,28 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
     const scaleFactor = clampedScale / scale;
     setScale(clampedScale);
     
+    const startBoat = marks.find(m => m.role === "start_boat");
+    
     const scaledMarks = marks.map(mark => {
+      // Handle start line marks based on courseResizeStartLineMode
+      if (mark.isStartLine) {
+        if (courseResizeStartLineMode === "keep_start_line") {
+          // Keep both start line marks unchanged
+          return mark;
+        } else if (courseResizeStartLineMode === "keep_committee_boat") {
+          // Keep committee boat fixed, move only the pin
+          if (mark.role === "start_boat") {
+            return mark;
+          }
+          // Scale pin from committee boat position
+          if (startBoat) {
+            const { lat, lng } = scalePoint(mark.lat, mark.lng, startBoat.lat, startBoat.lng, scaleFactor);
+            return { ...mark, lat, lng };
+          }
+        }
+        // Default "resize_all" - scale normally
+      }
+      
       const { lat, lng } = scalePoint(mark.lat, mark.lng, centerLat, centerLng, scaleFactor);
       return { ...mark, lat, lng };
     });

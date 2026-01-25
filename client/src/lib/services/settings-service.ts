@@ -4,6 +4,7 @@ type SettingsListener = () => void;
 
 export type StartLineResizeMode = "both" | "pin" | "committee_boat";
 export type StartLineFixBearingMode = "pin" | "committee_boat";
+export type CourseResizeStartLineMode = "resize_all" | "keep_start_line" | "keep_committee_boat";
 
 export interface WindAngleDefaults {
   windward: number;
@@ -47,6 +48,7 @@ export const DEFAULT_BUOY_DEPLOY_MODE: BuoyDeployMode = "manual";
 
 export const DEFAULT_START_LINE_RESIZE_MODE: StartLineResizeMode = "pin";
 export const DEFAULT_START_LINE_FIX_BEARING_MODE: StartLineFixBearingMode = "pin";
+export const DEFAULT_COURSE_RESIZE_START_LINE_MODE: CourseResizeStartLineMode = "resize_all";
 
 export interface CourseAdjustmentSettings {
   rotationDegrees: number;
@@ -86,6 +88,7 @@ interface UserSettings {
   speedUnit: SpeedUnit;
   startLineResizeMode: StartLineResizeMode;
   startLineFixBearingMode: StartLineFixBearingMode;
+  courseResizeStartLineMode: CourseResizeStartLineMode;
   windAngleDefaults: WindAngleDefaults;
   buoyFollow: BuoyFollowSettings;
   mapLayer: MapLayerType;
@@ -103,6 +106,7 @@ class SettingsService {
     speedUnit: "knots",
     startLineResizeMode: DEFAULT_START_LINE_RESIZE_MODE,
     startLineFixBearingMode: DEFAULT_START_LINE_FIX_BEARING_MODE,
+    courseResizeStartLineMode: DEFAULT_COURSE_RESIZE_START_LINE_MODE,
     windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
     buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
     mapLayer: DEFAULT_MAP_LAYER,
@@ -128,6 +132,7 @@ class SettingsService {
       speedUnit: "knots",
       startLineResizeMode: DEFAULT_START_LINE_RESIZE_MODE,
       startLineFixBearingMode: DEFAULT_START_LINE_FIX_BEARING_MODE,
+      courseResizeStartLineMode: DEFAULT_COURSE_RESIZE_START_LINE_MODE,
       windAngleDefaults: { ...DEFAULT_WIND_ANGLES },
       buoyFollow: { ...DEFAULT_BUOY_FOLLOW },
       mapLayer: DEFAULT_MAP_LAYER,
@@ -162,6 +167,7 @@ class SettingsService {
       speedUnit: this.settings.speedUnit,
       startLineResizeMode: this.settings.startLineResizeMode,
       startLineFixBearingMode: this.settings.startLineFixBearingMode,
+      courseResizeStartLineMode: this.settings.courseResizeStartLineMode,
       windAngleDefaults: this.settings.windAngleDefaults,
       buoyFollow: this.settings.buoyFollow,
       mapLayer: this.settings.mapLayer,
@@ -232,6 +238,15 @@ class SettingsService {
 
   setStartLineFixBearingMode(mode: StartLineFixBearingMode): void {
     this.settings.startLineFixBearingMode = mode;
+    this.notify();
+  }
+
+  getCourseResizeStartLineMode(): CourseResizeStartLineMode {
+    return this.settings.courseResizeStartLineMode;
+  }
+
+  setCourseResizeStartLineMode(mode: CourseResizeStartLineMode): void {
+    this.settings.courseResizeStartLineMode = mode;
     this.notify();
   }
 

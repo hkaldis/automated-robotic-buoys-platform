@@ -50,6 +50,7 @@ interface LeafletMapProps {
   showWindArrows?: boolean;
   onToggleWindArrows?: () => void;
   showSidebar?: boolean;
+  isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
   lastMarkMove?: { markId: string; prevLat: number; prevLng: number; timestamp: number } | null;
   onUndoMarkMove?: () => void;
@@ -560,7 +561,7 @@ function MapController({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 }
 
-function MapResizeHandler({ showSidebar }: { showSidebar?: boolean }) {
+function MapResizeHandler({ showSidebar, isSidebarCollapsed }: { showSidebar?: boolean; isSidebarCollapsed?: boolean }) {
   const map = useMap();
   
   useEffect(() => {
@@ -569,7 +570,7 @@ function MapResizeHandler({ showSidebar }: { showSidebar?: boolean }) {
       map.invalidateSize();
     }, 350);
     return () => clearTimeout(timer);
-  }, [map, showSidebar]);
+  }, [map, showSidebar, isSidebarCollapsed]);
   
   return null;
 }
@@ -866,6 +867,7 @@ export function LeafletMap({
   showWindArrows = true,
   onToggleWindArrows,
   showSidebar,
+  isSidebarCollapsed,
   onToggleSidebar,
   lastMarkMove,
   onUndoMarkMove,
@@ -1117,7 +1119,7 @@ export function LeafletMap({
         <MapClickHandler onMapClick={onMapClick} isPlacingMark={isPlacingMark} onLongPress={onLongPress} />
         <MapMoveHandler onMapMoveEnd={onMapMoveEnd} />
         <TouchConfig />
-        <MapResizeHandler showSidebar={showSidebar} />
+        <MapResizeHandler showSidebar={showSidebar} isSidebarCollapsed={isSidebarCollapsed} />
         <MapRotationHandler bearing={mapBearing} />
         
         {/* Start line (solid green line between Pin End and Committee Boat) */}

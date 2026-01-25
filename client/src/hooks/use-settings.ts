@@ -2,8 +2,8 @@ import { useCallback, useState, useEffect, useRef } from "react";
 import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
 import { useAuth } from "./useAuth";
-import type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_INTEGRATION_SETTINGS } from "@/lib/services/settings-service";
+import type { StartLineResizeMode, StartLineFixBearingMode, CourseResizeStartLineMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_COURSE_RESIZE_START_LINE_MODE, DEFAULT_INTEGRATION_SETTINGS } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -85,6 +85,9 @@ export function useSettings() {
   const [startLineFixBearingMode, setStartLineFixBearingModeState] = useState<StartLineFixBearingMode>(
     settingsService.getStartLineFixBearingMode()
   );
+  const [courseResizeStartLineMode, setCourseResizeStartLineModeState] = useState<CourseResizeStartLineMode>(
+    settingsService.getCourseResizeStartLineMode()
+  );
   const [windAngleDefaults, setWindAngleDefaultsState] = useState<WindAngleDefaults>(
     settingsService.getWindAngleDefaults()
   );
@@ -125,6 +128,7 @@ export function useSettings() {
         windArrowsMinZoom: settings.windArrowsMinZoom ?? DEFAULT_WIND_ARROWS_MIN_ZOOM,
         startLineResizeMode: (settings.startLineResizeMode as StartLineResizeMode) ?? DEFAULT_START_LINE_RESIZE_MODE,
         startLineFixBearingMode: (settings.startLineFixBearingMode as StartLineFixBearingMode) ?? DEFAULT_START_LINE_FIX_BEARING_MODE,
+        courseResizeStartLineMode: (settings.courseResizeStartLineMode as CourseResizeStartLineMode) ?? DEFAULT_COURSE_RESIZE_START_LINE_MODE,
         buoyDeployMode: (settings.buoyDeployMode as BuoyDeployMode) ?? DEFAULT_BUOY_DEPLOY_MODE,
         windAngleDefaults: (settings.windAngleDefaults as unknown as WindAngleDefaults) ?? { ...DEFAULT_WIND_ANGLES },
         buoyFollow: (settings.buoyFollowSettings as unknown as BuoyFollowSettings) ?? { ...DEFAULT_BUOY_FOLLOW },
@@ -146,6 +150,7 @@ export function useSettings() {
         windArrowsMinZoom: payload.windArrowsMinZoom,
         startLineResizeMode: payload.startLineResizeMode,
         startLineFixBearingMode: payload.startLineFixBearingMode,
+        courseResizeStartLineMode: payload.courseResizeStartLineMode,
         buoyDeployMode: payload.buoyDeployMode,
         windAngleDefaults: payload.windAngleDefaults as unknown as Record<string, number>,
         buoyFollowSettings: payload.buoyFollow as unknown as Record<string, number>,
@@ -162,6 +167,7 @@ export function useSettings() {
       setSpeedUnitState(settingsService.getSpeedUnit());
       setStartLineResizeModeState(settingsService.getStartLineResizeMode());
       setStartLineFixBearingModeState(settingsService.getStartLineFixBearingMode());
+      setCourseResizeStartLineModeState(settingsService.getCourseResizeStartLineMode());
       setWindAngleDefaultsState(settingsService.getWindAngleDefaults());
       setBuoyFollowSettingsState(settingsService.getBuoyFollowSettings());
       setMapLayerState(settingsService.getMapLayer());
@@ -181,6 +187,10 @@ export function useSettings() {
 
   const setStartLineFixBearingMode = useCallback((mode: StartLineFixBearingMode) => {
     settingsService.setStartLineFixBearingMode(mode);
+  }, []);
+
+  const setCourseResizeStartLineMode = useCallback((mode: CourseResizeStartLineMode) => {
+    settingsService.setCourseResizeStartLineMode(mode);
   }, []);
 
   const setWindAngleDefault = useCallback((role: keyof WindAngleDefaults, value: number) => {
@@ -301,8 +311,10 @@ export function useSettings() {
     formatBearing,
     startLineResizeMode,
     startLineFixBearingMode,
+    courseResizeStartLineMode,
     setStartLineResizeMode,
     setStartLineFixBearingMode,
+    setCourseResizeStartLineMode,
     windAngleDefaults,
     setWindAngleDefault,
     resetWindAngleDefaults,
@@ -336,4 +348,4 @@ export function useSettings() {
 }
 
 export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_INTEGRATION_SETTINGS };
-export type { StartLineResizeMode, StartLineFixBearingMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings };
+export type { StartLineResizeMode, StartLineFixBearingMode, CourseResizeStartLineMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings };

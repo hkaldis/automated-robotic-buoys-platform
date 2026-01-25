@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import type { DistanceUnit, SpeedUnit, WindSource, Buoy } from "@shared/schema";
-import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, type StartLineResizeMode, type StartLineFixBearingMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode, type CourseAdjustmentSettings } from "@/hooks/use-settings";
+import { useSettings, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, type StartLineResizeMode, type StartLineFixBearingMode, type CourseResizeStartLineMode, type WindAngleDefaults, type BuoyFollowSettings, type MapLayerType, type BuoyDeployMode, type CourseAdjustmentSettings } from "@/hooks/use-settings";
 import { useState } from "react";
 
 type MapOrientation = "north" | "head-to-wind";
@@ -59,6 +59,12 @@ const fixBearingModeOptions: { value: StartLineFixBearingMode; label: string }[]
   { value: "committee_boat", label: "Move Committee Boat" },
 ];
 
+const courseResizeStartLineModeOptions: { value: CourseResizeStartLineMode; label: string; description: string }[] = [
+  { value: "resize_all", label: "Resize All", description: "Start line resizes with the course" },
+  { value: "keep_start_line", label: "Keep Start Line", description: "Start line stays the same length" },
+  { value: "keep_committee_boat", label: "Keep Committee Boat", description: "CB stays fixed, only pin moves" },
+];
+
 const mapLayerOptions: { value: MapLayerType; label: string; description: string }[] = [
   { value: "osm", label: "Standard Map", description: "OpenStreetMap street and terrain view" },
   { value: "satellite", label: "Satellite", description: "Aerial imagery view" },
@@ -105,8 +111,10 @@ export function SettingsDialog({
     setSpeedUnit,
     startLineResizeMode,
     startLineFixBearingMode,
+    courseResizeStartLineMode,
     setStartLineResizeMode,
     setStartLineFixBearingMode,
+    setCourseResizeStartLineMode,
     windAngleDefaults,
     setWindAngleDefault,
     resetWindAngleDefaults,
@@ -628,6 +636,25 @@ export function SettingsDialog({
                     />
                     <span className="text-xs text-muted-foreground w-6">m</span>
                   </div>
+                </div>
+                <div className="pt-2 border-t">
+                  <Label className="text-sm">Start Line Behavior</Label>
+                  <p className="text-[10px] text-muted-foreground mb-2">How the start line behaves when resizing the entire course</p>
+                  <Select value={courseResizeStartLineMode} onValueChange={(v) => setCourseResizeStartLineMode(v as CourseResizeStartLineMode)}>
+                    <SelectTrigger className="w-full" data-testid="select-course-resize-start-line-mode">
+                      <SelectValue placeholder="Select mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {courseResizeStartLineModeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex flex-col">
+                            <span>{option.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{option.description}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <Button

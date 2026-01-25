@@ -2974,6 +2974,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             onToggleLabels={() => setShowLabels(!showLabels)}
             showWindArrows={showWindArrows}
             showSidebar={showSidebar}
+            isSidebarCollapsed={isSetupPanelCollapsed}
             onToggleSidebar={() => setShowSidebar(!showSidebar)}
             lastMarkMove={lastMarkMove}
             onUndoMarkMove={() => {
