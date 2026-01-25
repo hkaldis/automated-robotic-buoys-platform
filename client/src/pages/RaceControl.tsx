@@ -731,33 +731,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setShowBoatCountDialog(true);
     }
     
-    // Step 1b: Resize start line directly when fleet config is provided from wizard
-    if (pendingTemplateSetup.step === "resize_start" && pendingTemplateSetup.fleetConfig) {
-      // Guard: need start line marks to proceed (not just any marks)
-      const startLineMarks = marks.filter(m => m.isStartLine);
-      const pinMark = startLineMarks.find(m => m.role === "pin");
-      const cbMark = startLineMarks.find(m => m.role === "start_boat");
-      
-      if (!pinMark || !cbMark) {
-        // Marks not loaded yet, wait for next render
-        console.log("[Template Setup] Waiting for start line marks to load...", { marksCount: marks.length, startLineMarks: startLineMarks.length });
-        return;
-      }
-      
-      templateSetupProcessedRef.current = stepKey;
-      const { raceType, boatCount = 10 } = pendingTemplateSetup.fleetConfig;
-      
-      console.log("[Template Setup] Start line marks loaded, proceeding with resize");
-      
-      // Resize the start line based on fleet config
-      resizeStartLine({ raceType, boatCount });
-      
-      // Move to align wind step
-      setPendingTemplateSetup({ step: "align_wind", fleetConfig: pendingTemplateSetup.fleetConfig });
-    }
-    
-    // Step 2: Align to wind AFTER resize (triggered by handleBoatCountConfirm or resize_start)
-    if (pendingTemplateSetup.step === "align_wind") {
+    // Step 1b: Align to wind FIRST (before resize, so rotation doesn't overwrite the start line size)
+    if (pendingTemplateSetup.step === "align_wind" && pendingTemplateSetup.fleetConfig) {
       // Guard: need weather and marks to proceed
       if (!activeWeatherData || marks.length === 0) return;
       
@@ -798,30 +773,46 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             const newLat = pivotLat + newRelLat;
             const newLng = pivotLng + newRelLng / lngScale;
             return apiRequest("PATCH", `/api/marks/${mark.id}`, { lat: newLat, lng: newLng });
-          })).then(() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "marks"] });
+          })).then(async () => {
+            await queryClient.refetchQueries({ queryKey: ["/api/courses", courseId, "marks"] });
             setCourseSetupWindDirection(windDirection);
-            // Workflow complete - clear pending state
-            setPendingTemplateSetup(null);
-            toast({
-              title: "Course Ready",
-              description: "Course aligned to wind and start line sized.",
-            });
+            // Move to resize step AFTER align is complete
+            setPendingTemplateSetup({ step: "resize_start", fleetConfig: pendingTemplateSetup.fleetConfig });
           });
         } else {
-          // Already aligned, just capture wind direction
+          // Already aligned, move directly to resize
           setCourseSetupWindDirection(windDirection);
-          // Workflow complete - clear pending state
-          setPendingTemplateSetup(null);
-          toast({
-            title: "Course Ready",
-            description: "Start line sized and course ready.",
-          });
+          setPendingTemplateSetup({ step: "resize_start", fleetConfig: pendingTemplateSetup.fleetConfig });
         }
       } else {
-        // No valid alignment possible, complete workflow
-        setPendingTemplateSetup(null);
+        // No valid alignment possible, skip to resize
+        setPendingTemplateSetup({ step: "resize_start", fleetConfig: pendingTemplateSetup.fleetConfig });
       }
+    }
+    
+    // Step 2: Resize start line AFTER align to wind (so resize is the final operation)
+    if (pendingTemplateSetup.step === "resize_start" && pendingTemplateSetup.fleetConfig) {
+      // Guard: need start line marks to proceed
+      const startLineMarks = marks.filter(m => m.isStartLine);
+      const pinMark = startLineMarks.find(m => m.role === "pin");
+      const cbMark = startLineMarks.find(m => m.role === "start_boat");
+      
+      if (!pinMark || !cbMark) {
+        return;
+      }
+      
+      templateSetupProcessedRef.current = stepKey;
+      const { raceType, boatCount = 10 } = pendingTemplateSetup.fleetConfig;
+      
+      // Resize the start line based on fleet config (this is now the FINAL step)
+      resizeStartLine({ raceType, boatCount });
+      
+      // Workflow complete
+      setPendingTemplateSetup(null);
+      toast({
+        title: "Course Ready",
+        description: "Course aligned to wind and start line sized.",
+      });
     }
   }, [pendingTemplateSetup, activeWeatherData, marks, courseId, toast]);
 
@@ -974,9 +965,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       });
       
       // Start the automated template setup workflow
-      // Order: fetch weather → boat count dialog (if no fleetConfig) → resize → align to wind (LAST)
-      // If fleetConfig is provided from wizard, skip boat_count step and go directly to resize
-      const nextStep = fleetConfig ? "resize_start" : "boat_count";
+      // Order: fetch weather → boat count dialog (if no fleetConfig) → align to wind → resize (LAST)
+      // If fleetConfig is provided from wizard, skip boat_count step and go directly to align
+      const nextStep = fleetConfig ? "align_wind" : "boat_count";
       
       if (!activeWeatherData) {
         setPendingTemplateSetup({ step: "fetch_weather", fleetConfig });
@@ -2795,16 +2786,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     // Use actual boat class length if available, otherwise default to 4.5m (ILCA 7)
     const boatLengthMeters = currentBoatClass?.lengthMeters ?? 4.5;
     
-    console.log("[resizeStartLine] Debug info:", {
-      raceType: params.raceType,
-      boatCount: params.boatCount,
-      boatLengthMeters,
-      currentBoatClass: currentBoatClass?.name,
-      currentLength,
-      pinMark: { lat: pinMark.lat, lng: pinMark.lng },
-      cbMark: { lat: cbMark.lat, lng: cbMark.lng },
-    });
-    
     if (params.raceType === "fleet" && params.boatCount) {
       // Fleet race: boats × 1.5 boat lengths
       targetLengthMeters = params.boatCount * boatLengthMeters * 1.5;
@@ -2815,15 +2796,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       targetLengthMeters = 25.75;
     }
     
-    console.log("[resizeStartLine] Calculated:", {
-      targetLengthMeters,
-      formula: params.raceType === "fleet" ? `${params.boatCount} * ${boatLengthMeters} * 1.5` : "match/team race",
-    });
-    
     // Calculate scale factor with reasonable bounds
     const scaleFactor = Math.min(Math.max(targetLengthMeters / currentLength, 0.1), 10);
-    
-    console.log("[resizeStartLine] Scale:", { scaleFactor, rawScale: targetLengthMeters / currentLength });
     
     // Calculate start line center
     const centerLat = (pinMark.lat + cbMark.lat) / 2;
@@ -2843,21 +2817,6 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     const newPinLng = centerLng + pinOffset.lng;
     const newCbLat = centerLat + cbOffset.lat;
     const newCbLng = centerLng + cbOffset.lng;
-    
-    // Calculate what the new length should be to verify
-    const newAvgLat = (newPinLat + newCbLat) / 2;
-    const newCosLat = Math.cos(newAvgLat * Math.PI / 180);
-    const newDLatMeters = (newCbLat - newPinLat) * 111000;
-    const newDLngMeters = (newCbLng - newPinLng) * 111000 * newCosLat;
-    const newLength = Math.sqrt(newDLatMeters * newDLatMeters + newDLngMeters * newDLngMeters);
-    
-    console.log("[resizeStartLine] Result:", {
-      newPinPos: { lat: newPinLat, lng: newPinLng },
-      newCbPos: { lat: newCbLat, lng: newCbLng },
-      expectedLength: targetLengthMeters,
-      actualNewLength: newLength,
-      difference: Math.abs(newLength - targetLengthMeters),
-    });
     
     try {
       await Promise.all([
@@ -2883,15 +2842,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
   // Handle boat count dialog confirmation
   const handleBoatCountConfirm = useCallback(async (result: { raceType: "fleet" | "match" | "team"; boatCount?: number }) => {
-    await resizeStartLine(result);
-    
     // Switch to course view (marks phase)
     setCurrentSetupPhase("marks");
     setShowBoatCountDialog(false);
     
-    // Now trigger align to wind as the FINAL step
-    setPendingTemplateSetup({ step: "align_wind" });
-  }, [resizeStartLine]);
+    // Trigger align to wind FIRST, then resize (align_wind step with fleetConfig will chain to resize)
+    setPendingTemplateSetup({ step: "align_wind", fleetConfig: result });
+  }, []);
 
   const isLoading = buoysLoading || eventsLoading || coursesLoading;
 
