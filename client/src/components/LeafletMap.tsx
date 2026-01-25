@@ -1410,37 +1410,15 @@ export function LeafletMap({
           </UITooltip>
         )}
         
-        {onToggleSidebar && (
-          <UITooltip>
-            <TooltipTrigger asChild>
-              <Card className="p-1 hidden lg:block">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={onToggleSidebar}
-                  data-testid="button-toggle-sidebar"
-                >
-                  {showSidebar ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-                </Button>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {showSidebar ? "Hide Panel" : "Show Panel"}
-            </TooltipContent>
-          </UITooltip>
-        )}
-        
-        <div className="h-2" />
-        
         <Popover>
           <PopoverTrigger asChild>
-            <Card className="p-0">
+            <Card className="p-1">
               <Button 
                 variant="ghost" 
-                size="icon-lg"
+                size="icon"
                 data-testid="button-map-settings"
               >
-                <SlidersHorizontal className="w-5 h-5" />
+                <SlidersHorizontal className="w-4 h-4" />
               </Button>
             </Card>
           </PopoverTrigger>

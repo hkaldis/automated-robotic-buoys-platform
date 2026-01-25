@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2, Crosshair, StopCircle } from "lucide-react";
+import { Plus, Minus, ChevronRight, ChevronLeft, ChevronUp, ChevronDown, Check, Flag, FlagTriangleRight, Play, Pencil, MapPin, Anchor, Ship, Save, RotateCw, RotateCcw, Maximize2, Move, Ruler, Clock, Download, Upload, List, X, Undo2, Trash2, AlertTriangle, MoreVertical, FolderOpen, Compass, Navigation, Sailboat, Wind, Radio, Battery, Wifi, Navigation2, Crosshair, StopCircle, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,8 @@ import { useBoatClass, useBoatClasses, useCourseSnapshots, type CourseSnapshot }
 import { estimateRaceTime, buildLegsFromRoundingSequence, estimateLineCrossingTime } from "@/lib/race-time-estimation";
 import { calculateWindAngle, formatWindRelative } from "@/lib/course-bearings";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSettings } from "@/hooks/use-settings";
 import { ALL_SHAPE_TEMPLATES, TRIANGLE_TEMPLATES, TRAPEZOID_TEMPLATES, type ShapeTemplate } from "@/lib/shape-templates";
 import { QuickStartDialog } from "./QuickStartDialog";
@@ -140,7 +142,7 @@ export function SetupPanel({
   const boatClasses = boatClassesData || [];
   
   // Start line adjustment settings and distance formatting
-  const { startLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, formatDistance } = useSettings();
+  const { startLineResizeMode, setStartLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, formatDistance } = useSettings();
   
   // Transform visual direction to geographic lat/lng delta based on map bearing
   // When map is rotated, visual "up" is not geographic north
@@ -1034,7 +1036,54 @@ export function SetupPanel({
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          data-testid="button-start-line-settings"
+                        >
+                          <SlidersHorizontal className="w-4 h-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent side="left" align="start" className="w-56 p-3">
+                        <div className="text-sm font-medium mb-3 flex items-center gap-2">
+                          <Ruler className="w-4 h-4" />
+                          Resize Mode
+                        </div>
+                        <RadioGroup 
+                          value={startLineResizeMode} 
+                          onValueChange={(v) => setStartLineResizeMode(v as "both" | "pin" | "committee_boat")}
+                          className="space-y-1"
+                        >
+                          <Label
+                            htmlFor="resize-both"
+                            className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                            data-state={startLineResizeMode === "both" ? "checked" : "unchecked"}
+                          >
+                            <RadioGroupItem value="both" id="resize-both" className="scale-75" />
+                            Move Both Ends
+                          </Label>
+                          <Label
+                            htmlFor="resize-pin"
+                            className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                            data-state={startLineResizeMode === "pin" ? "checked" : "unchecked"}
+                          >
+                            <RadioGroupItem value="pin" id="resize-pin" className="scale-75" />
+                            Move Pin Only
+                          </Label>
+                          <Label
+                            htmlFor="resize-cb"
+                            className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                            data-state={startLineResizeMode === "committee_boat" ? "checked" : "unchecked"}
+                          >
+                            <RadioGroupItem value="committee_boat" id="resize-cb" className="scale-75" />
+                            Move Committee Boat Only
+                          </Label>
+                        </RadioGroup>
+                      </PopoverContent>
+                    </Popover>
                     <Button
                       variant="outline"
                       size="icon"

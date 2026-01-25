@@ -9,13 +9,17 @@ import {
   ArrowLeft, 
   ArrowRight,
   Wind,
-  Navigation
+  Navigation,
+  SlidersHorizontal,
+  Maximize2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Course, Mark } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 
@@ -79,7 +83,7 @@ const SCALE_FACTOR_UP = 1.2;
 const SCALE_FACTOR_DOWN = 0.8;
 
 export function CourseControls({ course, marks, windDirection, onUpdateCourse, onUpdateMarks }: CourseControlsProps) {
-  const { courseResizeStartLineMode } = useSettings();
+  const { courseResizeStartLineMode, setCourseResizeStartLineMode } = useSettings();
   const [rotation, setRotation] = useState(course.rotation);
   const [scale, setScale] = useState(course.scale);
 
@@ -233,7 +237,57 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium flex items-center justify-between gap-2">
-          Course Controls
+          <span className="flex items-center gap-2">
+            Course Controls
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  data-testid="button-course-controls-settings"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="bottom" align="start" className="w-64 p-3">
+                <div className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <Maximize2 className="w-4 h-4" />
+                  Scale Behavior
+                </div>
+                <RadioGroup 
+                  value={courseResizeStartLineMode} 
+                  onValueChange={(v) => setCourseResizeStartLineMode(v as "keep_start_line" | "keep_committee_boat" | "resize_all")}
+                  className="space-y-1"
+                >
+                  <Label
+                    htmlFor="course-resize-all"
+                    className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                    data-state={courseResizeStartLineMode === "resize_all" ? "checked" : "unchecked"}
+                  >
+                    <RadioGroupItem value="resize_all" id="course-resize-all" className="scale-75" />
+                    Scale Everything
+                  </Label>
+                  <Label
+                    htmlFor="course-keep-start"
+                    className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                    data-state={courseResizeStartLineMode === "keep_start_line" ? "checked" : "unchecked"}
+                  >
+                    <RadioGroupItem value="keep_start_line" id="course-keep-start" className="scale-75" />
+                    Keep Start Line Fixed
+                  </Label>
+                  <Label
+                    htmlFor="course-keep-cb"
+                    className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                    data-state={courseResizeStartLineMode === "keep_committee_boat" ? "checked" : "unchecked"}
+                  >
+                    <RadioGroupItem value="keep_committee_boat" id="course-keep-cb" className="scale-75" />
+                    Keep Committee Boat Fixed
+                  </Label>
+                </RadioGroup>
+              </PopoverContent>
+            </Popover>
+          </span>
           <Badge variant="secondary" className="text-xs font-mono">
             {rotation.toFixed(0)}° / {scale.toFixed(1)}x
           </Badge>
