@@ -36,6 +36,7 @@ import {
   type SnapshotMark,
 } from "@/hooks/use-api";
 import { QuickStartDialog } from "@/components/QuickStartDialog";
+import { QuickStartWizard } from "@/components/QuickStartWizard";
 import { queryClient, apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
 import { useDemoModeContext } from "@/contexts/DemoModeContext";
 import { useToast } from "@/hooks/use-toast";
@@ -376,6 +377,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const [pendingTemplateSetup, setPendingTemplateSetup] = useState<{
     step: "fetch_weather" | "align_wind" | "boat_count" | "resize_start";
     snapshotId?: string;
+    fleetConfig?: { raceType: "fleet" | "match" | "team"; boatCount?: number };
   } | null>(null);
   
   const { toast } = useToast();
@@ -712,7 +714,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     const stepKey = `${pendingTemplateSetup.step}-${marks.length}`;
     if (templateSetupProcessedRef.current === stepKey) return;
     
-    // Step 1: Show boat count dialog immediately (weather is fetched in handleLoadCourse)
+    // Step 1a: Show boat count dialog when no fleet config provided
     if (pendingTemplateSetup.step === "boat_count") {
       // Guard: need marks to proceed
       if (marks.length === 0) return;
@@ -721,7 +723,22 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       setShowBoatCountDialog(true);
     }
     
-    // Step 2: Align to wind AFTER resize (triggered by handleBoatCountConfirm)
+    // Step 1b: Resize start line directly when fleet config is provided from wizard
+    if (pendingTemplateSetup.step === "resize_start" && pendingTemplateSetup.fleetConfig) {
+      // Guard: need marks to proceed
+      if (marks.length === 0) return;
+      
+      templateSetupProcessedRef.current = stepKey;
+      const { raceType, boatCount = 10 } = pendingTemplateSetup.fleetConfig;
+      
+      // Resize the start line based on fleet config
+      resizeStartLine(raceType, boatCount);
+      
+      // Move to align wind step
+      setPendingTemplateSetup({ step: "align_wind", fleetConfig: pendingTemplateSetup.fleetConfig });
+    }
+    
+    // Step 2: Align to wind AFTER resize (triggered by handleBoatCountConfirm or resize_start)
     if (pendingTemplateSetup.step === "align_wind") {
       // Guard: need weather and marks to proceed
       if (!activeWeatherData || marks.length === 0) return;
@@ -832,8 +849,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
   }, [currentEvent, createCourse, updateEvent, mapCenter, toast]);
 
-  // Handler for loading a saved course from the no-course dialog
-  const handleLoadSavedCourse = useCallback(async (snapshot: CourseSnapshot) => {
+  // Handler for loading a saved course from the no-course dialog (creates course first)
+  const handleLoadSavedCourse = useCallback(async (
+    snapshot: CourseSnapshot, 
+    _mode?: "exact" | "shape_only",
+    fleetConfig?: { raceType: "fleet" | "match" | "team"; boatCount?: number }
+  ) => {
     if (!currentEvent) return;
     
     setIsLoadingCourse(true);
@@ -930,6 +951,25 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         title: "Course Loaded",
         description: `Loaded "${snapshot.name}" with ${sourceMarks.length} points.`,
       });
+      
+      // Start the automated template setup workflow
+      // Order: fetch weather → boat count dialog (if no fleetConfig) → resize → align to wind (LAST)
+      // If fleetConfig is provided from wizard, skip boat_count step and go directly to resize
+      const nextStep = fleetConfig ? "resize_start" : "boat_count";
+      
+      if (!activeWeatherData) {
+        setPendingTemplateSetup({ step: "fetch_weather", fleetConfig });
+        weatherByLocation.mutate({ lat: mapCenter.lat, lng: mapCenter.lng }, {
+          onSuccess: () => {
+            setPendingTemplateSetup({ step: nextStep, fleetConfig });
+          },
+          onError: () => {
+            setPendingTemplateSetup({ step: nextStep, fleetConfig });
+          }
+        });
+      } else {
+        setPendingTemplateSetup({ step: nextStep, fleetConfig });
+      }
     } catch (error) {
       toast({
         title: "Failed to Load Course",
@@ -939,7 +979,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     } finally {
       setIsLoadingCourse(false);
     }
-  }, [currentEvent, createCourse, createMark, updateEvent, updateCourse, mapCenter, toast]);
+  }, [currentEvent, createCourse, createMark, updateEvent, updateCourse, mapCenter, toast, activeWeatherData, weatherByLocation]);
 
   // Handler to update sequence (persists to course)
   const handleUpdateSequence = useCallback((newSequence: string[]) => {
@@ -3183,14 +3223,14 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         hasWeatherData={!!activeWeatherData}
       />
 
-      {/* Quick Start dialog for events without a course */}
-      <QuickStartDialog
+      {/* Quick Start wizard for events without a course - non-cancellable for new events */}
+      <QuickStartWizard
         open={!!showNoCourseDialog}
         onOpenChange={() => {}}
-        onLoadCourse={handleLoadCourse}
+        onLoadCourse={handleLoadSavedCourse}
         onCreateCustom={handleCreateCustomCourse}
         hasWindData={!!activeWeatherData}
-        showCustomOption={true}
+        isNewEvent={true}
       />
 
       {/* Boat count dialog for template setup workflow */}
@@ -3198,6 +3238,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         open={showBoatCountDialog}
         onOpenChange={setShowBoatCountDialog}
         onConfirm={handleBoatCountConfirm}
+        isCriticalPath={!!pendingTemplateSetup}
       />
 
       {/* Confirmation dialog for moving marks with assigned buoys */}

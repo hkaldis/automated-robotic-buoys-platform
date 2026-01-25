@@ -11,6 +11,7 @@ interface BoatCountDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (result: { raceType: RaceType; boatCount?: number }) => void;
   defaultBoatCount?: number;
+  isCriticalPath?: boolean;
 }
 
 export function BoatCountDialog({
@@ -18,6 +19,7 @@ export function BoatCountDialog({
   onOpenChange,
   onConfirm,
   defaultBoatCount = 10,
+  isCriticalPath = false,
 }: BoatCountDialogProps) {
   const [raceType, setRaceType] = useState<RaceType>("fleet");
   const [boatCount, setBoatCount] = useState(defaultBoatCount);
@@ -30,9 +32,18 @@ export function BoatCountDialog({
   const incrementCount = () => setBoatCount(prev => Math.min(prev + 1, 200));
   const decrementCount = () => setBoatCount(prev => Math.max(prev - 1, 2));
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (isCriticalPath && !newOpen) return;
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent 
+        className="max-w-md"
+        onPointerDownOutside={(e) => isCriticalPath && e.preventDefault()}
+        onEscapeKeyDown={(e) => isCriticalPath && e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2" data-testid="title-boat-count-dialog">
             <Anchor className="h-5 w-5" />
@@ -144,21 +155,23 @@ export function BoatCountDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => onOpenChange(false)}
-            data-testid="button-cancel-boat-count"
-          >
-            Cancel
-          </Button>
+          {!isCriticalPath && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-cancel-boat-count"
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             size="lg"
             onClick={handleConfirm}
             className="flex-1"
             data-testid="button-confirm-boat-count"
           >
-            Set Start Line
+            {isCriticalPath ? "Continue" : "Set Start Line"}
           </Button>
         </DialogFooter>
       </DialogContent>
