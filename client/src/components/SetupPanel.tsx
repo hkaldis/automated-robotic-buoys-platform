@@ -2310,17 +2310,22 @@ export function SetupPanel({
             const minPhaseIdx = phaseOrder.indexOf(minPhase);
             const isComplete = idx < currentPhaseIndex;
             const isCurrent = p.id === phase;
-            const canNavigate = idx <= minPhaseIdx && !isCurrent;
+            const canNavigate = idx <= minPhaseIdx;
             
             return (
               <button
                 key={p.id}
-                onClick={() => canNavigate && setPhase(p.id as SetupPhase)}
-                disabled={!canNavigate && !isCurrent}
+                onClick={() => {
+                  if (canNavigate) {
+                    setPhase(p.id as SetupPhase);
+                    onToggleCollapse?.();
+                  }
+                }}
+                disabled={!canNavigate}
                 className={cn(
                   "transition-opacity",
                   canNavigate ? "cursor-pointer hover:opacity-80" : "",
-                  !canNavigate && !isCurrent && idx > minPhaseIdx ? "opacity-40" : ""
+                  !canNavigate && idx > minPhaseIdx ? "opacity-40" : ""
                 )}
                 title={p.label}
                 data-testid={`button-phase-${p.id}-collapsed`}
