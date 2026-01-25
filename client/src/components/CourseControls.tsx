@@ -128,8 +128,11 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
     const startBoat = marks.find(m => m.role === "start_boat");
     
     const scaledMarks = marks.map(mark => {
+      // Check if this is a start line mark (by role or isStartLine flag)
+      const isStartLineMark = mark.role === "start_boat" || mark.role === "pin" || mark.isStartLine;
+      
       // Handle start line marks based on courseResizeStartLineMode
-      if (mark.isStartLine) {
+      if (isStartLineMark) {
         if (courseResizeStartLineMode === "keep_start_line") {
           // Keep both start line marks unchanged
           return mark;
