@@ -1434,13 +1434,13 @@ export function LeafletMap({
         
         <Popover>
           <PopoverTrigger asChild>
-            <Card className="p-1">
+            <Card className="p-0">
               <Button 
                 variant="ghost" 
-                size="icon"
+                size="icon-lg"
                 data-testid="button-map-settings"
               >
-                <SlidersHorizontal className="w-4 h-4" />
+                <SlidersHorizontal className="w-5 h-5" />
               </Button>
             </Card>
           </PopoverTrigger>

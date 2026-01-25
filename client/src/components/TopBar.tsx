@@ -257,11 +257,11 @@ export function TopBar({
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    size="icon-lg"
+                    className="text-muted-foreground"
                     data-testid="button-wind-settings"
                   >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    <SlidersHorizontal className="h-5 w-5" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-48 p-3">

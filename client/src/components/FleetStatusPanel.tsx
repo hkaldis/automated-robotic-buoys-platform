@@ -1,8 +1,12 @@
-import { Anchor, Radio, Clock, StopCircle, X } from "lucide-react";
+import { Anchor, Radio, Clock, StopCircle, X, SlidersHorizontal, Gauge, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { Buoy, Mark } from "@shared/schema";
+import type { Buoy, Mark, SpeedUnit, DistanceUnit } from "@shared/schema";
+import { useSettings } from "@/hooks/use-settings";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface FleetStatusPanelProps {
   buoys: Buoy[];
@@ -19,6 +23,27 @@ export function FleetStatusPanel({
   onBulkBuoyCommand,
   onClose,
 }: FleetStatusPanelProps) {
+  const { 
+    speedUnit, 
+    setSpeedUnit,
+    distanceUnit,
+    setDistanceUnit,
+  } = useSettings();
+  
+  const speedUnitOptions: { value: SpeedUnit; label: string }[] = [
+    { value: "knots", label: "Knots" },
+    { value: "ms", label: "m/s" },
+    { value: "kmh", label: "km/h" },
+    { value: "mph", label: "mph" },
+  ];
+  
+  const distanceUnitOptions: { value: DistanceUnit; label: string }[] = [
+    { value: "meters", label: "Meters" },
+    { value: "nautical_miles", label: "NM" },
+    { value: "kilometers", label: "km" },
+    { value: "miles", label: "Miles" },
+  ];
+  
   const assignedBuoyIds = new Set<string>();
   const buoyToMarkMap = new Map<string, { markName: string; markRole: string }>();
   
@@ -142,6 +167,69 @@ export function FleetStatusPanel({
             <h2 className="text-sm font-semibold">Fleet Status</h2>
             <p className="text-xs text-muted-foreground">{buoys.length} buoys total</p>
           </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-lg"
+                data-testid="button-fleet-settings"
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="left" align="start" className="w-56 p-3">
+              <div className="text-sm font-medium mb-3">Display Units</div>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Gauge className="w-3.5 h-3.5" />
+                    Speed
+                  </Label>
+                  <RadioGroup 
+                    value={speedUnit} 
+                    onValueChange={(v) => setSpeedUnit(v as SpeedUnit)}
+                    className="grid grid-cols-2 gap-1"
+                  >
+                    {speedUnitOptions.map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`fleet-speed-${opt.value}`}
+                        className="flex items-center gap-1.5 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                        data-state={speedUnit === opt.value ? "checked" : "unchecked"}
+                      >
+                        <RadioGroupItem value={opt.value} id={`fleet-speed-${opt.value}`} className="scale-75" />
+                        {opt.label}
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </div>
+                
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <Ruler className="w-3.5 h-3.5" />
+                    Distance
+                  </Label>
+                  <RadioGroup 
+                    value={distanceUnit} 
+                    onValueChange={(v) => setDistanceUnit(v as DistanceUnit)}
+                    className="grid grid-cols-2 gap-1"
+                  >
+                    {distanceUnitOptions.map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`fleet-distance-${opt.value}`}
+                        className="flex items-center gap-1.5 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                        data-state={distanceUnit === opt.value ? "checked" : "unchecked"}
+                      >
+                        <RadioGroupItem value={opt.value} id={`fleet-distance-${opt.value}`} className="scale-75" />
+                        {opt.label}
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           {onClose && (
             <Button
               variant="ghost"

@@ -30,6 +30,7 @@ const buttonVariants = cva(
         sm: "min-h-8 rounded-md px-3 text-xs",
         lg: "min-h-10 rounded-md px-8",
         icon: "h-9 w-9",
+        "icon-lg": "h-14 w-14", // 56px touch target for wet-finger operation
       },
     },
     defaultVariants: {
