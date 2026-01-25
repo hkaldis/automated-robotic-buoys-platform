@@ -244,10 +244,9 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6"
                   data-testid="button-course-controls-settings"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <SlidersHorizontal className="w-4 h-4" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent side="bottom" align="start" className="w-64 p-3">
@@ -264,6 +263,7 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
                     htmlFor="course-resize-all"
                     className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
                     data-state={courseResizeStartLineMode === "resize_all" ? "checked" : "unchecked"}
+                    data-testid="option-course-resize-all"
                   >
                     <RadioGroupItem value="resize_all" id="course-resize-all" className="scale-75" />
                     Scale Everything
@@ -272,6 +272,7 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
                     htmlFor="course-keep-start"
                     className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
                     data-state={courseResizeStartLineMode === "keep_start_line" ? "checked" : "unchecked"}
+                    data-testid="option-course-keep-start-line"
                   >
                     <RadioGroupItem value="keep_start_line" id="course-keep-start" className="scale-75" />
                     Keep Start Line Fixed
@@ -280,6 +281,7 @@ export function CourseControls({ course, marks, windDirection, onUpdateCourse, o
                     htmlFor="course-keep-cb"
                     className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
                     data-state={courseResizeStartLineMode === "keep_committee_boat" ? "checked" : "unchecked"}
+                    data-testid="option-course-keep-committee-boat"
                   >
                     <RadioGroupItem value="keep_committee_boat" id="course-keep-cb" className="scale-75" />
                     Keep Committee Boat Fixed

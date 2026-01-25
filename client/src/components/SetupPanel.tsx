@@ -1061,6 +1061,7 @@ export function SetupPanel({
                             htmlFor="resize-both"
                             className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
                             data-state={startLineResizeMode === "both" ? "checked" : "unchecked"}
+                            data-testid="option-resize-both"
                           >
                             <RadioGroupItem value="both" id="resize-both" className="scale-75" />
                             Move Both Ends
@@ -1069,6 +1070,7 @@ export function SetupPanel({
                             htmlFor="resize-pin"
                             className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
                             data-state={startLineResizeMode === "pin" ? "checked" : "unchecked"}
+                            data-testid="option-resize-pin"
                           >
                             <RadioGroupItem value="pin" id="resize-pin" className="scale-75" />
                             Move Pin Only
@@ -1077,6 +1079,7 @@ export function SetupPanel({
                             htmlFor="resize-cb"
                             className="flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
                             data-state={startLineResizeMode === "committee_boat" ? "checked" : "unchecked"}
+                            data-testid="option-resize-committee-boat"
                           >
                             <RadioGroupItem value="committee_boat" id="resize-cb" className="scale-75" />
                             Move Committee Boat Only
