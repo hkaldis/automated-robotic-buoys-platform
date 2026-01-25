@@ -2782,6 +2782,16 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     // Use actual boat class length if available, otherwise default to 4.5m (ILCA 7)
     const boatLengthMeters = currentBoatClass?.lengthMeters ?? 4.5;
     
+    console.log("[resizeStartLine] Debug info:", {
+      raceType: params.raceType,
+      boatCount: params.boatCount,
+      boatLengthMeters,
+      currentBoatClass: currentBoatClass?.name,
+      currentLength,
+      pinMark: { lat: pinMark.lat, lng: pinMark.lng },
+      cbMark: { lat: cbMark.lat, lng: cbMark.lng },
+    });
+    
     if (params.raceType === "fleet" && params.boatCount) {
       // Fleet race: boats × 1.5 boat lengths
       targetLengthMeters = params.boatCount * boatLengthMeters * 1.5;
@@ -2792,8 +2802,15 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       targetLengthMeters = 25.75;
     }
     
+    console.log("[resizeStartLine] Calculated:", {
+      targetLengthMeters,
+      formula: params.raceType === "fleet" ? `${params.boatCount} * ${boatLengthMeters} * 1.5` : "match/team race",
+    });
+    
     // Calculate scale factor with reasonable bounds
     const scaleFactor = Math.min(Math.max(targetLengthMeters / currentLength, 0.1), 10);
+    
+    console.log("[resizeStartLine] Scale:", { scaleFactor, rawScale: targetLengthMeters / currentLength });
     
     // Calculate start line center
     const centerLat = (pinMark.lat + cbMark.lat) / 2;
@@ -2813,6 +2830,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     const newPinLng = centerLng + pinOffset.lng;
     const newCbLat = centerLat + cbOffset.lat;
     const newCbLng = centerLng + cbOffset.lng;
+    
+    // Calculate what the new length should be to verify
+    const newAvgLat = (newPinLat + newCbLat) / 2;
+    const newCosLat = Math.cos(newAvgLat * Math.PI / 180);
+    const newDLatMeters = (newCbLat - newPinLat) * 111000;
+    const newDLngMeters = (newCbLng - newPinLng) * 111000 * newCosLat;
+    const newLength = Math.sqrt(newDLatMeters * newDLatMeters + newDLngMeters * newDLngMeters);
+    
+    console.log("[resizeStartLine] Result:", {
+      newPinPos: { lat: newPinLat, lng: newPinLng },
+      newCbPos: { lat: newCbLat, lng: newCbLng },
+      expectedLength: targetLengthMeters,
+      actualNewLength: newLength,
+      difference: Math.abs(newLength - targetLengthMeters),
+    });
     
     try {
       await Promise.all([
