@@ -1,10 +1,14 @@
-import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket, CloudSun, Loader2, MoreVertical, Save, FolderOpen } from "lucide-react";
+import { Wifi, Settings, Menu, ToggleLeft, ToggleRight, Maximize, Minimize, ArrowLeft, Trash2, Wind, Rocket, CloudSun, Loader2, MoreVertical, Save, FolderOpen, SlidersHorizontal } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { useSettings } from "@/hooks/use-settings";
+import type { SpeedUnit } from "@shared/schema";
 
 interface WeatherData {
   windSpeed: number;
@@ -50,7 +54,15 @@ export function TopBar({
   isWeatherLoading,
 }: TopBarProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { formatSpeed, formatBearing } = useSettings();
+  const { formatSpeed, formatBearing, speedUnit, setSpeedUnit } = useSettings();
+  
+  const speedOptions: { value: SpeedUnit; label: string }[] = [
+    { value: "knots", label: "Knots" },
+    { value: "ms", label: "m/s" },
+    { value: "kmh", label: "km/h" },
+    { value: "mph", label: "mph" },
+    { value: "beaufort", label: "Beaufort" },
+  ];
 
   const getFullscreenElement = useCallback(() => {
     const doc = document as any;
@@ -220,25 +232,60 @@ export function TopBar({
           )}
 
           {weatherData && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted/50" data-testid="wind-display">
-                  <Wind className="w-4 h-4 text-chart-1" />
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-mono font-medium" data-testid="text-wind-speed">
-                      {formatSpeed(weatherData.windSpeed)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">from</span>
-                    <span className="text-sm font-mono" data-testid="text-wind-direction">
-                      {formatBearing(weatherData.windDirection)}
-                    </span>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-muted/50" data-testid="wind-display">
+                    <Wind className="w-4 h-4 text-chart-1" />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-mono font-medium" data-testid="text-wind-speed">
+                        {formatSpeed(weatherData.windSpeed)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">from</span>
+                      <span className="text-sm font-mono" data-testid="text-wind-direction">
+                        {formatBearing(weatherData.windDirection)}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                Wind: {formatSpeed(weatherData.windSpeed)} from {formatBearing(weatherData.windDirection)} ({weatherData.source})
-              </TooltipContent>
-            </Tooltip>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Wind: {formatSpeed(weatherData.windSpeed)} from {formatBearing(weatherData.windDirection)} ({weatherData.source})
+                </TooltipContent>
+              </Tooltip>
+              
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    data-testid="button-wind-settings"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-48 p-3">
+                  <div className="text-sm font-medium mb-2">Speed Units</div>
+                  <RadioGroup 
+                    value={speedUnit} 
+                    onValueChange={(v) => setSpeedUnit(v as SpeedUnit)}
+                    className="space-y-1"
+                  >
+                    {speedOptions.map((opt) => (
+                      <Label
+                        key={opt.value}
+                        htmlFor={`wind-speed-${opt.value}`}
+                        className="flex items-center gap-2 p-2 rounded-md cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                        data-state={speedUnit === opt.value ? "checked" : "unchecked"}
+                      >
+                        <RadioGroupItem value={opt.value} id={`wind-speed-${opt.value}`} />
+                        <span className="text-sm">{opt.label}</span>
+                      </Label>
+                    ))}
+                  </RadioGroup>
+                </PopoverContent>
+              </Popover>
+            </div>
           )}
         </div>
 

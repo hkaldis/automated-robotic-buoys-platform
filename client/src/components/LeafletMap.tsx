@@ -3,12 +3,17 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, CircleMarker,
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-rotate";
-import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2, Triangle } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, LocateFixed, Compass, Navigation, Wind, CloudSun, Loader2, ArrowUp, Eye, EyeOff, PanelRightOpen, PanelRightClose, Undo2, Triangle, SlidersHorizontal, Map, Waves, Ship } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import type { MapLayerType } from "@/lib/services/settings-service";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import type { Buoy, Mark, GeoPosition, MarkRole, SiblingBuoy } from "@shared/schema";
 import type { TrackedBoat } from "@/contexts/DemoModeContext";
 import { useSettings } from "@/hooks/use-settings";
@@ -883,10 +888,29 @@ export function LeafletMap({
   showBoats = false,
   onLongPress,
 }: LeafletMapProps) {
-  const { formatDistance, formatBearing } = useSettings();
+  const { 
+    formatDistance, 
+    formatBearing,
+    mapLayer: currentMapLayer,
+    setMapLayer,
+    showSeaMarks: seaMarksEnabled,
+    setShowSeaMarks,
+    showSiblingBuoys: siblingBuoysEnabled,
+    setShowSiblingBuoys,
+    windArrowsMinZoom,
+    setWindArrowsMinZoom,
+  } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
   const [showWindRelative, setShowWindRelative] = useState(false);
   const [showAngles, setShowAngles] = useState(false);
+  
+  const mapLayerOptions: { value: MapLayerType; label: string }[] = [
+    { value: "osm", label: "Standard" },
+    { value: "satellite", label: "Satellite" },
+    { value: "nautical", label: "Nautical" },
+    { value: "osm_nolabels", label: "Grey Water" },
+    { value: "light_voyager", label: "Blue Water" },
+  ];
 
   const sortedMarks = useMemo(() => [...marks].sort((a, b) => a.order - b.order), [marks]);
   
@@ -1405,6 +1429,100 @@ export function LeafletMap({
             </TooltipContent>
           </UITooltip>
         )}
+        
+        <div className="h-2" />
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                data-testid="button-map-settings"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </Button>
+            </Card>
+          </PopoverTrigger>
+          <PopoverContent side="right" align="start" className="w-64 p-3">
+            <div className="text-sm font-medium mb-3 flex items-center gap-2">
+              <Map className="w-4 h-4" />
+              Map Display
+            </div>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Map Style</Label>
+                <RadioGroup 
+                  value={currentMapLayer} 
+                  onValueChange={(v) => setMapLayer(v as MapLayerType)}
+                  className="grid grid-cols-2 gap-1"
+                >
+                  {mapLayerOptions.map((opt) => (
+                    <Label
+                      key={opt.value}
+                      htmlFor={`map-style-${opt.value}`}
+                      className="flex items-center gap-1.5 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                      data-state={currentMapLayer === opt.value ? "checked" : "unchecked"}
+                    >
+                      <RadioGroupItem value={opt.value} id={`map-style-${opt.value}`} className="scale-75" />
+                      {opt.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="map-sea-marks" className="text-xs flex items-center gap-1.5">
+                    <Waves className="w-3.5 h-3.5" />
+                    Sea Marks
+                  </Label>
+                  <Switch
+                    id="map-sea-marks"
+                    checked={seaMarksEnabled}
+                    onCheckedChange={setShowSeaMarks}
+                    data-testid="switch-map-sea-marks"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="map-sibling-buoys" className="text-xs flex items-center gap-1.5">
+                    <Ship className="w-3.5 h-3.5" />
+                    Other Events' Buoys
+                  </Label>
+                  <Switch
+                    id="map-sibling-buoys"
+                    checked={siblingBuoysEnabled}
+                    onCheckedChange={setShowSiblingBuoys}
+                    data-testid="switch-map-sibling-buoys"
+                  />
+                </div>
+              </div>
+              
+              {showWindArrows && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Wind className="w-3.5 h-3.5" />
+                      Wind Arrows Min Zoom
+                    </Label>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {windArrowsMinZoom}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[windArrowsMinZoom]}
+                    onValueChange={([v]) => setWindArrowsMinZoom(v)}
+                    min={8}
+                    max={18}
+                    step={1}
+                    data-testid="slider-map-wind-arrows-zoom"
+                  />
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
 
