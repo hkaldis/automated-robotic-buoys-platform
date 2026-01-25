@@ -7,6 +7,17 @@ import { useSettings } from "@/hooks/use-settings";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface FleetStatusPanelProps {
   buoys: Buoy[];
@@ -272,16 +283,36 @@ export function FleetStatusPanel({
 
         {onBulkBuoyCommand && buoys.length > 0 && (
           <div className="flex gap-2" data-testid="bulk-actions">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 gap-1.5"
-              onClick={() => onBulkBuoyCommand(buoys.map(b => b.id), "cancel")}
-              data-testid="button-set-all-idle"
-            >
-              <StopCircle className="w-3.5 h-3.5" />
-              All Idle
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  data-testid="button-set-all-idle"
+                >
+                  <StopCircle className="w-3.5 h-3.5" />
+                  All Idle
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Set All Buoys to Idle?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will cancel all active commands and set {buoys.length} buoy{buoys.length !== 1 ? 's' : ''} to idle state.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="button-cancel-all-idle">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => onBulkBuoyCommand(buoys.map(b => b.id), "cancel")}
+                    data-testid="button-confirm-all-idle"
+                  >
+                    Set All Idle
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button
               variant="outline"
               size="sm"
