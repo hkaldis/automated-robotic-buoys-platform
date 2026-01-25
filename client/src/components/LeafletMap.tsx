@@ -899,6 +899,8 @@ export function LeafletMap({
     setShowSiblingBuoys,
     windArrowsMinZoom,
     setWindArrowsMinZoom,
+    distanceUnit,
+    setDistanceUnit,
   } = useSettings();
   const mapRef = useRef<L.Map | null>(null);
   const [showWindRelative, setShowWindRelative] = useState(false);
@@ -1329,6 +1331,112 @@ export function LeafletMap({
       </MapContainer>
 
       <div className="absolute top-4 left-4 flex flex-col gap-2 z-[1000]">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Card className="p-1">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                data-testid="button-map-settings"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </Button>
+            </Card>
+          </PopoverTrigger>
+          <PopoverContent side="right" align="start" className="w-64 p-3">
+            <div className="space-y-4">
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Distance Unit</Label>
+                <div className="flex gap-1">
+                  {(["meters", "nautical_miles", "kilometers", "miles"] as const).map(unit => (
+                    <Button
+                      key={unit}
+                      variant={distanceUnit === unit ? "default" : "outline"}
+                      size="sm"
+                      className="flex-1 text-xs px-1"
+                      onClick={() => setDistanceUnit(unit)}
+                      data-testid={`option-distance-${unit}`}
+                    >
+                      {unit === "meters" ? "m" : unit === "nautical_miles" ? "nm" : unit === "kilometers" ? "km" : "mi"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Map Style</Label>
+                <RadioGroup 
+                  value={currentMapLayer} 
+                  onValueChange={(v) => setMapLayer(v as MapLayerType)}
+                  className="grid grid-cols-2 gap-1"
+                >
+                  {mapLayerOptions.map((opt) => (
+                    <Label
+                      key={opt.value}
+                      htmlFor={`map-style-${opt.value}`}
+                      className="flex items-center gap-1.5 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
+                      data-state={currentMapLayer === opt.value ? "checked" : "unchecked"}
+                      data-testid={`option-map-style-${opt.value}`}
+                    >
+                      <RadioGroupItem value={opt.value} id={`map-style-${opt.value}`} className="scale-75" />
+                      {opt.label}
+                    </Label>
+                  ))}
+                </RadioGroup>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="map-sea-marks" className="text-xs flex items-center gap-1.5">
+                    <Waves className="w-3.5 h-3.5" />
+                    Sea Marks
+                  </Label>
+                  <Switch
+                    id="map-sea-marks"
+                    checked={seaMarksEnabled}
+                    onCheckedChange={setShowSeaMarks}
+                    data-testid="switch-map-sea-marks"
+                  />
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="map-sibling-buoys" className="text-xs flex items-center gap-1.5">
+                    <Ship className="w-3.5 h-3.5" />
+                    Other Events' Buoys
+                  </Label>
+                  <Switch
+                    id="map-sibling-buoys"
+                    checked={siblingBuoysEnabled}
+                    onCheckedChange={setShowSiblingBuoys}
+                    data-testid="switch-map-sibling-buoys"
+                  />
+                </div>
+              </div>
+              
+              {showWindArrows && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs flex items-center gap-1.5">
+                      <Wind className="w-3.5 h-3.5" />
+                      Wind Arrows Min Zoom
+                    </Label>
+                    <span className="text-xs font-mono text-muted-foreground">
+                      {windArrowsMinZoom}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[windArrowsMinZoom]}
+                    onValueChange={([v]) => setWindArrowsMinZoom(v)}
+                    min={8}
+                    max={18}
+                    step={1}
+                    data-testid="slider-map-wind-arrows-zoom"
+                  />
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+        
         <Card className="p-1">
           <Button variant="ghost" size="icon" onClick={handleZoomIn} data-testid="button-zoom-in">
             <ZoomIn className="w-4 h-4" />
@@ -1409,98 +1517,6 @@ export function LeafletMap({
             </TooltipContent>
           </UITooltip>
         )}
-        
-        <Popover>
-          <PopoverTrigger asChild>
-            <Card className="p-1">
-              <Button 
-                variant="ghost" 
-                size="icon"
-                data-testid="button-map-settings"
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-              </Button>
-            </Card>
-          </PopoverTrigger>
-          <PopoverContent side="right" align="start" className="w-64 p-3">
-            <div className="text-sm font-medium mb-3 flex items-center gap-2">
-              <Map className="w-4 h-4" />
-              Map Display
-            </div>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-xs text-muted-foreground mb-2 block">Map Style</Label>
-                <RadioGroup 
-                  value={currentMapLayer} 
-                  onValueChange={(v) => setMapLayer(v as MapLayerType)}
-                  className="grid grid-cols-2 gap-1"
-                >
-                  {mapLayerOptions.map((opt) => (
-                    <Label
-                      key={opt.value}
-                      htmlFor={`map-style-${opt.value}`}
-                      className="flex items-center gap-1.5 p-2 rounded-md text-xs cursor-pointer hover-elevate data-[state=checked]:ring-1 data-[state=checked]:ring-primary"
-                      data-state={currentMapLayer === opt.value ? "checked" : "unchecked"}
-                    >
-                      <RadioGroupItem value={opt.value} id={`map-style-${opt.value}`} className="scale-75" />
-                      {opt.label}
-                    </Label>
-                  ))}
-                </RadioGroup>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="map-sea-marks" className="text-xs flex items-center gap-1.5">
-                    <Waves className="w-3.5 h-3.5" />
-                    Sea Marks
-                  </Label>
-                  <Switch
-                    id="map-sea-marks"
-                    checked={seaMarksEnabled}
-                    onCheckedChange={setShowSeaMarks}
-                    data-testid="switch-map-sea-marks"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="map-sibling-buoys" className="text-xs flex items-center gap-1.5">
-                    <Ship className="w-3.5 h-3.5" />
-                    Other Events' Buoys
-                  </Label>
-                  <Switch
-                    id="map-sibling-buoys"
-                    checked={siblingBuoysEnabled}
-                    onCheckedChange={setShowSiblingBuoys}
-                    data-testid="switch-map-sibling-buoys"
-                  />
-                </div>
-              </div>
-              
-              {showWindArrows && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs flex items-center gap-1.5">
-                      <Wind className="w-3.5 h-3.5" />
-                      Wind Arrows Min Zoom
-                    </Label>
-                    <span className="text-xs font-mono text-muted-foreground">
-                      {windArrowsMinZoom}
-                    </span>
-                  </div>
-                  <Slider
-                    value={[windArrowsMinZoom]}
-                    onValueChange={([v]) => setWindArrowsMinZoom(v)}
-                    min={8}
-                    max={18}
-                    step={1}
-                    data-testid="slider-map-wind-arrows-zoom"
-                  />
-                </div>
-              )}
-            </div>
-          </PopoverContent>
-        </Popover>
       </div>
 
 
