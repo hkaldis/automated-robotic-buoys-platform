@@ -32,6 +32,7 @@ import {
   useUpdateEvent,
   useSaveCourseSnapshot,
   useDeleteCourseSnapshot,
+  useBoatClasses,
   type CourseSnapshot,
   type SnapshotMark,
 } from "@/hooks/use-api";
@@ -387,6 +388,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const { data: allBuoys = [], isLoading: allBuoysLoading } = useBuoys();
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: courses = [], isLoading: coursesLoading } = useCourses();
+  const { data: boatClasses = [] } = useBoatClasses();
   
   const { data: eventBuoys = [], isLoading: eventBuoysLoading } = useQuery<Buoy[]>({
     queryKey: [`/api/events/${activeEventId}/buoys`],
@@ -407,6 +409,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Only use explicitly set course/event - never fall back to first item to avoid showing wrong marks
   const currentEvent = activeEventId ? events.find(e => e.id === activeEventId) : undefined;
   const currentCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : undefined;
+  
+  // Get the boat class for the current event (used for start line sizing)
+  const currentBoatClass = useMemo(() => {
+    if (!currentEvent?.boatClassId) return null;
+    return boatClasses.find(bc => bc.id === currentEvent.boatClassId) || null;
+  }, [currentEvent?.boatClassId, boatClasses]);
   
   // Only fetch marks for explicitly selected course - empty string disables the query
   const courseId = activeCourseId ?? "";
@@ -732,7 +740,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       const { raceType, boatCount = 10 } = pendingTemplateSetup.fleetConfig;
       
       // Resize the start line based on fleet config
-      resizeStartLine(raceType, boatCount);
+      resizeStartLine({ raceType, boatCount });
       
       // Move to align wind step
       setPendingTemplateSetup({ step: "align_wind", fleetConfig: pendingTemplateSetup.fleetConfig });
@@ -2771,11 +2779,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     
     // Calculate target length
     let targetLengthMeters: number;
-    const defaultBoatLength = 4.5; // Default boat length in meters (ILCA 7)
+    // Use actual boat class length if available, otherwise default to 4.5m (ILCA 7)
+    const boatLengthMeters = currentBoatClass?.lengthMeters ?? 4.5;
     
     if (params.raceType === "fleet" && params.boatCount) {
       // Fleet race: boats × 1.5 boat lengths
-      targetLengthMeters = params.boatCount * defaultBoatLength * 1.5;
+      targetLengthMeters = params.boatCount * boatLengthMeters * 1.5;
     } else {
       // Match/Team race: 25 seconds crossing at 2 knots broad reach
       // Speed: 2 knots = 1.03 m/s
@@ -2825,7 +2834,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         variant: "destructive",
       });
     }
-  }, [marks, courseId, toast]);
+  }, [marks, courseId, toast, currentBoatClass]);
 
   // Handle boat count dialog confirmation
   const handleBoatCountConfirm = useCallback(async (result: { raceType: "fleet" | "match" | "team"; boatCount?: number }) => {
