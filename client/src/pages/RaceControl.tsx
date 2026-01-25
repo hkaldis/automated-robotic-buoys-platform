@@ -1933,12 +1933,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     const buoy = buoys.find(b => b.id === buoyId);
     if (!buoy) return;
     
-    const NUDGE_AMOUNT = 0.0005; // Approx 55 meters
+    // Convert meters to degrees (1 degree ≈ 111,000 meters at equator)
+    const nudgeAmount = markNudgeMeters / 111000;
     const baseLat = buoy.targetLat ?? buoy.lat;
     const baseLng = buoy.targetLng ?? buoy.lng;
     
     // Transform visual direction to geographic based on map rotation
-    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, NUDGE_AMOUNT);
+    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, nudgeAmount);
     const targetLat = baseLat + latDelta;
     const targetLng = baseLng + lngDelta;
     
@@ -1948,12 +1949,12 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
         onSuccess: () => {
           toast({
             title: "Buoy Nudged",
-            description: `Buoy moved ${direction}`,
+            description: `Buoy moved ${direction} by ${markNudgeMeters}m`,
           });
         },
       }
     );
-  }, [buoys, buoyCommand, toast, getTransformedNudgeDelta]);
+  }, [buoys, buoyCommand, toast, getTransformedNudgeDelta, markNudgeMeters]);
 
   const handleUpdateCourse = useCallback((data: Partial<Course>) => {
     if (!currentCourse) return;

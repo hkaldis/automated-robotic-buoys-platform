@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { X, Play, Pause, RotateCcw, Navigation, Battery, Signal, Wind, Waves, Clock, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Target, Loader2 } from "lucide-react";
+import { X, Play, Pause, RotateCcw, Navigation, Battery, Signal, Wind, Waves, Clock, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Target, Loader2, SlidersHorizontal, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import type { Buoy, BuoyState } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { useBuoyCommand } from "@/hooks/use-api";
@@ -65,7 +67,7 @@ function getBuoyStateLabel(state: BuoyState): string {
 }
 
 export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto, isTapMapMode, onNudgeBuoy, assignedMarkName, assignedMarkLat, assignedMarkLng }: BuoyDetailPanelProps) {
-  const { formatSpeed, formatBearing } = useSettings();
+  const { formatSpeed, formatBearing, markNudgeMeters, setMarkNudgeMeters } = useSettings();
   const { toast } = useToast();
   const handleBuoyCommandError = useCallback((error: Error) => {
     toast({
@@ -303,9 +305,47 @@ export function BuoyDetailPanel({ buoy, onClose, demoSendCommand, onTapMapToGoto
 
             {/* Directional nudge arrows - prominent for wet finger use */}
             {onNudgeBuoy && (
-              <div className="flex flex-col items-center gap-2">
-                <Label className="text-xs text-muted-foreground">Nudge Direction (~55m)</Label>
-                <div className="flex items-center gap-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Move className="w-3.5 h-3.5" />
+                    Nudge ({markNudgeMeters}m)
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-buoy-nudge-settings">
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent side="left" align="start" className="w-56 p-3">
+                      <div className="space-y-3">
+                        <div className="text-sm font-medium flex items-center gap-2">
+                          <Move className="w-4 h-4" />
+                          Nudge Settings
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs">Distance</Label>
+                            <span className="text-xs font-mono text-muted-foreground">{markNudgeMeters}m</span>
+                          </div>
+                          <Slider
+                            value={[markNudgeMeters]}
+                            onValueChange={([v]) => setMarkNudgeMeters(v)}
+                            min={1}
+                            max={50}
+                            step={1}
+                            data-testid="slider-buoy-nudge-distance"
+                          />
+                          <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <span>1m</span>
+                            <span>50m</span>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex items-center justify-center gap-2">
                   <Button 
                     variant="outline" 
                     className="h-14 w-14 p-0" 
