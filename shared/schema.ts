@@ -227,6 +227,7 @@ export const userSettings = pgTable("user_settings", {
   showSeaMarks: boolean("show_sea_marks").notNull().default(true),
   showSiblingBuoys: boolean("show_sibling_buoys").notNull().default(true),
   windArrowsMinZoom: integer("wind_arrows_min_zoom").notNull().default(13),
+  markNudgeMeters: integer("mark_nudge_meters").notNull().default(10),
   // Start line settings
   startLineResizeMode: text("start_line_resize_mode").notNull().default("pin"),
   startLineFixBearingMode: text("start_line_fix_bearing_mode").notNull().default("pin"),

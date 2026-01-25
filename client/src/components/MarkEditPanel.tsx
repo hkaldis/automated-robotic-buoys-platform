@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair, Minus, Plus, Triangle } from "lucide-react";
+import { MapPin, X, Trash2, Navigation, Flag, FlagTriangleRight, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Columns2, Check, Wind, RotateCcw, Crosshair, Minus, Plus, Triangle, SlidersHorizontal, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
 import type { Mark, Buoy, MarkRole } from "@shared/schema";
 import { useSettings } from "@/hooks/use-settings";
 import { adjustSingleMarkToWind, getStartLineCenter, calculateInteriorAngle, adjustMarkToAngle } from "@/lib/course-bearings";
@@ -65,7 +67,7 @@ export function MarkEditPanel({
   onUndoMove,
   isGpsLocating,
 }: MarkEditPanelProps) {
-  const { getWindAngleForRole } = useSettings();
+  const { getWindAngleForRole, markNudgeMeters, setMarkNudgeMeters } = useSettings();
   const [name, setName] = useState(mark.name);
   const [role, setRole] = useState<MarkRole>(mark.role as MarkRole);
   const [lat, setLat] = useState(mark.lat.toString());
@@ -540,43 +542,84 @@ export function MarkEditPanel({
         
         {/* Prominent nudge controls for wet finger use */}
         {onNudge && (
-          <div className="flex items-center justify-center gap-2">
-            <Button 
-              variant="outline" 
-              className="h-14 w-14 p-0" 
-              onClick={() => onNudge("west")} 
-              data-testid="button-nudge-west"
-            >
-              <ChevronLeft className="w-7 h-7" />
-            </Button>
-            <div className="flex flex-col gap-2">
-              <Button 
-                variant="outline" 
-                className="h-14 w-14 p-0" 
-                onClick={() => onNudge("north")} 
-                data-testid="button-nudge-north"
-              >
-                <ChevronUp className="w-7 h-7" />
-              </Button>
-              <Button 
-                variant="outline" 
-                className="h-14 w-14 p-0" 
-                onClick={() => onNudge("south")} 
-                data-testid="button-nudge-south"
-              >
-                <ChevronDown className="w-7 h-7" />
-              </Button>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Move className="w-3.5 h-3.5" />
+                Nudge ({markNudgeMeters}m)
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="button-nudge-settings">
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="left" align="start" className="w-56 p-3">
+                  <div className="space-y-3">
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <Move className="w-4 h-4" />
+                      Nudge Settings
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Distance</Label>
+                        <span className="text-xs font-mono text-muted-foreground">{markNudgeMeters}m</span>
+                      </div>
+                      <Slider
+                        value={[markNudgeMeters]}
+                        onValueChange={([v]) => setMarkNudgeMeters(v)}
+                        min={1}
+                        max={50}
+                        step={1}
+                        data-testid="slider-nudge-distance"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>1m</span>
+                        <span>50m</span>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
-            <Button 
-              variant="outline" 
-              className="h-14 w-14 p-0" 
-              onClick={() => onNudge("east")} 
-              data-testid="button-nudge-east"
-            >
-              <ChevronRight className="w-7 h-7" />
-            </Button>
-            <div className="ml-4 text-xs text-muted-foreground font-mono">
-              {parseFloat(lat).toFixed(4)}<br/>{parseFloat(lng).toFixed(4)}
+            <div className="flex items-center justify-center gap-2">
+              <Button 
+                variant="outline" 
+                className="h-14 w-14 p-0" 
+                onClick={() => onNudge("west")} 
+                data-testid="button-nudge-west"
+              >
+                <ChevronLeft className="w-7 h-7" />
+              </Button>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  variant="outline" 
+                  className="h-14 w-14 p-0" 
+                  onClick={() => onNudge("north")} 
+                  data-testid="button-nudge-north"
+                >
+                  <ChevronUp className="w-7 h-7" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-14 w-14 p-0" 
+                  onClick={() => onNudge("south")} 
+                  data-testid="button-nudge-south"
+                >
+                  <ChevronDown className="w-7 h-7" />
+                </Button>
+              </div>
+              <Button 
+                variant="outline" 
+                className="h-14 w-14 p-0" 
+                onClick={() => onNudge("east")} 
+                data-testid="button-nudge-east"
+              >
+                <ChevronRight className="w-7 h-7" />
+              </Button>
+              <div className="ml-4 text-xs text-muted-foreground font-mono">
+                {parseFloat(lat).toFixed(4)}<br/>{parseFloat(lng).toFixed(4)}
+              </div>
             </div>
           </div>
         )}

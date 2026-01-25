@@ -62,6 +62,8 @@ export const DEFAULT_COURSE_ADJUSTMENT: CourseAdjustmentSettings = {
   moveMeters: 100,
 };
 
+export const DEFAULT_MARK_NUDGE_METERS = 10;
+
 export const DEFAULT_WIND_ARROWS_MIN_ZOOM = 13;
 
 export interface BoatTrackingIntegration {
@@ -98,6 +100,7 @@ interface UserSettings {
   courseAdjustment: CourseAdjustmentSettings;
   windArrowsMinZoom: number;
   integrations: IntegrationSettings;
+  markNudgeMeters: number;
 }
 
 class SettingsService {
@@ -116,6 +119,7 @@ class SettingsService {
     courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
     windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
     integrations: { ...DEFAULT_INTEGRATION_SETTINGS },
+    markNudgeMeters: DEFAULT_MARK_NUDGE_METERS,
   };
   private listeners: Set<SettingsListener> = new Set();
   private userId: string | null = null;
@@ -142,6 +146,7 @@ class SettingsService {
       courseAdjustment: { ...DEFAULT_COURSE_ADJUSTMENT },
       windArrowsMinZoom: DEFAULT_WIND_ARROWS_MIN_ZOOM,
       integrations: { ...DEFAULT_INTEGRATION_SETTINGS },
+      markNudgeMeters: DEFAULT_MARK_NUDGE_METERS,
     };
     this.userId = null;
     this.listeners.forEach(listener => listener());
@@ -342,6 +347,15 @@ class SettingsService {
 
   setWindArrowsMinZoom(zoom: number): void {
     this.settings.windArrowsMinZoom = zoom;
+    this.notify();
+  }
+
+  getMarkNudgeMeters(): number {
+    return this.settings.markNudgeMeters;
+  }
+
+  setMarkNudgeMeters(meters: number): void {
+    this.settings.markNudgeMeters = meters;
     this.notify();
   }
 

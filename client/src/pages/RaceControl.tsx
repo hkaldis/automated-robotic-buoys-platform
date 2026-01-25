@@ -294,7 +294,7 @@ interface RaceControlProps {
 
 export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
   const { user } = useAuth();
-  const { mapLayer, showSeaMarks, showSiblingBuoys, integrationSettings, courseResizeStartLineMode } = useSettings();
+  const { mapLayer, showSeaMarks, showSiblingBuoys, integrationSettings, courseResizeStartLineMode, markNudgeMeters } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [courseMenuSaveOpen, setCourseMenuSaveOpen] = useState(false);
@@ -1778,16 +1778,17 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     const mark = marks.find(m => m.id === markId);
     if (!mark) return;
     
-    const NUDGE_AMOUNT = 0.0001; // Approx 11 meters
+    // Convert meters to degrees (1 degree ≈ 111,000 meters at equator)
+    const nudgeAmount = markNudgeMeters / 111000;
     // Transform visual direction to geographic based on map rotation
-    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, NUDGE_AMOUNT);
+    const { latDelta, lngDelta } = getTransformedNudgeDelta(direction, nudgeAmount);
     const newLat = mark.lat + latDelta;
     const newLng = mark.lng + lngDelta;
     
     updateMark.mutate({ id: markId, data: { lat: newLat, lng: newLng } }, {
       onSuccess: () => handleMarkMoved(markId, newLat, newLng),
     });
-  }, [marks, updateMark, handleMarkMoved, getTransformedNudgeDelta]);
+  }, [marks, updateMark, handleMarkMoved, getTransformedNudgeDelta, markNudgeMeters]);
 
   const handleAdjustMarkToWind = useCallback((markId: string, newLat: number, newLng: number) => {
     const mark = marks.find(m => m.id === markId);

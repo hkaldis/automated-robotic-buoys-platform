@@ -3,7 +3,7 @@ import type { DistanceUnit, SpeedUnit } from "@shared/schema";
 import { useUserSettings, useUpdateUserSettings } from "./use-api";
 import { useAuth } from "./useAuth";
 import type { StartLineResizeMode, StartLineFixBearingMode, CourseResizeStartLineMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings } from "@/lib/services/settings-service";
-import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_COURSE_RESIZE_START_LINE_MODE, DEFAULT_INTEGRATION_SETTINGS } from "@/lib/services/settings-service";
+import { settingsService, DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_COURSE_RESIZE_START_LINE_MODE, DEFAULT_INTEGRATION_SETTINGS, DEFAULT_MARK_NUDGE_METERS } from "@/lib/services/settings-service";
 
 const DISTANCE_CONVERSIONS: Record<DistanceUnit, number> = {
   nautical_miles: 1,
@@ -112,6 +112,9 @@ export function useSettings() {
   const [windArrowsMinZoom, setWindArrowsMinZoomState] = useState<number>(
     settingsService.getWindArrowsMinZoom()
   );
+  const [markNudgeMeters, setMarkNudgeMetersState] = useState<number>(
+    settingsService.getMarkNudgeMeters()
+  );
   const [integrationSettings, setIntegrationSettingsState] = useState<IntegrationSettings>(
     settingsService.getIntegrationSettings()
   );
@@ -126,6 +129,7 @@ export function useSettings() {
         showSeaMarks: settings.showSeaMarks ?? true,
         showSiblingBuoys: settings.showSiblingBuoys ?? true,
         windArrowsMinZoom: settings.windArrowsMinZoom ?? DEFAULT_WIND_ARROWS_MIN_ZOOM,
+        markNudgeMeters: settings.markNudgeMeters ?? 10,
         startLineResizeMode: (settings.startLineResizeMode as StartLineResizeMode) ?? DEFAULT_START_LINE_RESIZE_MODE,
         startLineFixBearingMode: (settings.startLineFixBearingMode as StartLineFixBearingMode) ?? DEFAULT_START_LINE_FIX_BEARING_MODE,
         courseResizeStartLineMode: (settings.courseResizeStartLineMode as CourseResizeStartLineMode) ?? DEFAULT_COURSE_RESIZE_START_LINE_MODE,
@@ -148,6 +152,7 @@ export function useSettings() {
         showSeaMarks: payload.showSeaMarks,
         showSiblingBuoys: payload.showSiblingBuoys,
         windArrowsMinZoom: payload.windArrowsMinZoom,
+        markNudgeMeters: payload.markNudgeMeters,
         startLineResizeMode: payload.startLineResizeMode,
         startLineFixBearingMode: payload.startLineFixBearingMode,
         courseResizeStartLineMode: payload.courseResizeStartLineMode,
@@ -176,6 +181,7 @@ export function useSettings() {
       setBuoyDeployModeState(settingsService.getBuoyDeployMode());
       setCourseAdjustmentSettingsState(settingsService.getCourseAdjustmentSettings());
       setWindArrowsMinZoomState(settingsService.getWindArrowsMinZoom());
+      setMarkNudgeMetersState(settingsService.getMarkNudgeMeters());
       setIntegrationSettingsState(settingsService.getIntegrationSettings());
     });
     return unsubscribe;
@@ -239,6 +245,10 @@ export function useSettings() {
 
   const setWindArrowsMinZoom = useCallback((zoom: number) => {
     settingsService.setWindArrowsMinZoom(zoom);
+  }, []);
+
+  const setMarkNudgeMeters = useCallback((meters: number) => {
+    settingsService.setMarkNudgeMeters(meters);
   }, []);
 
   const setVakarosEnabled = useCallback((enabled: boolean) => {
@@ -335,6 +345,8 @@ export function useSettings() {
     resetCourseAdjustmentSettings,
     windArrowsMinZoom,
     setWindArrowsMinZoom,
+    markNudgeMeters,
+    setMarkNudgeMeters,
     integrationSettings,
     setVakarosEnabled,
     setVakarosEventId,
@@ -347,5 +359,5 @@ export function useSettings() {
   };
 }
 
-export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_INTEGRATION_SETTINGS };
+export { DEFAULT_WIND_ANGLES, DEFAULT_BUOY_FOLLOW, DEFAULT_MAP_LAYER, DEFAULT_BUOY_DEPLOY_MODE, DEFAULT_COURSE_ADJUSTMENT, DEFAULT_WIND_ARROWS_MIN_ZOOM, DEFAULT_START_LINE_RESIZE_MODE, DEFAULT_START_LINE_FIX_BEARING_MODE, DEFAULT_INTEGRATION_SETTINGS, DEFAULT_MARK_NUDGE_METERS };
 export type { StartLineResizeMode, StartLineFixBearingMode, CourseResizeStartLineMode, WindAngleDefaults, BuoyFollowSettings, MapLayerType, BuoyDeployMode, CourseAdjustmentSettings, IntegrationSettings };
