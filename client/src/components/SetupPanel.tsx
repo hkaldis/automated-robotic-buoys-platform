@@ -142,7 +142,7 @@ export function SetupPanel({
   const boatClasses = boatClassesData || [];
   
   // Start line adjustment settings and distance formatting
-  const { startLineResizeMode, setStartLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, formatDistance } = useSettings();
+  const { startLineResizeMode, setStartLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, setCourseAdjustmentSetting, formatDistance } = useSettings();
   
   // Transform visual direction to geographic lat/lng delta based on map bearing
   // When map is rotated, visual "up" is not geographic north
@@ -1632,9 +1632,81 @@ export function SetupPanel({
                 {/* Course Transformation Controls - First */}
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Move className="w-4 h-4" />
-                      Adjust Course
+                    <CardTitle className="text-base flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <Move className="w-4 h-4" />
+                        Adjust Course
+                      </span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            data-testid="button-adjust-course-settings"
+                          >
+                            <SlidersHorizontal className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent side="bottom" align="end" className="w-64 p-3">
+                          <div className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <Move className="w-4 h-4" />
+                            Adjustment Steps
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-2 block">Resize Step (%)</Label>
+                              <div className="flex gap-1">
+                                {[5, 10, 15, 20].map(val => (
+                                  <Button
+                                    key={val}
+                                    variant={courseAdjustmentSettings.resizePercent === val ? "default" : "outline"}
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => setCourseAdjustmentSetting("resizePercent", val)}
+                                    data-testid={`option-resize-percent-${val}`}
+                                  >
+                                    {val}%
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-2 block">Rotation Step (°)</Label>
+                              <div className="flex gap-1">
+                                {[1, 5, 10, 15].map(val => (
+                                  <Button
+                                    key={val}
+                                    variant={courseAdjustmentSettings.rotationDegrees === val ? "default" : "outline"}
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => setCourseAdjustmentSetting("rotationDegrees", val)}
+                                    data-testid={`option-rotation-degrees-${val}`}
+                                  >
+                                    {val}°
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-2 block">Move Step (m)</Label>
+                              <div className="flex gap-1">
+                                {[25, 50, 100, 200].map(val => (
+                                  <Button
+                                    key={val}
+                                    variant={courseAdjustmentSettings.moveMeters === val ? "default" : "outline"}
+                                    size="sm"
+                                    className="flex-1"
+                                    onClick={() => setCourseAdjustmentSetting("moveMeters", val)}
+                                    data-testid={`option-move-meters-${val}`}
+                                  >
+                                    {val}m
+                                  </Button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
