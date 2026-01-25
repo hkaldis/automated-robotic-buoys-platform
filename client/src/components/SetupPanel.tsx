@@ -142,7 +142,7 @@ export function SetupPanel({
   const boatClasses = boatClassesData || [];
   
   // Start line adjustment settings and distance formatting
-  const { startLineResizeMode, setStartLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, setCourseAdjustmentSetting, formatDistance } = useSettings();
+  const { startLineResizeMode, setStartLineResizeMode, startLineFixBearingMode, courseAdjustmentSettings, setCourseAdjustmentSetting, courseResizeStartLineMode, setCourseResizeStartLineMode, formatDistance } = useSettings();
   
   // Transform visual direction to geographic lat/lng delta based on map bearing
   // When map is rotated, visual "up" is not geographic north
@@ -1702,6 +1702,38 @@ export function SetupPanel({
                                     {val}m
                                   </Button>
                                 ))}
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-xs text-muted-foreground mb-2 block">On Resize</Label>
+                              <div className="flex flex-col gap-1">
+                                <Button
+                                  variant={courseResizeStartLineMode === "resize_all" ? "default" : "outline"}
+                                  size="sm"
+                                  className="justify-start"
+                                  onClick={() => setCourseResizeStartLineMode("resize_all")}
+                                  data-testid="option-adjust-resize-all"
+                                >
+                                  Scale Everything
+                                </Button>
+                                <Button
+                                  variant={courseResizeStartLineMode === "keep_start_line" ? "default" : "outline"}
+                                  size="sm"
+                                  className="justify-start"
+                                  onClick={() => setCourseResizeStartLineMode("keep_start_line")}
+                                  data-testid="option-adjust-keep-start-line"
+                                >
+                                  Keep Start Line
+                                </Button>
+                                <Button
+                                  variant={courseResizeStartLineMode === "keep_committee_boat" ? "default" : "outline"}
+                                  size="sm"
+                                  className="justify-start"
+                                  onClick={() => setCourseResizeStartLineMode("keep_committee_boat")}
+                                  data-testid="option-adjust-keep-committee-boat"
+                                >
+                                  Keep Committee Boat
+                                </Button>
                               </div>
                             </div>
                           </div>
