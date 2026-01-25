@@ -55,7 +55,15 @@ The design is tablet-first with large, touch-friendly controls (min 56px targets
 - **Hold All**: Emergency stop for all moving/assigned buoys.
 - **All Green Indicator**: Status display in FloatingActionBar shows buoy deployment progress ("X/Y On Station") and lights up green when all buoys reach position.
 - **Collapsible SetupPanel**: Panel collapses to 56px-wide status strip with phase indicator dots, maximizing map view for race officers.
-- **Quick Start Mode**: Category-first template selection dialog. First select category (Triangle, Trapezoid, Windward-Leeward, Other), then browse templates in that category with thumbnails and metadata. Single back button for simple navigation. All touch targets 56px+ for wet-finger operation.
+- **Quick Start Wizard** (`QuickStartWizard.tsx`): Multi-step wizard for new events combining template/saved course selection with fleet configuration. Features:
+  - **Progress stepper**: Visual progress (Choose → Select → Configure)
+  - **Templates tab**: Category-organized global templates (Triangle, Trapezoid, Windward-Leeward, Other) with counts and thumbnails
+  - **My Courses tab**: Access to user's saved courses from previous events
+  - **Integrated fleet config**: Race type (Fleet/Match/Team) and boat count selection built into wizard
+  - **Non-cancellable for new events**: Prevents closing without selecting or creating a course
+  - **Skip redundant dialogs**: FleetConfig passthrough skips separate boat count dialog when configured in wizard
+  - **Loading states**: Clear loading indication during course creation
+  - **Touch targets**: 56px+ buttons, 80px+ cards for wet-finger operation
 - **Tap-and-Hold Gesture**: Long-press (600ms) on map directly places a course mark, designed for intuitive wet-finger operation. Only active when not in other placement/editing modes.
 
 ### Design System (`client/src/design-system.ts`)
