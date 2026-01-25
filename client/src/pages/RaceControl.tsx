@@ -294,7 +294,7 @@ interface RaceControlProps {
 
 export default function RaceControl({ eventId: propEventId }: RaceControlProps) {
   const { user } = useAuth();
-  const { mapLayer, showSeaMarks, showSiblingBuoys, integrationSettings } = useSettings();
+  const { mapLayer, showSeaMarks, showSiblingBuoys, integrationSettings, courseResizeStartLineMode } = useSettings();
   const [, setLocation] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [courseMenuSaveOpen, setCourseMenuSaveOpen] = useState(false);
@@ -1393,6 +1393,10 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       const centerLat = markSnapshot.reduce((sum, m) => sum + m.lat, 0) / markSnapshot.length;
       const centerLng = markSnapshot.reduce((sum, m) => sum + m.lng, 0) / markSnapshot.length;
 
+      // Find start line marks for courseResizeStartLineMode handling
+      const startBoat = markSnapshot.find(m => m.role === "start_boat");
+      const pinMark = markSnapshot.find(m => m.role === "pin");
+
       // Calculate new positions for all marks from the snapshot
       const newPositions = markSnapshot.map(mark => {
         let newLat = mark.lat;
@@ -1400,10 +1404,50 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
         // Apply scaling (relative to center)
         if (transform.scale) {
-          const dLat = mark.lat - centerLat;
-          const dLng = mark.lng - centerLng;
-          newLat = centerLat + dLat * transform.scale;
-          newLng = centerLng + dLng * transform.scale;
+          const isStartLineMark = mark.role === "start_boat" || mark.role === "pin" || mark.isStartLine;
+          
+          // Handle start line based on courseResizeStartLineMode setting
+          // Only apply special handling if both start line marks exist
+          const canApplyStartLineMode = startBoat && pinMark && isStartLineMark && courseResizeStartLineMode !== "resize_all";
+          
+          if (canApplyStartLineMode) {
+            if (courseResizeStartLineMode === "keep_start_line") {
+              // Keep start line the same length - scale from start line center instead of course center
+              const startLineCenterLat = (startBoat.lat + pinMark.lat) / 2;
+              const startLineCenterLng = (startBoat.lng + pinMark.lng) / 2;
+              
+              // Move start line center with the course, but don't change its size
+              const newStartLineCenterLat = centerLat + (startLineCenterLat - centerLat) * transform.scale;
+              const newStartLineCenterLng = centerLng + (startLineCenterLng - centerLng) * transform.scale;
+              
+              // Keep same offset from start line center (preserves length)
+              const offsetLat = mark.lat - startLineCenterLat;
+              const offsetLng = mark.lng - startLineCenterLng;
+              
+              newLat = newStartLineCenterLat + offsetLat;
+              newLng = newStartLineCenterLng + offsetLng;
+            } else if (courseResizeStartLineMode === "keep_committee_boat") {
+              // Keep committee boat fixed, only move pin proportionally
+              if (mark.role === "start_boat") {
+                // Committee boat stays in place
+                newLat = mark.lat;
+                newLng = mark.lng;
+              } else {
+                // Pin (or any other start line mark) scales from committee boat position
+                const dLat = mark.lat - startBoat.lat;
+                const dLng = mark.lng - startBoat.lng;
+                newLat = startBoat.lat + dLat * transform.scale;
+                newLng = startBoat.lng + dLng * transform.scale;
+              }
+            }
+          } else {
+            // Default: scale all marks from course center
+            // This also serves as fallback when start line marks are missing
+            const dLat = mark.lat - centerLat;
+            const dLng = mark.lng - centerLng;
+            newLat = centerLat + dLat * transform.scale;
+            newLng = centerLng + dLng * transform.scale;
+          }
         }
 
         // Apply rotation (relative to committee boat pivot - committee boat stays fixed)
@@ -1462,7 +1506,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     } finally {
       setIsTransforming(false);
     }
-  }, [marks, updateMark, handleMarkMoved, toast, isTransforming]);
+  }, [marks, updateMark, handleMarkMoved, toast, isTransforming, courseResizeStartLineMode]);
 
   // Handle phase changes from SetupPanel - auto-enable placement in marks phase
   const handlePhaseChange = useCallback((phase: string) => {
