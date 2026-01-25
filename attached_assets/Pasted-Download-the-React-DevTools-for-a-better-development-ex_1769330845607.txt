@@ -1,0 +1,46 @@
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+admin:1 <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes">Understand this warning
+admin:1 Error while trying to use the following icon from the Manifest: https://28407d20-d095-417b-ab15-d5a9f7fe6bbe-00-96olowo3sd4d.janeway.replit.dev/favicon.png (Resource size is not correct - typo in the Manifest?)Understand this warning
+chunk-GZFEZRAU.js?v=a3550172:335 Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+(anonymous) @ chunk-GZFEZRAU.js?v=a3550172:335
+commitHookEffectListMount @ chunk-LPF6KSF2.js?v=a3550172:16963
+commitPassiveMountOnFiber @ chunk-LPF6KSF2.js?v=a3550172:18206
+commitPassiveMountEffects_complete @ chunk-LPF6KSF2.js?v=a3550172:18179
+commitPassiveMountEffects_begin @ chunk-LPF6KSF2.js?v=a3550172:18169
+commitPassiveMountEffects @ chunk-LPF6KSF2.js?v=a3550172:18159
+flushPassiveEffectsImpl @ chunk-LPF6KSF2.js?v=a3550172:19543
+flushPassiveEffects @ chunk-LPF6KSF2.js?v=a3550172:19500
+commitRootImpl @ chunk-LPF6KSF2.js?v=a3550172:19469
+commitRoot @ chunk-LPF6KSF2.js?v=a3550172:19330
+performSyncWorkOnRoot @ chunk-LPF6KSF2.js?v=a3550172:18948
+flushSyncCallbacks @ chunk-LPF6KSF2.js?v=a3550172:9166
+(anonymous) @ chunk-LPF6KSF2.js?v=a3550172:18677
+setTimeout
+scheduleFn @ @tanstack_react-query.js?v=a3550172:537
+flush @ @tanstack_react-query.js?v=a3550172:551
+batch @ @tanstack_react-query.js?v=a3550172:569
+#dispatch @ @tanstack_react-query.js?v=a3550172:963
+setData @ @tanstack_react-query.js?v=a3550172:672
+onSuccess @ @tanstack_react-query.js?v=a3550172:865
+resolve @ @tanstack_react-query.js?v=a3550172:442
+Promise.then
+run @ @tanstack_react-query.js?v=a3550172:481
+start @ @tanstack_react-query.js?v=a3550172:518
+fetch @ @tanstack_react-query.js?v=a3550172:893
+#executeFetch @ @tanstack_react-query.js?v=a3550172:1963
+onSubscribe @ @tanstack_react-query.js?v=a3550172:1840
+subscribe @ @tanstack_react-query.js?v=a3550172:19
+(anonymous) @ @tanstack_react-query.js?v=a3550172:2962
+subscribeToStore @ chunk-LPF6KSF2.js?v=a3550172:12032
+commitHookEffectListMount @ chunk-LPF6KSF2.js?v=a3550172:16963
+commitPassiveMountOnFiber @ chunk-LPF6KSF2.js?v=a3550172:18206
+commitPassiveMountEffects_complete @ chunk-LPF6KSF2.js?v=a3550172:18179
+commitPassiveMountEffects_begin @ chunk-LPF6KSF2.js?v=a3550172:18169
+commitPassiveMountEffects @ chunk-LPF6KSF2.js?v=a3550172:18159
+flushPassiveEffectsImpl @ chunk-LPF6KSF2.js?v=a3550172:19543
+flushPassiveEffects @ chunk-LPF6KSF2.js?v=a3550172:19500
+commitRootImpl @ chunk-LPF6KSF2.js?v=a3550172:19469
+commitRoot @ chunk-LPF6KSF2.js?v=a3550172:19330
+performSyncWorkOnRoot @ chunk-LPF6KSF2.js?v=a3550172:18948
+flushSyncCallbacks @ chunk-LPF6KSF2.js?v=a3550172:9166
+(anonymous) @ chunk-LPF6KSF2.js?v=a3550172:18677Understand this warning

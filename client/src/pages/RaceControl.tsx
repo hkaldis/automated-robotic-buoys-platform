@@ -733,11 +733,21 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     
     // Step 1b: Resize start line directly when fleet config is provided from wizard
     if (pendingTemplateSetup.step === "resize_start" && pendingTemplateSetup.fleetConfig) {
-      // Guard: need marks to proceed
-      if (marks.length === 0) return;
+      // Guard: need start line marks to proceed (not just any marks)
+      const startLineMarks = marks.filter(m => m.isStartLine);
+      const pinMark = startLineMarks.find(m => m.role === "pin");
+      const cbMark = startLineMarks.find(m => m.role === "start_boat");
+      
+      if (!pinMark || !cbMark) {
+        // Marks not loaded yet, wait for next render
+        console.log("[Template Setup] Waiting for start line marks to load...", { marksCount: marks.length, startLineMarks: startLineMarks.length });
+        return;
+      }
       
       templateSetupProcessedRef.current = stepKey;
       const { raceType, boatCount = 10 } = pendingTemplateSetup.fleetConfig;
+      
+      console.log("[Template Setup] Start line marks loaded, proceeding with resize");
       
       // Resize the start line based on fleet config
       resizeStartLine({ raceType, boatCount });
@@ -953,7 +963,10 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
       
       invalidateRelatedQueries("events");
       invalidateRelatedQueries("courses", newCourse.id);
-      invalidateRelatedQueries("marks", newCourse.id);
+      
+      // CRITICAL: Wait for marks to fully load before proceeding with template setup
+      // This ensures resizeStartLine has access to the newly created marks
+      await queryClient.refetchQueries({ queryKey: ["/api/courses", newCourse.id, "marks"] });
       
       toast({
         title: "Course Loaded",
