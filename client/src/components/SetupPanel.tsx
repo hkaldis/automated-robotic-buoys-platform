@@ -1831,7 +1831,7 @@ export function SetupPanel({
                         title="Tap to Move"
                         data-testid="button-tap-to-move"
                       >
-                        <Navigation2 className="w-5 h-5" />
+                        <MapPin className="w-5 h-5" />
                       </Button>
                       <Button
                         variant="outline"
@@ -1857,7 +1857,7 @@ export function SetupPanel({
                         title="Enter Coordinates"
                         data-testid="button-course-to-coordinates"
                       >
-                        <MapPin className="w-5 h-5" />
+                        <Navigation2 className="w-5 h-5" />
                       </Button>
                     </div>
                     
