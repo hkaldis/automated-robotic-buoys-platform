@@ -94,13 +94,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEventAccessUsers(eventId: string): Promise<User[]> {
-    const accessList = await db.select().from(userEventAccess).where(eq(userEventAccess.eventId, eventId));
-    const usersList: User[] = [];
-    for (const access of accessList) {
-      const [user] = await db.select().from(users).where(eq(users.id, access.userId));
-      if (user) usersList.push(user);
-    }
-    return usersList;
+    // Use a subquery to get users with event access in a single query
+    const accessUserIds = db
+      .select({ userId: userEventAccess.userId })
+      .from(userEventAccess)
+      .where(eq(userEventAccess.eventId, eventId));
+    
+    return db
+      .select()
+      .from(users)
+      .where(sql`${users.id} IN (${accessUserIds})`);
   }
 
   async getSailClub(id: string): Promise<SailClub | undefined> {
@@ -361,23 +364,79 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBuoysForEvent(eventId: string): Promise<Buoy[]> {
-    const activeAssignments = await db.select()
+    // Use a subquery to get buoys with active assignments in a single query
+    const activeBuoyIds = db
+      .select({ buoyId: buoyAssignments.buoyId })
       .from(buoyAssignments)
       .where(and(
         eq(buoyAssignments.eventId, eventId),
         eq(buoyAssignments.status, "active")
       ));
     
-    if (activeAssignments.length === 0) return [];
-    
-    const buoyIds = activeAssignments.map(a => a.buoyId);
-    return db.select().from(buoys).where(
-      sql`${buoys.id} IN (${sql.join(buoyIds.map(id => sql`${id}`), sql`, `)})`
-    );
+    return db
+      .select()
+      .from(buoys)
+      .where(sql`${buoys.id} IN (${activeBuoyIds})`);
   }
 
   async getAvailableBuoys(): Promise<Buoy[]> {
     return db.select().from(buoys).where(eq(buoys.inventoryStatus, "in_inventory"));
+  }
+
+  async getSiblingEventBuoys(eventId: string): Promise<Array<Buoy & { eventName: string; sourceEventId: string }>> {
+    // Get the current event to find its club and date
+    const [currentEvent] = await db.select().from(events).where(eq(events.id, eventId));
+    if (!currentEvent?.startDate || !currentEvent.sailClubId) {
+      return [];
+    }
+
+    const eventDate = new Date(currentEvent.startDate);
+    const startOfDay = new Date(eventDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(eventDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find sibling events: same club, same day, different event
+    const siblingEvents = await db.select()
+      .from(events)
+      .where(and(
+        eq(events.sailClubId, currentEvent.sailClubId),
+        sql`${events.startDate} >= ${startOfDay}`,
+        sql`${events.startDate} <= ${endOfDay}`,
+        sql`${events.id} != ${eventId}`
+      ));
+
+    if (siblingEvents.length === 0) {
+      return [];
+    }
+
+    const result: Array<Buoy & { eventName: string; sourceEventId: string }> = [];
+
+    // For each sibling event, get buoys with active assignments
+    for (const sibEvent of siblingEvents) {
+      const activeBuoyIds = db
+        .select({ buoyId: buoyAssignments.buoyId })
+        .from(buoyAssignments)
+        .where(and(
+          eq(buoyAssignments.eventId, sibEvent.id),
+          eq(buoyAssignments.status, "active")
+        ));
+
+      const eventBuoys = await db
+        .select()
+        .from(buoys)
+        .where(sql`${buoys.id} IN (${activeBuoyIds})`);
+
+      for (const buoy of eventBuoys) {
+        result.push({
+          ...buoy,
+          eventName: sibEvent.name,
+          sourceEventId: sibEvent.id,
+        });
+      }
+    }
+
+    return result;
   }
 
   async getBuoyAssignment(id: string): Promise<BuoyAssignment | undefined> {
@@ -451,11 +510,9 @@ export class DatabaseStorage implements IStorage {
     const { userId, userRole, userSailClubId, clubId, search, cursor, limit = 25 } = params;
     
     // Build visibility conditions based on user role
-    const visibilityConditions = [];
+    const visibilityConditions: ReturnType<typeof eq>[] = [];
     
-    if (userRole === "super_admin") {
-      // Super admin sees everything - no filter needed
-    } else {
+    if (userRole !== "super_admin") {
       // Global visibility - everyone can see
       visibilityConditions.push(eq(courseSnapshots.visibilityScope, "global"));
       
@@ -465,7 +522,7 @@ export class DatabaseStorage implements IStorage {
           and(
             eq(courseSnapshots.visibilityScope, "club"),
             eq(courseSnapshots.sailClubId, userSailClubId)
-          )
+          ) as ReturnType<typeof eq>
         );
       }
       
@@ -474,59 +531,50 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(courseSnapshots.visibilityScope, "user"),
           eq(courseSnapshots.ownerId, userId)
-        )
+        ) as ReturnType<typeof eq>
       );
     }
     
-    // Build the where clause
-    const conditions = [];
+    // Build base conditions (shared between count and paginated queries)
+    const baseConditions: ReturnType<typeof eq>[] = [];
     
     // Add visibility filter (only for non-super-admin)
     if (visibilityConditions.length > 0) {
-      conditions.push(or(...visibilityConditions));
+      baseConditions.push(or(...visibilityConditions) as ReturnType<typeof eq>);
     }
     
     // Add club filter if specified
     if (clubId) {
-      conditions.push(eq(courseSnapshots.sailClubId, clubId));
+      baseConditions.push(eq(courseSnapshots.sailClubId, clubId));
     }
     
     // Add search filter if specified
     if (search) {
-      conditions.push(ilike(courseSnapshots.name, `%${search}%`));
+      baseConditions.push(ilike(courseSnapshots.name, `%${search}%`) as ReturnType<typeof eq>);
     }
     
-    // Add cursor for pagination (get items after the cursor)
-    if (cursor) {
-      const [cursorSnapshot] = await db.select().from(courseSnapshots).where(eq(courseSnapshots.id, cursor));
-      if (cursorSnapshot?.createdAt) {
-        // Get items created before the cursor item (since we're ordering by createdAt desc)
-        conditions.push(sql`${courseSnapshots.createdAt} < ${cursorSnapshot.createdAt}`);
-      }
-    }
-    
-    // Get count (without pagination) - first build count query with visibility and filters
-    const countConditions = [];
-    if (visibilityConditions.length > 0) {
-      countConditions.push(or(...visibilityConditions));
-    }
-    if (clubId) {
-      countConditions.push(eq(courseSnapshots.sailClubId, clubId));
-    }
-    if (search) {
-      countConditions.push(ilike(courseSnapshots.name, `%${search}%`));
-    }
-    
-    const countQuery = countConditions.length > 0
-      ? db.select({ count: sql<number>`count(*)::int` }).from(courseSnapshots).where(and(...countConditions))
+    // Get total count using base conditions (no pagination cursor)
+    const countQuery = baseConditions.length > 0
+      ? db.select({ count: sql<number>`count(*)::int` }).from(courseSnapshots).where(and(...baseConditions))
       : db.select({ count: sql<number>`count(*)::int` }).from(courseSnapshots);
     
     const [countResult] = await countQuery;
     const totalCount = countResult?.count ?? 0;
     
+    // Build paginated conditions (base + cursor)
+    const paginatedConditions = [...baseConditions];
+    
+    if (cursor) {
+      const [cursorSnapshot] = await db.select().from(courseSnapshots).where(eq(courseSnapshots.id, cursor));
+      if (cursorSnapshot?.createdAt) {
+        // Get items created before the cursor item (since we're ordering by createdAt desc)
+        paginatedConditions.push(sql`${courseSnapshots.createdAt} < ${cursorSnapshot.createdAt}` as ReturnType<typeof eq>);
+      }
+    }
+    
     // Get paginated results
-    const query = conditions.length > 0
-      ? db.select().from(courseSnapshots).where(and(...conditions)).orderBy(desc(courseSnapshots.createdAt)).limit(limit + 1)
+    const query = paginatedConditions.length > 0
+      ? db.select().from(courseSnapshots).where(and(...paginatedConditions)).orderBy(desc(courseSnapshots.createdAt)).limit(limit + 1)
       : db.select().from(courseSnapshots).orderBy(desc(courseSnapshots.createdAt)).limit(limit + 1);
     
     const results = await query;
