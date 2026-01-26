@@ -2336,7 +2336,7 @@ export function SetupPanel({
                   isCurrent ? "bg-primary text-primary-foreground ring-2 ring-primary/30" :
                   "bg-muted text-muted-foreground"
                 )}>
-                  {isComplete ? <Check className="w-4 h-4" /> : <p.icon className="w-4 h-4" />}
+                  <p.icon className="w-4 h-4" />
                 </div>
               </button>
             );
