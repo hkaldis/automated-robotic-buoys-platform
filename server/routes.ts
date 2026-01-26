@@ -1498,12 +1498,8 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/settings", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    
-    const userId = req.session.userId;
+  app.get("/api/settings", requireAuth, async (req, res) => {
+    const userId = req.session.userId!;
     let settings = await storage.getUserSettings(userId);
     
     if (!settings) {
@@ -1536,12 +1532,8 @@ export async function registerRoutes(
     });
   });
 
-  app.patch("/api/settings", async (req, res) => {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-    
-    const userId = req.session.userId;
+  app.patch("/api/settings", requireAuth, async (req, res) => {
+    const userId = req.session.userId!;
     const { 
       distanceUnit, speedUnit, windSource, selectedWindBuoyId,
       mapLayer, showSeaMarks, showSiblingBuoys, windArrowsMinZoom,

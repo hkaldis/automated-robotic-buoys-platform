@@ -614,23 +614,6 @@ export const requireRole = (...roles: UserRole[]): RequestHandler => {
   };
 };
 
-export const requireClubAccess: RequestHandler = async (req, res, next) => {
-  if (!req.session.userId) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  
-  if (req.session.role === "super_admin") {
-    return next();
-  }
-  
-  const clubId = req.params.clubId || req.query.sailClubId || req.body?.sailClubId;
-  if (clubId && req.session.sailClubId !== clubId) {
-    return res.status(403).json({ error: "No access to this club" });
-  }
-  
-  next();
-};
-
 export const requireEventAccess: RequestHandler = async (req, res, next) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: "Authentication required" });
