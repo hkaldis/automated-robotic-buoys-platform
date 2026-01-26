@@ -33,6 +33,7 @@ import {
   useSaveCourseSnapshot,
   useDeleteCourseSnapshot,
   useBoatClasses,
+  useSailClubs,
   type CourseSnapshot,
   type SnapshotMark,
 } from "@/hooks/use-api";
@@ -389,6 +390,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   const { data: events = [], isLoading: eventsLoading } = useEvents();
   const { data: courses = [], isLoading: coursesLoading } = useCourses();
   const { data: boatClasses = [] } = useBoatClasses();
+  const { data: sailClubs = [] } = useSailClubs();
   
   const { data: eventBuoys = [], isLoading: eventBuoysLoading } = useQuery<Buoy[]>({
     queryKey: [`/api/events/${activeEventId}/buoys`],
@@ -2942,7 +2944,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     <div className="h-screen w-screen flex flex-col bg-background overflow-hidden" data-testid="race-control-page">
       <TopBar
         eventName={displayEvent.name}
-        clubName="Oakland Yacht Club"
+        clubName={sailClubs.find(c => c.id === displayEvent.sailClubId)?.name ?? "Unknown Club"}
         demoMode={demoMode}
         userRole={user?.role}
         weatherData={activeWeatherData}

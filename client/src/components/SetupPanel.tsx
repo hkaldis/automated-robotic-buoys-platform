@@ -878,12 +878,12 @@ export function SetupPanel({
   const hasCommitteeBoat = startLineMarks.some(m => m.role === "start_boat" || m.name.toLowerCase().includes("committee") || m.name.toLowerCase().includes("starboard"));
 
   const phases = [
-    { id: "start_line", label: "Start", number: 1 },
-    { id: "marks", label: "Points", number: 2 },
-    { id: "finish_line", label: "Finish", number: 3 },
-    { id: "sequence", label: "Route", number: 4 },
-    { id: "summary", label: "Course", number: 5 },
-    { id: "assign_buoys", label: "Assign", number: 6 },
+    { id: "start_line", label: "Start", number: 1, icon: Flag },
+    { id: "marks", label: "Points", number: 2, icon: MapPin },
+    { id: "finish_line", label: "Finish", number: 3, icon: FlagTriangleRight },
+    { id: "sequence", label: "Route", number: 4, icon: Navigation2 },
+    { id: "summary", label: "Course", number: 5, icon: Sailboat },
+    { id: "assign_buoys", label: "Assign", number: 6, icon: Anchor },
   ];
 
   const currentPhaseIndex = phases.findIndex(p => p.id === phase);
@@ -2336,7 +2336,7 @@ export function SetupPanel({
                   isCurrent ? "bg-primary text-primary-foreground ring-2 ring-primary/30" :
                   "bg-muted text-muted-foreground"
                 )}>
-                  {isComplete ? <Check className="w-4 h-4" /> : p.number}
+                  {isComplete ? <Check className="w-4 h-4" /> : <p.icon className="w-4 h-4" />}
                 </div>
               </button>
             );
