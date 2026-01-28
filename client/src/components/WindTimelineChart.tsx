@@ -46,35 +46,31 @@ function getCardinalDirection(degrees: number): string {
 }
 
 // Wind direction arrow component
-// Arrow points UP by default (0°), rotation shows direction wind comes FROM
-// e.g., 180° = arrow points down = wind from the south blowing north
+// Uses CSS rotation on wrapper - arrow points where wind comes FROM
+// 0° = North (up), 90° = East (right), 180° = South (down), 270° = West (left)
 function DirectionArrow({ degrees, size = 16 }: { degrees: number; size?: number }) {
   const normalized = ((degrees % 360) + 360) % 360;
+  
   return (
     <div 
-      className="flex-shrink-0 text-primary"
+      className="flex-shrink-0 inline-flex items-center justify-center text-primary"
       style={{ 
         width: size, 
         height: size,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        transform: `rotate(${normalized}deg)`,
       }}
+      role="img"
+      aria-label={`Wind from ${normalized.toFixed(0)}° ${getCardinalDirection(normalized)}`}
+      data-rotation={normalized}
     >
       <svg 
         width={size} 
         height={size} 
         viewBox="0 0 24 24"
-        style={{ 
-          transform: `rotate(${normalized}deg)`,
-          transformOrigin: 'center center',
-        }}
-        aria-label={`Wind from ${normalized.toFixed(0)}° ${getCardinalDirection(normalized)}`}
+        fill="currentColor"
       >
-        <path 
-          d="M12 4 L7 14 L12 11 L17 14 Z" 
-          fill="currentColor"
-        />
+        {/* Arrow pointing UP at 0° - simple triangle */}
+        <path d="M12 3L6 17L12 13L18 17L12 3Z" />
       </svg>
     </div>
   );
