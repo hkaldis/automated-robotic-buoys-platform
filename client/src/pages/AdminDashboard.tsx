@@ -55,6 +55,8 @@ export default function AdminDashboard() {
   const [editEventBoatClassId, setEditEventBoatClassId] = useState<string>("");
   const [editEventStartDate, setEditEventStartDate] = useState("");
   const [editEventEndDate, setEditEventEndDate] = useState("");
+  const [editEventManage2SailUrl, setEditEventManage2SailUrl] = useState("");
+  const [editEventRacingRulesUrl, setEditEventRacingRulesUrl] = useState("");
   const [buoyDialogOpen, setBuoyDialogOpen] = useState(false);
   const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
   const [newBuoyName, setNewBuoyName] = useState("");
@@ -547,6 +549,8 @@ export default function AdminDashboard() {
     setEditEventBoatClassId(event.boatClassId || "");
     setEditEventStartDate(event.startDate ? new Date(event.startDate).toISOString().split("T")[0] : "");
     setEditEventEndDate(event.endDate ? new Date(event.endDate).toISOString().split("T")[0] : "");
+    setEditEventManage2SailUrl(event.manage2SailUrl || "");
+    setEditEventRacingRulesUrl(event.racingRulesUrl || "");
     setEditEventDialogOpen(true);
   };
 
@@ -561,6 +565,8 @@ export default function AdminDashboard() {
         boatClassId: editEventBoatClassId || null,
         startDate: editEventStartDate,
         endDate: editEventEndDate || undefined,
+        manage2SailUrl: editEventManage2SailUrl.trim() || null,
+        racingRulesUrl: editEventRacingRulesUrl.trim() || null,
       });
     }
   };
@@ -2044,6 +2050,28 @@ export default function AdminDashboard() {
                   data-testid="input-edit-event-end-date"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-manage2sail-url">Manage2Sail URL</Label>
+              <Input
+                id="edit-manage2sail-url"
+                type="url"
+                value={editEventManage2SailUrl}
+                onChange={(e) => setEditEventManage2SailUrl(e.target.value)}
+                placeholder="https://www.manage2sail.com/en-US/event/..."
+                data-testid="input-edit-manage2sail-url"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-racingrules-url">Racing Rules URL</Label>
+              <Input
+                id="edit-racingrules-url"
+                type="url"
+                value={editEventRacingRulesUrl}
+                onChange={(e) => setEditEventRacingRulesUrl(e.target.value)}
+                placeholder="https://www.racingrulesofsailing.org/events/..."
+                data-testid="input-edit-racingrules-url"
+              />
             </div>
 
             {/* Buoy Management Section */}
