@@ -253,7 +253,7 @@ export default function AdminDashboard() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string; boatClassId?: string | null; startDate?: string; endDate?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name?: string; type?: string; boatClass?: string; boatClassId?: string | null; startDate?: string; endDate?: string; manage2SailUrl?: string | null; racingRulesUrl?: string | null }) => {
       const res = await apiRequest("PATCH", `/api/events/${id}`, data);
       return res.json();
     },
@@ -2457,7 +2457,7 @@ export default function AdminDashboard() {
       </Dialog>
 
       <Dialog open={externalInfoDialogOpen} onOpenChange={setExternalInfoDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] overflow-hidden flex flex-col p-6">
           {selectedEventForExternalInfo && (
             <EventExternalInfo
               eventId={selectedEventForExternalInfo.id}

@@ -7,7 +7,7 @@ const ALLOWED_DOMAINS = [
   'www.racingrulesofsailing.org',
 ];
 
-const FETCH_TIMEOUT_MS = 10000;
+const FETCH_TIMEOUT_MS = 15000;
 
 function isValidExternalUrl(url: string): boolean {
   try {
@@ -22,7 +22,82 @@ function isValidExternalUrl(url: string): boolean {
   }
 }
 
+function extractEventIdFromUrl(url: string): string | null {
+  const match = url.match(/\/event\/([a-f0-9-]{36})/i);
+  return match ? match[1] : null;
+}
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json, text/html, */*',
+        ...options.headers,
+      },
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+interface Manage2SailEntry {
+  sailNumber: string;
+  boatName?: string;
+  boatType?: string;
+  skipperName?: string;
+  crew?: string;
+  clubName?: string;
+  country?: string;
+  handicap?: number;
+}
+
+interface Manage2SailClass {
+  id: string;
+  name: string;
+  entriesCount: number;
+  entries: Manage2SailEntry[];
+}
+
+interface Manage2SailRaceResult {
+  sailNumber: string;
+  boatName?: string;
+  position: number;
+  points?: number;
+  finishTime?: string;
+}
+
+interface Manage2SailRace {
+  raceName: string;
+  raceNumber?: number;
+  date?: string;
+  results: Manage2SailRaceResult[];
+}
+
+interface Manage2SailResults {
+  className: string;
+  classId: string;
+  races: Manage2SailRace[];
+  overallStandings?: Manage2SailRaceResult[];
+}
+
+interface Manage2SailDocument {
+  title: string;
+  url: string;
+  date?: string;
+  type?: string;
+}
+
 interface Manage2SailInfo {
+  eventId?: string;
   eventName?: string;
   dates?: string;
   registrationPeriod?: string;
@@ -33,8 +108,11 @@ interface Manage2SailInfo {
   country?: string;
   email?: string;
   phone?: string;
-  classes?: string[];
-  entriesCount?: number;
+  website?: string;
+  description?: string;
+  classes: Manage2SailClass[];
+  results: Manage2SailResults[];
+  documents: Manage2SailDocument[];
   fetchedAt?: string;
 }
 
@@ -55,6 +133,323 @@ export interface ExternalInfo {
   racingRules?: RacingRulesInfo;
 }
 
+async function fetchManage2SailEventDetails(eventId: string): Promise<Partial<Manage2SailInfo>> {
+  const info: Partial<Manage2SailInfo> = { eventId };
+  
+  try {
+    const baseUrl = `https://www.manage2sail.com/en-US/event/${eventId}`;
+    const response = await fetchWithTimeout(baseUrl);
+    
+    if (!response.ok) {
+      console.error(`Failed to fetch Manage2Sail event page: ${response.status}`);
+      return info;
+    }
+    
+    const html = await response.text();
+    
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    if (titleMatch) {
+      info.eventName = titleMatch[1].replace(/\s*-\s*Manage2Sail.*$/i, '').trim();
+    }
+    
+    const eventDateMatch = html.match(/Event\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (eventDateMatch) {
+      info.dates = eventDateMatch[1].trim();
+    }
+    
+    const regMatch = html.match(/Registration\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (regMatch) {
+      info.registrationPeriod = regMatch[1].trim();
+    }
+    
+    const clubMatch = html.match(/Club\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i);
+    if (clubMatch) {
+      info.club = clubMatch[1].trim();
+    }
+    
+    const locationMatch = html.match(/Location\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (locationMatch) {
+      info.location = locationMatch[1].trim();
+    }
+    
+    const addressMatch = html.match(/Address\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (addressMatch) {
+      info.address = addressMatch[1].trim();
+    }
+    
+    const cityMatch = html.match(/City\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (cityMatch) {
+      info.city = cityMatch[1].trim();
+    }
+    
+    const countryMatch = html.match(/Country\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (countryMatch) {
+      info.country = countryMatch[1].trim();
+    }
+    
+    const emailMatch = html.match(/Email\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?mailto:([^"]+)/i);
+    if (emailMatch) {
+      info.email = emailMatch[1].trim();
+    }
+    
+    const phoneMatch = html.match(/Phone\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    if (phoneMatch) {
+      info.phone = phoneMatch[1].trim();
+    }
+    
+    const websiteMatch = html.match(/Website\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?href="([^"]+)"/i);
+    if (websiteMatch) {
+      info.website = websiteMatch[1].trim();
+    }
+    
+    const descMatch = html.match(/Description\s*:\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/i);
+    if (descMatch) {
+      info.description = descMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    
+  } catch (error) {
+    console.error("Error fetching Manage2Sail event details:", error);
+  }
+  
+  return info;
+}
+
+async function fetchManage2SailClasses(eventId: string): Promise<Manage2SailClass[]> {
+  const classes: Manage2SailClass[] = [];
+  
+  try {
+    const apiUrl = `https://www.manage2sail.com/api/event/${eventId}/regattas`;
+    
+    if (!isValidExternalUrl(apiUrl)) {
+      console.error("Internal URL validation failed:", apiUrl);
+      return [];
+    }
+    
+    const response = await fetchWithTimeout(apiUrl);
+    
+    if (!response.ok) {
+      console.log(`No regattas API available for event ${eventId}, trying HTML fallback`);
+      return await fetchManage2SailClassesFromHtml(eventId);
+    }
+    
+    const data = await response.json();
+    
+    if (Array.isArray(data)) {
+      for (const regatta of data) {
+        const classInfo: Manage2SailClass = {
+          id: regatta.Id || regatta.id || '',
+          name: regatta.Name || regatta.name || 'Unknown Class',
+          entriesCount: regatta.EntryCount || regatta.entryCount || 0,
+          entries: [],
+        };
+        
+        if (classInfo.id) {
+          const entries = await fetchManage2SailEntries(eventId, classInfo.id);
+          classInfo.entries = entries;
+          classInfo.entriesCount = entries.length || classInfo.entriesCount;
+        }
+        
+        classes.push(classInfo);
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching Manage2Sail classes:", error);
+    return await fetchManage2SailClassesFromHtml(eventId);
+  }
+  
+  return classes;
+}
+
+async function fetchManage2SailClassesFromHtml(eventId: string): Promise<Manage2SailClass[]> {
+  const classes: Manage2SailClass[] = [];
+  
+  try {
+    const url = `https://www.manage2sail.com/en-US/event/${eventId}`;
+    const response = await fetchWithTimeout(url);
+    
+    if (!response.ok) return classes;
+    
+    const html = await response.text();
+    
+    const classIdRegex = /classId=([a-f0-9-]{36})/gi;
+    const classIds = new Set<string>();
+    let match;
+    
+    while ((match = classIdRegex.exec(html)) !== null) {
+      classIds.add(match[1]);
+    }
+    
+    for (const classId of Array.from(classIds)) {
+      const entries = await fetchManage2SailEntries(eventId, classId);
+      if (entries.length > 0) {
+        classes.push({
+          id: classId,
+          name: entries[0]?.boatType || 'Class',
+          entriesCount: entries.length,
+          entries,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching classes from HTML:", error);
+  }
+  
+  return classes;
+}
+
+async function fetchManage2SailEntries(eventId: string, classId: string): Promise<Manage2SailEntry[]> {
+  const entries: Manage2SailEntry[] = [];
+  
+  try {
+    const apiUrl = `https://www.manage2sail.com/api/event/${eventId}/regattaentry?regattaId=${classId}`;
+    
+    if (!isValidExternalUrl(apiUrl)) {
+      console.error("Internal URL validation failed:", apiUrl);
+      return [];
+    }
+    
+    const response = await fetchWithTimeout(apiUrl);
+    
+    if (!response.ok) {
+      console.log(`Failed to fetch entries for class ${classId}`);
+      return entries;
+    }
+    
+    const data = await response.json();
+    
+    if (data && data.Entries && Array.isArray(data.Entries)) {
+      for (const entry of data.Entries) {
+        entries.push({
+          sailNumber: entry.SailNumber || entry.sailNumber || '',
+          boatName: entry.BoatName || entry.boatName,
+          boatType: entry.BoatType || entry.boatType,
+          skipperName: entry.SkipperName || entry.skipperName,
+          crew: entry.Crew || entry.crew,
+          clubName: entry.ClubName || entry.clubName,
+          country: entry.Country || entry.country,
+          handicap: entry.Hcp || entry.hcp,
+        });
+      }
+    }
+  } catch (error) {
+    console.error(`Error fetching entries for class ${classId}:`, error);
+  }
+  
+  return entries;
+}
+
+async function fetchManage2SailResults(eventId: string, classes: Manage2SailClass[]): Promise<Manage2SailResults[]> {
+  const allResults: Manage2SailResults[] = [];
+  
+  for (const classInfo of classes) {
+    if (!classInfo.id) continue;
+    
+    try {
+      const apiUrl = `https://www.manage2sail.com/api/event/${eventId}/regattaresult/${classInfo.id}`;
+      
+      if (!isValidExternalUrl(apiUrl)) {
+        console.error("Internal URL validation failed:", apiUrl);
+        continue;
+      }
+      
+      const response = await fetchWithTimeout(apiUrl);
+      
+      if (!response.ok) {
+        continue;
+      }
+      
+      const data = await response.json();
+      
+      const classResults: Manage2SailResults = {
+        className: classInfo.name,
+        classId: classInfo.id,
+        races: [],
+        overallStandings: [],
+      };
+      
+      if (data && data.Races && Array.isArray(data.Races)) {
+        for (const race of data.Races) {
+          const raceInfo: Manage2SailRace = {
+            raceName: race.RaceName || race.Name || `Race ${race.RaceNumber || ''}`,
+            raceNumber: race.RaceNumber || race.raceNumber,
+            date: race.Date || race.date,
+            results: [],
+          };
+          
+          if (race.Results && Array.isArray(race.Results)) {
+            for (const result of race.Results) {
+              raceInfo.results.push({
+                sailNumber: result.SailNumber || result.sailNumber || '',
+                boatName: result.BoatName || result.boatName,
+                position: result.Position || result.position || result.Rank || 0,
+                points: result.Points || result.points,
+                finishTime: result.FinishTime || result.finishTime,
+              });
+            }
+          }
+          
+          classResults.races.push(raceInfo);
+        }
+      }
+      
+      if (data && data.Standings && Array.isArray(data.Standings)) {
+        for (const standing of data.Standings) {
+          classResults.overallStandings?.push({
+            sailNumber: standing.SailNumber || standing.sailNumber || '',
+            boatName: standing.BoatName || standing.boatName,
+            position: standing.Rank || standing.Position || standing.rank || 0,
+            points: standing.TotalPoints || standing.Points || standing.totalPoints,
+          });
+        }
+      }
+      
+      if (classResults.races.length > 0 || (classResults.overallStandings?.length ?? 0) > 0) {
+        allResults.push(classResults);
+      }
+    } catch (error) {
+      console.error(`Error fetching results for class ${classInfo.id}:`, error);
+    }
+  }
+  
+  return allResults;
+}
+
+async function fetchManage2SailDocuments(eventId: string): Promise<Manage2SailDocument[]> {
+  const documents: Manage2SailDocument[] = [];
+  
+  try {
+    const apiUrl = `https://www.manage2sail.com/api/event/${eventId}/documents`;
+    
+    if (!isValidExternalUrl(apiUrl)) {
+      console.error("Internal URL validation failed:", apiUrl);
+      return [];
+    }
+    
+    const response = await fetchWithTimeout(apiUrl);
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        for (const doc of data) {
+          documents.push({
+            title: doc.Name || doc.Title || doc.name || 'Document',
+            url: doc.Url || doc.url || doc.DownloadUrl || '',
+            date: doc.Date || doc.date || doc.PublishedDate,
+            type: doc.Type || doc.type || doc.Category,
+          });
+        }
+      }
+    } else {
+      console.log(`No documents API available for event ${eventId}`);
+    }
+  } catch (error) {
+    console.error("Error fetching Manage2Sail documents:", error);
+  }
+  
+  return documents;
+}
+
 export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo | null> {
   try {
     const cleanUrl = url.split('#')[0];
@@ -64,79 +459,33 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
       return null;
     }
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    
-    const response = await fetch(cleanUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      console.error(`Failed to fetch Manage2Sail page: ${response.status}`);
+    const eventId = extractEventIdFromUrl(cleanUrl);
+    if (!eventId) {
+      console.error("Could not extract event ID from URL:", cleanUrl);
       return null;
     }
-
-    const html = await response.text();
+    
+    console.log(`Parsing Manage2Sail event: ${eventId}`);
+    
+    const eventDetails = await fetchManage2SailEventDetails(eventId);
+    
+    const classes = await fetchManage2SailClasses(eventId);
+    
+    const [results, documents] = await Promise.all([
+      fetchManage2SailResults(eventId, classes),
+      fetchManage2SailDocuments(eventId),
+    ]);
+    
     const info: Manage2SailInfo = {
+      ...eventDetails,
+      classes,
+      results,
+      documents,
       fetchedAt: new Date().toISOString(),
     };
-
-    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-    if (titleMatch) {
-      info.eventName = titleMatch[1].trim();
-    }
-
-    const eventDateMatch = html.match(/Event\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (eventDateMatch) {
-      info.dates = eventDateMatch[1].trim();
-    }
-
-    const regMatch = html.match(/Registration\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (regMatch) {
-      info.registrationPeriod = regMatch[1].trim();
-    }
-
-    const clubMatch = html.match(/Club\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>/i);
-    if (clubMatch) {
-      info.club = clubMatch[1].trim();
-    }
-
-    const locationMatch = html.match(/Location\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (locationMatch) {
-      info.location = locationMatch[1].trim();
-    }
-
-    const addressMatch = html.match(/Address\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (addressMatch) {
-      info.address = addressMatch[1].trim();
-    }
-
-    const cityMatch = html.match(/City\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (cityMatch) {
-      info.city = cityMatch[1].trim();
-    }
-
-    const countryMatch = html.match(/Country\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (countryMatch) {
-      info.country = countryMatch[1].trim();
-    }
-
-    const emailMatch = html.match(/Email\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?mailto:([^"]+)/i);
-    if (emailMatch) {
-      info.email = emailMatch[1].trim();
-    }
-
-    const phoneMatch = html.match(/Phone\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
-    if (phoneMatch) {
-      info.phone = phoneMatch[1].trim();
-    }
-
+    
+    console.log(`Parsed Manage2Sail: ${classes.length} classes, ${results.length} results, ${documents.length} documents`);
+    
     return info;
   } catch (error) {
     console.error("Error parsing Manage2Sail URL:", error);
