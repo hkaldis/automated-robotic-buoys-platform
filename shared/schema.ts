@@ -300,6 +300,42 @@ export const courseSnapshots = pgTable("course_snapshots", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Buoy weather history - stores historical wind/current data per buoy
+export const buoyWeatherHistory = pgTable("buoy_weather_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  buoyId: varchar("buoy_id").notNull(),
+  eventId: varchar("event_id"),
+  
+  // Wind data
+  windDirection: real("wind_direction").notNull(),        // degrees (0-360)
+  windSpeed: real("wind_speed").notNull(),                // knots
+  gustSpeed: real("gust_speed"),                          // knots (peak in interval)
+  
+  // Current data (if sensor equipped)
+  currentDirection: real("current_direction"),            // degrees
+  currentSpeed: real("current_speed"),                    // knots
+  
+  // Metadata
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  sensorQuality: integer("sensor_quality"),               // 0-100 signal quality
+  
+  // Pre-computed rolling averages (updated periodically)
+  rollingAvgDirection: real("rolling_avg_direction"),     // 5-min rolling average
+  rollingAvgSpeed: real("rolling_avg_speed"),             // 5-min rolling average
+});
+
+// Wind pattern type enum
+export const windPatternTypeSchema = z.enum(["oscillating", "persistent", "oscillating_persistent", "stable"]);
+export type WindPatternType = z.infer<typeof windPatternTypeSchema>;
+
+// Velocity trend enum
+export const velocityTrendSchema = z.enum(["increasing", "decreasing", "stable"]);
+export type VelocityTrend = z.infer<typeof velocityTrendSchema>;
+
+// Favored side enum
+export const favoredSideSchema = z.enum(["left", "right", "neutral"]);
+export type FavoredSide = z.infer<typeof favoredSideSchema>;
+
 // Insert Schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -462,6 +498,19 @@ export const insertCourseSnapshotSchema = createInsertSchema(courseSnapshots).pi
   snapshotMarks: z.array(snapshotMarkSchema),
 });
 
+export const insertBuoyWeatherHistorySchema = createInsertSchema(buoyWeatherHistory).pick({
+  buoyId: true,
+  eventId: true,
+  windDirection: true,
+  windSpeed: true,
+  gustSpeed: true,
+  currentDirection: true,
+  currentSpeed: true,
+  sensorQuality: true,
+  rollingAvgDirection: true,
+  rollingAvgSpeed: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -556,4 +605,64 @@ export interface RaceTimeEstimate {
 export interface SiblingBuoy extends Buoy {
   eventName: string;
   sourceEventId: string;
+}
+
+// Weather history types
+export type InsertBuoyWeatherHistory = z.infer<typeof insertBuoyWeatherHistorySchema>;
+export type BuoyWeatherHistory = typeof buoyWeatherHistory.$inferSelect;
+
+// Wind analytics interfaces
+export interface WindPattern {
+  type: WindPatternType;
+  confidence: number;           // 0-1
+  medianDirection: number;      // degrees
+  shiftRange: number;           // degrees (oscillation amplitude)
+  periodMinutes: number | null; // null if not oscillating
+  trendDegreesPerHour: number;  // 0 if not persistent
+}
+
+export interface ShiftEvent {
+  timestamp: Date;
+  direction: number;            // new wind direction
+  change: number;               // degrees of change (positive = veered right, negative = backed left)
+  type: "header" | "lift";      // relative to upwind course
+  magnitude: "minor" | "moderate" | "major"; // < 5°, 5-10°, > 10°
+}
+
+export interface ShiftPrediction {
+  expectedDirection: "left" | "right";
+  expectedTimeMinutes: number;
+  magnitudeDegrees: number;
+  confidence: number;           // 0-1
+}
+
+export interface FavoredSideAnalysis {
+  side: FavoredSide;
+  reason: string;
+  confidence: number;           // 0-1
+  factors: {
+    moreWind: "left" | "right" | "equal";
+    nextShift: "left" | "right" | "unknown";
+    persistent: "left" | "right" | "none";
+  };
+}
+
+export interface WindAnalytics {
+  pattern: WindPattern;
+  favoredSide: FavoredSideAnalysis;
+  shifts: ShiftEvent[];
+  predictions: ShiftPrediction[];
+  currentConditions: {
+    direction: number;
+    speed: number;
+    directionDelta: number;     // change from 5-min avg
+    speedDelta: number;         // change from 5-min avg
+  };
+  buoyComparison: Array<{
+    buoyId: string;
+    buoyName: string;
+    direction: number;
+    speed: number;
+    trend: VelocityTrend;
+  }>;
 }

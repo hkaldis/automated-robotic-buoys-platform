@@ -1,4 +1,4 @@
-import { eq, and, sql, or, ilike, desc, gt } from "drizzle-orm";
+import { eq, and, sql, or, ilike, desc, gt, lt } from "drizzle-orm";
 import { db } from "./db";
 import {
   users,
@@ -11,6 +11,7 @@ import {
   buoyAssignments,
   userSettings,
   courseSnapshots,
+  buoyWeatherHistory,
   type User,
   type InsertUser,
   type SailClub,
@@ -31,6 +32,8 @@ import {
   type InsertUserEventAccess,
   type CourseSnapshot,
   type InsertCourseSnapshot,
+  type BuoyWeatherHistory,
+  type InsertBuoyWeatherHistory,
 } from "@shared/schema";
 import type { IStorage, CourseSnapshotListParams, CourseSnapshotListResult } from "./storage";
 
@@ -612,6 +615,60 @@ export class DatabaseStorage implements IStorage {
   async deleteCourseSnapshot(id: string): Promise<boolean> {
     const result = await db.delete(courseSnapshots).where(eq(courseSnapshots.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Weather History methods
+  async getWeatherHistory(buoyId: string, sinceMinutes: number): Promise<BuoyWeatherHistory[]> {
+    const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+    return db
+      .select()
+      .from(buoyWeatherHistory)
+      .where(
+        and(
+          eq(buoyWeatherHistory.buoyId, buoyId),
+          gt(buoyWeatherHistory.timestamp, cutoff)
+        )
+      )
+      .orderBy(desc(buoyWeatherHistory.timestamp));
+  }
+
+  async getEventWeatherHistory(eventId: string, sinceMinutes: number): Promise<BuoyWeatherHistory[]> {
+    const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+    return db
+      .select()
+      .from(buoyWeatherHistory)
+      .where(
+        and(
+          eq(buoyWeatherHistory.eventId, eventId),
+          gt(buoyWeatherHistory.timestamp, cutoff)
+        )
+      )
+      .orderBy(desc(buoyWeatherHistory.timestamp));
+  }
+
+  async createWeatherReading(reading: InsertBuoyWeatherHistory): Promise<BuoyWeatherHistory> {
+    const [newReading] = await db.insert(buoyWeatherHistory).values({
+      buoyId: reading.buoyId,
+      eventId: reading.eventId ?? null,
+      windDirection: reading.windDirection,
+      windSpeed: reading.windSpeed,
+      gustSpeed: reading.gustSpeed ?? null,
+      currentDirection: reading.currentDirection ?? null,
+      currentSpeed: reading.currentSpeed ?? null,
+      sensorQuality: reading.sensorQuality ?? null,
+      rollingAvgDirection: reading.rollingAvgDirection ?? null,
+      rollingAvgSpeed: reading.rollingAvgSpeed ?? null,
+    }).returning();
+    return newReading;
+  }
+
+  async deleteOldWeatherHistory(olderThanHours: number): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    const result = await db
+      .delete(buoyWeatherHistory)
+      .where(lt(buoyWeatherHistory.timestamp, cutoff))
+      .returning();
+    return result.length;
   }
 }
 

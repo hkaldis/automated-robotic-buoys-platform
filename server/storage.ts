@@ -9,6 +9,7 @@ import {
   type UserSettings, type InsertUserSettings,
   type UserEventAccess, type InsertUserEventAccess,
   type CourseSnapshot, type InsertCourseSnapshot,
+  type BuoyWeatherHistory, type InsertBuoyWeatherHistory,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -75,6 +76,12 @@ export interface IStorage {
   listCourseSnapshots(params: CourseSnapshotListParams): Promise<CourseSnapshotListResult>;
   createCourseSnapshot(snapshot: InsertCourseSnapshot): Promise<CourseSnapshot>;
   deleteCourseSnapshot(id: string): Promise<boolean>;
+  
+  // Weather History
+  getWeatherHistory(buoyId: string, sinceMinutes: number): Promise<BuoyWeatherHistory[]>;
+  getEventWeatherHistory(eventId: string, sinceMinutes: number): Promise<BuoyWeatherHistory[]>;
+  createWeatherReading(reading: InsertBuoyWeatherHistory): Promise<BuoyWeatherHistory>;
+  deleteOldWeatherHistory(olderThanHours: number): Promise<number>;
 }
 
 // Pagination and filtering params for course snapshot listing
@@ -110,6 +117,7 @@ export class MemStorage implements IStorage {
   private buoyAssignments: Map<string, BuoyAssignment> = new Map();
   private userSettings: Map<string, UserSettings> = new Map();
   private courseSnapshots: Map<string, CourseSnapshot> = new Map();
+  private weatherHistory: Map<string, BuoyWeatherHistory> = new Map();
 
   constructor() {
     this.seedData();
@@ -776,6 +784,61 @@ export class MemStorage implements IStorage {
 
   async deleteCourseSnapshot(id: string): Promise<boolean> {
     return this.courseSnapshots.delete(id);
+  }
+
+  // Weather History methods
+  async getWeatherHistory(buoyId: string, sinceMinutes: number): Promise<BuoyWeatherHistory[]> {
+    const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+    const results: BuoyWeatherHistory[] = [];
+    for (const reading of this.weatherHistory.values()) {
+      if (reading.buoyId === buoyId && new Date(reading.timestamp) > cutoff) {
+        results.push(reading);
+      }
+    }
+    return results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  async getEventWeatherHistory(eventId: string, sinceMinutes: number): Promise<BuoyWeatherHistory[]> {
+    const cutoff = new Date(Date.now() - sinceMinutes * 60 * 1000);
+    const results: BuoyWeatherHistory[] = [];
+    for (const reading of this.weatherHistory.values()) {
+      if (reading.eventId === eventId && new Date(reading.timestamp) > cutoff) {
+        results.push(reading);
+      }
+    }
+    return results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  async createWeatherReading(reading: InsertBuoyWeatherHistory): Promise<BuoyWeatherHistory> {
+    const id = randomUUID();
+    const newReading: BuoyWeatherHistory = {
+      id,
+      buoyId: reading.buoyId,
+      eventId: reading.eventId ?? null,
+      windDirection: reading.windDirection,
+      windSpeed: reading.windSpeed,
+      gustSpeed: reading.gustSpeed ?? null,
+      currentDirection: reading.currentDirection ?? null,
+      currentSpeed: reading.currentSpeed ?? null,
+      timestamp: new Date(),
+      sensorQuality: reading.sensorQuality ?? null,
+      rollingAvgDirection: reading.rollingAvgDirection ?? null,
+      rollingAvgSpeed: reading.rollingAvgSpeed ?? null,
+    };
+    this.weatherHistory.set(id, newReading);
+    return newReading;
+  }
+
+  async deleteOldWeatherHistory(olderThanHours: number): Promise<number> {
+    const cutoff = new Date(Date.now() - olderThanHours * 60 * 60 * 1000);
+    let count = 0;
+    for (const [id, reading] of this.weatherHistory) {
+      if (new Date(reading.timestamp) < cutoff) {
+        this.weatherHistory.delete(id);
+        count++;
+      }
+    }
+    return count;
   }
 }
 
