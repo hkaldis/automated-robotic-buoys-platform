@@ -226,19 +226,36 @@ async function fetchManage2SailEventDetails(eventId: string): Promise<Partial<Ma
       info.country = countryMatch[1].trim();
     }
     
-    const emailMatch = html.match(/Email\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?mailto:([^"]+)/i);
+    // Email - extract from mailto: link, handling both single and double quotes
+    const emailMatch = html.match(/Email\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?mailto:([^'">\s]+)/i);
     if (emailMatch) {
       info.email = emailMatch[1].trim();
     }
     
-    const phoneMatch = html.match(/Phone\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
+    // Phone - extract text content, stop at HTML tags
+    const phoneMatch = html.match(/Phone\s*:\s*<\/td>\s*<td[^>]*>\s*([^<]+)/i);
     if (phoneMatch) {
       info.phone = phoneMatch[1].trim();
     }
     
-    const websiteMatch = html.match(/Website\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?href="([^"]+)"/i);
+    // Fax - extract from href or text
+    const faxMatch = html.match(/Fax\s*:\s*<\/td>\s*<td[^>]*>(?:<a[^>]*>)?([^<]+)/i);
+    if (faxMatch) {
+      const fax = faxMatch[1].trim();
+      // Store fax in description or a dedicated field if needed
+      if (fax && !fax.startsWith('http')) {
+        // Could add fax field to info interface if needed
+      }
+    }
+    
+    // Website - look for Web: field with href, handle single quotes
+    const websiteMatch = html.match(/Web\s*:\s*<\/td>\s*<td[^>]*>[\s\S]*?href=['"]([^'"]+)['"]/i);
     if (websiteMatch) {
-      info.website = websiteMatch[1].trim();
+      const url = websiteMatch[1].trim();
+      // Filter out malformed URLs (email used as URL)
+      if (url && !url.includes('@') && url.startsWith('http')) {
+        info.website = url;
+      }
     }
     
     const descMatch = html.match(/Description\s*:\s*<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>/i);
