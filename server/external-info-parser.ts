@@ -776,6 +776,12 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
   }
 }
 
+function extractRacingRulesEventId(url: string): string | null {
+  // Match patterns like /documents/13484/event or /event/13484
+  const match = url.match(/\/(?:documents|event)\/(\d+)/i);
+  return match ? match[1] : null;
+}
+
 export async function parseRacingRulesUrl(url: string): Promise<RacingRulesInfo | null> {
   try {
     if (!isValidExternalUrl(url)) {
@@ -783,18 +789,7 @@ export async function parseRacingRulesUrl(url: string): Promise<RacingRulesInfo 
       return null;
     }
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
+    const response = await fetchWithTimeout(url);
 
     if (!response.ok) {
       console.error(`Failed to fetch Racing Rules page: ${response.status}`);
@@ -807,40 +802,77 @@ export async function parseRacingRulesUrl(url: string): Promise<RacingRulesInfo 
       fetchedAt: new Date().toISOString(),
     };
 
-    const titleMatch = html.match(/<h3[^>]*>([^<]+(?:Championship|Regatta|Cup|Series|Event|Worlds?)[^<]*)<\/h3>/i);
-    if (titleMatch) {
-      info.eventName = titleMatch[1].trim();
+    // Extract event ID for building full URLs
+    const eventId = extractRacingRulesEventId(url);
+
+    // Try to get event name from navbar or title
+    // Pattern: <a title="Documents" href="/documents/13484/event">Documents</a> doesn't have event name
+    // Look for event site link which often has the event name
+    const eventSiteMatch = html.match(/href="([^"]+)"[^>]*>\s*Event Site\s*<\/a>/i);
+    if (eventSiteMatch) {
+      info.eventSiteUrl = eventSiteMatch[1];
     }
 
-    const docRegex = /<tr[^>]*>[\s\S]*?<a[^>]*href="([^"]*\/documents\/\d+)"[^>]*>([^<]+)<\/a>[\s\S]*?<\/td>\s*\|\s*(\d{4}-\d{2}-\d{2})?/gi;
-    let match;
-    while ((match = docRegex.exec(html)) !== null) {
-      info.documents?.push({
-        url: match[1].startsWith('http') ? match[1] : `https://www.racingrulesofsailing.org${match[1]}`,
-        title: match[2].trim(),
-        date: match[3]?.trim(),
-      });
-    }
-
-    if (info.documents?.length === 0) {
-      const simpleDocRegex = /\[([^\]]+)\]\(([^)]*\/documents\/\d+)\)/g;
-      while ((match = simpleDocRegex.exec(html)) !== null) {
-        info.documents?.push({
-          title: match[1].trim(),
-          url: match[2].startsWith('http') ? match[2] : `https://www.racingrulesofsailing.org${match[2]}`,
-        });
-      }
-    }
-
-    const resultsMatch = html.match(/href="([^"]+)"[^>]*>Results<\/a>/i);
+    // Get results URL
+    const resultsMatch = html.match(/href="([^"]+)"[^>]*>\s*Results\s*<\/a>/i);
     if (resultsMatch) {
       info.resultsUrl = resultsMatch[1];
     }
 
-    const eventSiteMatch = html.match(/href="([^"]+)"[^>]*>Event Site<\/a>/i);
-    if (eventSiteMatch) {
-      info.eventSiteUrl = eventSiteMatch[1];
+    // Extract documents from the page
+    // Pattern: <a target="_blank" href="/documents/171520">Notice of Public Links</a>
+    // Match document links that are NOT navigation links (exclude /documents/{eventId}/event pattern)
+    const docRegex = /<a[^>]*href="\/documents\/(\d+)"[^>]*>([^<]+)<\/a>/gi;
+    let match;
+    const seenDocIds = new Set<string>();
+    
+    while ((match = docRegex.exec(html)) !== null) {
+      const docId = match[1];
+      const title = match[2].trim();
+      
+      // Skip navigation links (like "Documents" link to /documents/{eventId}/event)
+      // and avoid duplicates
+      if (docId === eventId || seenDocIds.has(docId)) {
+        continue;
+      }
+      
+      // Skip empty or generic titles
+      if (!title || title.toLowerCase() === 'documents') {
+        continue;
+      }
+      
+      seenDocIds.add(docId);
+      info.documents?.push({
+        url: `https://www.racingrulesofsailing.org/documents/${docId}`,
+        title: title,
+      });
     }
+
+    // Try alternate pattern with target="_blank" for more specificity
+    if (info.documents?.length === 0) {
+      const altDocRegex = /target="_blank"[^>]*href="([^"]*\/documents\/(\d+))"[^>]*>([^<]+)<\/a>/gi;
+      while ((match = altDocRegex.exec(html)) !== null) {
+        const fullUrl = match[1];
+        const docId = match[2];
+        const title = match[3].trim();
+        
+        if (docId === eventId || seenDocIds.has(docId)) {
+          continue;
+        }
+        
+        if (!title || title.toLowerCase() === 'documents') {
+          continue;
+        }
+        
+        seenDocIds.add(docId);
+        info.documents?.push({
+          url: fullUrl.startsWith('http') ? fullUrl : `https://www.racingrulesofsailing.org${fullUrl}`,
+          title: title,
+        });
+      }
+    }
+
+    console.log(`Parsed Racing Rules: ${info.documents?.length || 0} documents, eventSite: ${info.eventSiteUrl}, results: ${info.resultsUrl}`);
 
     return info;
   } catch (error) {

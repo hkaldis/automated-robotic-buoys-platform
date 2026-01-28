@@ -50,6 +50,8 @@ A comprehensive, rule-based design framework defines the visual identity with a 
 
 ### External Integrations
 - **Manage2Sail**: Fetches sailing event data including entries, results, and notice board information using public APIs and HTML parsing.
+- **Racing Rules of Sailing**: Fetches official race documents (NoR, SI, amendments) from event pages via HTML parsing.
+- **Documentation**: See `docs/EXTERNAL_INTEGRATIONS.md` for complete API reference and implementation details.
 
 ### UI Frameworks & Libraries
 - **Radix UI**: Headless component primitives.

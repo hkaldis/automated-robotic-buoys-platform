@@ -1,8 +1,15 @@
-# Manage2Sail Integration Documentation
+# External Data Integration Documentation
 
-This document describes the integration with Manage2Sail for fetching sailing event data including entries, results, documents, and notice board information.
+This document describes the integration with external sailing data sources for fetching event information, documents, entries, results, and notice board information.
 
-## Overview
+## Supported Sources
+
+1. **Manage2Sail** - Primary event management platform with entries, results, and notice board
+2. **Racing Rules of Sailing** - Official race documents, sailing instructions, and notices
+
+---
+
+# Manage2Sail Integration
 
 The Alconmarks platform integrates with Manage2Sail to automatically fetch and display event information. The integration uses a combination of public APIs (where available) and HTML parsing (as fallback) to extract event data.
 
@@ -357,3 +364,120 @@ Parse Details      For each class:
 3. **HTML Structure Changes**: Parser may break if Manage2Sail changes HTML
 4. **Empty APIs**: Some APIs return 200 with empty data (protest times, hearings)
 5. **iCal Format**: Calendar endpoint returns iCal, not JSON
+
+---
+---
+
+# Racing Rules of Sailing Integration
+
+The platform also integrates with Racing Rules of Sailing (racingrulesofsailing.org) to fetch official race documents.
+
+## URL Format
+
+```
+https://www.racingrulesofsailing.org/documents/{eventId}/event
+```
+
+Example:
+```
+https://www.racingrulesofsailing.org/documents/13484/event
+```
+
+## Data Extraction Method
+
+**HTML Parsing Only** - No public API available. All data is extracted from the HTML page.
+
+## Extracted Data
+
+### Documents
+
+Documents are extracted from anchor tags in the page:
+
+```html
+<a target="_blank" href="/documents/171520">Notice of Public Links</a>
+<a target="_blank" href="/documents/171521">Notice of Race</a>
+```
+
+**Regex Pattern:**
+```regex
+/<a[^>]*href="\/documents\/(\d+)"[^>]*>([^<]+)<\/a>/gi
+```
+
+**Extracted Fields:**
+- Document ID (numeric)
+- Document title
+- Full URL (constructed from base URL + document ID)
+
+**Example Output:**
+```json
+{
+  "documents": [
+    {
+      "url": "https://www.racingrulesofsailing.org/documents/171520",
+      "title": "Notice of Public Links"
+    },
+    {
+      "url": "https://www.racingrulesofsailing.org/documents/171521",
+      "title": "Notice of Race"
+    },
+    {
+      "url": "https://www.racingrulesofsailing.org/documents/171889",
+      "title": "Sailing Instructions"
+    }
+  ],
+  "eventSiteUrl": "https://www.f18worlds.com/",
+  "resultsUrl": "https://www.sailres.com/view.php?s=2927",
+  "fetchedAt": "2026-01-28T21:15:17.741Z"
+}
+```
+
+### Event Site URL
+
+Extracted from the "Event Site" link in the navigation:
+```regex
+/href="([^"]+)"[^>]*>\s*Event Site\s*<\/a>/i
+```
+
+### Results URL
+
+Extracted from the "Results" link in the navigation:
+```regex
+/href="([^"]+)"[^>]*>\s*Results\s*<\/a>/i
+```
+
+## Filtering Logic
+
+The parser filters out:
+1. **Navigation links** - Links to `/documents/{eventId}/event` (the page itself)
+2. **Duplicate documents** - Same document ID appearing multiple times
+3. **Generic titles** - Empty titles or titles like "Documents"
+
+## Typical Documents Found
+
+Racing Rules of Sailing events typically include:
+- Notice of Race (NoR)
+- Sailing Instructions (SI)
+- Amendments to Sailing Instructions
+- Protest Committee Policy
+- Equipment Inspection Information
+- Course Layouts
+- Entry Lists
+- Race Schedule
+
+## Security
+
+Same URL validation as Manage2Sail:
+- Only HTTPS URLs allowed
+- Domain must match `racingrulesofsailing.org` or `www.racingrulesofsailing.org`
+
+## Code Location
+
+- **Parser Function**: `parseRacingRulesUrl()` in `server/external-info-parser.ts`
+- **Event ID Extractor**: `extractRacingRulesEventId()` in `server/external-info-parser.ts`
+
+## Limitations
+
+1. **No API**: All data must be HTML parsed
+2. **HTML Structure Changes**: Parser may break if website layout changes
+3. **No document dates**: The HTML doesn't include publication dates
+4. **No document types**: Cannot distinguish between NoR, SI, etc. automatically
