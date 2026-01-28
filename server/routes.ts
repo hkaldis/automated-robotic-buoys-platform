@@ -22,6 +22,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { analyzeWeather } from "./weather-analytics";
+import { fetchExternalInfo } from "./external-info-parser";
 import { 
   requireAuth, 
   requireRole, 
@@ -1688,6 +1689,94 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error cleaning up weather history:", error);
       res.status(500).json({ error: "Failed to cleanup weather history" });
+    }
+  });
+
+  // External Info API endpoints
+  
+  // Fetch and parse external info for an event
+  app.post("/api/events/:id/fetch-external-info", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const event = await storage.getEvent(id);
+      
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      if (!event.manage2SailUrl && !event.racingRulesUrl) {
+        return res.status(400).json({ error: "No external URLs configured for this event" });
+      }
+
+      const externalInfo = await fetchExternalInfo(event.manage2SailUrl, event.racingRulesUrl);
+      
+      // Update event with parsed info
+      const updated = await storage.updateEvent(id, { externalInfo });
+      
+      res.json({ success: true, externalInfo, event: updated });
+    } catch (error) {
+      console.error("Error fetching external info:", error);
+      res.status(500).json({ error: "Failed to fetch external info" });
+    }
+  });
+
+  // Get external info for an event
+  app.get("/api/events/:id/external-info", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const event = await storage.getEvent(id);
+      
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      res.json({
+        manage2SailUrl: event.manage2SailUrl,
+        racingRulesUrl: event.racingRulesUrl,
+        externalInfo: event.externalInfo,
+      });
+    } catch (error) {
+      console.error("Error getting external info:", error);
+      res.status(500).json({ error: "Failed to get external info" });
+    }
+  });
+
+  // Update event URLs and optionally fetch external info
+  app.patch("/api/events/:id/external-urls", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { manage2SailUrl, racingRulesUrl, fetchImmediately } = req.body;
+      
+      const event = await storage.getEvent(id);
+      if (!event) {
+        return res.status(404).json({ error: "Event not found" });
+      }
+
+      let updateData: Partial<DbEvent> = {};
+      
+      if (manage2SailUrl !== undefined) {
+        updateData.manage2SailUrl = manage2SailUrl || null;
+      }
+      if (racingRulesUrl !== undefined) {
+        updateData.racingRulesUrl = racingRulesUrl || null;
+      }
+
+      // Optionally fetch and parse immediately
+      if (fetchImmediately) {
+        const newManage2Sail = manage2SailUrl !== undefined ? manage2SailUrl : event.manage2SailUrl;
+        const newRacingRules = racingRulesUrl !== undefined ? racingRulesUrl : event.racingRulesUrl;
+        
+        if (newManage2Sail || newRacingRules) {
+          const externalInfo = await fetchExternalInfo(newManage2Sail, newRacingRules);
+          updateData.externalInfo = externalInfo;
+        }
+      }
+
+      const updated = await storage.updateEvent(id, updateData);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating external URLs:", error);
+      res.status(500).json({ error: "Failed to update external URLs" });
     }
   });
 
