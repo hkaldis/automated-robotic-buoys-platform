@@ -406,59 +406,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   });
   const siblingBuoys = demoMode ? demoSiblingBuoys : apiSiblingBuoys;
 
+  // Weather analytics from API - disabled in demo mode to prevent cached data from being used
   const { data: apiWeatherAnalytics, isLoading: weatherAnalyticsLoading, error: weatherAnalyticsError } = useQuery<WindAnalytics>({
-    queryKey: [`/api/weather/analytics/${activeEventId}`],
+    queryKey: [`/api/weather/analytics/${activeEventId}`, demoMode ? 'demo' : 'real'],
     enabled: !!activeEventId && !demoMode && showWindInsightsPanel,
     refetchInterval: 30000,
+    staleTime: demoMode ? 0 : 30000,
   });
-
-  const demoWeatherAnalytics = useMemo<WindAnalytics | null>(() => {
-    if (!demoMode || !activeWeatherData) return null;
-    const windDir = activeWeatherData.windDirection;
-    const windSpeed = activeWeatherData.windSpeed ?? 12;
-    return {
-      pattern: {
-        type: "oscillating" as const,
-        confidence: 0.75,
-        medianDirection: windDir,
-        shiftRange: 15,
-        periodMinutes: 12,
-        trendDegreesPerHour: 2.5,
-      },
-      favoredSide: {
-        side: "right" as const,
-        reason: "Wind trending right at 2.5°/hr with oscillating pattern",
-        confidence: 0.68,
-        factors: {
-          moreWind: "equal" as const,
-          nextShift: "left" as const,
-          persistent: "right" as const,
-        },
-      },
-      shifts: [
-        { timestamp: new Date(Date.now() - 300000), direction: windDir - 8, change: -8, type: "header" as const, magnitude: "moderate" as const },
-        { timestamp: new Date(Date.now() - 180000), direction: windDir + 5, change: 13, type: "lift" as const, magnitude: "major" as const },
-      ],
-      predictions: [
-        { expectedDirection: "left" as const, expectedTimeMinutes: 6, magnitudeDegrees: 7, confidence: 0.65 },
-      ],
-      currentConditions: {
-        direction: windDir,
-        speed: windSpeed,
-        directionDelta: 3,
-        speedDelta: 0.5,
-      },
-      buoyComparison: buoys.filter(b => b.windDirection !== null).slice(0, 3).map(b => ({
-        buoyId: b.id,
-        buoyName: b.name,
-        direction: b.windDirection ?? windDir,
-        speed: b.windSpeed ?? windSpeed,
-        trend: "stable" as const,
-      })),
-    };
-  }, [demoMode, activeWeatherData, buoys]);
-
-  const weatherAnalytics = demoMode ? demoWeatherAnalytics : apiWeatherAnalytics;
   
   const buoysLoading = activeEventId ? eventBuoysLoading : allBuoysLoading;
   const apiBuoys = activeEventId ? eventBuoys : allBuoys;
@@ -539,6 +493,64 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   }, [demoMode, demoBuoys]);
 
   const activeWeatherData = demoMode ? demoWeatherData : weatherData;
+
+  // Weather analytics for demo mode - always generate if in demo mode
+  const demoWeatherAnalytics = useMemo<WindAnalytics | null>(() => {
+    if (!demoMode) return null;
+    // Use activeWeatherData if available, otherwise use default demo values
+    const windDir = activeWeatherData?.windDirection ?? 225;
+    const windSpeed = activeWeatherData?.windSpeed ?? 12;
+    return {
+      pattern: {
+        type: "oscillating" as const,
+        confidence: 0.75,
+        medianDirection: windDir,
+        shiftRange: 15,
+        periodMinutes: 12,
+        trendDegreesPerHour: 2.5,
+      },
+      favoredSide: {
+        side: "right" as const,
+        reason: "Wind trending right at 2.5°/hr with oscillating pattern",
+        confidence: 0.68,
+        factors: {
+          moreWind: "equal" as const,
+          nextShift: "left" as const,
+          persistent: "right" as const,
+        },
+      },
+      shifts: [
+        { timestamp: new Date(Date.now() - 300000), direction: windDir - 8, change: -8, type: "header" as const, magnitude: "moderate" as const },
+        { timestamp: new Date(Date.now() - 180000), direction: windDir + 5, change: 13, type: "lift" as const, magnitude: "major" as const },
+      ],
+      predictions: [
+        { expectedDirection: "left" as const, expectedTimeMinutes: 6, magnitudeDegrees: 7, confidence: 0.65 },
+      ],
+      currentConditions: {
+        direction: windDir,
+        speed: windSpeed,
+        directionDelta: 3,
+        speedDelta: 0.5,
+      },
+      buoyComparison: buoys.filter(b => b.windDirection !== null).slice(0, 3).map(b => ({
+        buoyId: b.id,
+        buoyName: b.name,
+        direction: b.windDirection ?? windDir,
+        speed: b.windSpeed ?? windSpeed,
+        trend: "stable" as const,
+      })),
+    };
+  }, [demoMode, activeWeatherData, buoys, showWindInsightsPanel]);
+
+  // Final weather analytics - explicitly use demo analytics when in demo mode
+  // Note: We check demoMode AND demoWeatherAnalytics to ensure proper data flow
+  const weatherAnalytics = useMemo(() => {
+    if (demoMode) {
+      // In demo mode, always use demo analytics
+      return demoWeatherAnalytics;
+    }
+    return apiWeatherAnalytics ?? null;
+  }, [demoMode, demoWeatherAnalytics, apiWeatherAnalytics]);
 
   // Deploy All: Send all assigned buoys to their mark positions
   const [isDeployingAll, setIsDeployingAll] = useState(false);
@@ -3210,9 +3222,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
 
           {showWindInsightsPanel && (
             <WeatherInsightsPanel
-              analytics={weatherAnalytics ?? null}
-              isLoading={weatherAnalyticsLoading}
-              error={weatherAnalyticsError ? String(weatherAnalyticsError) : null}
+              analytics={demoMode ? (demoWeatherAnalytics ?? null) : (apiWeatherAnalytics ?? null)}
+              isLoading={demoMode ? false : weatherAnalyticsLoading}
+              error={demoMode ? null : (weatherAnalyticsError ? String(weatherAnalyticsError) : null)}
               onClose={() => setShowWindInsightsPanel(false)}
             />
           )}
