@@ -51,19 +51,32 @@ function getCardinalDirection(degrees: number): string {
 function DirectionArrow({ degrees, size = 16 }: { degrees: number; size?: number }) {
   const normalized = ((degrees % 360) + 360) % 360;
   return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24"
-      style={{ transform: `rotate(${normalized}deg)` }}
-      className="text-primary flex-shrink-0"
-      aria-label={`Wind from ${normalized.toFixed(0)}° ${getCardinalDirection(normalized)}`}
+    <div 
+      className="flex-shrink-0 text-primary"
+      style={{ 
+        width: size, 
+        height: size,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      <path 
-        d="M12 2 L8 12 L12 10 L16 12 Z" 
-        fill="currentColor"
-      />
-    </svg>
+      <svg 
+        width={size} 
+        height={size} 
+        viewBox="0 0 24 24"
+        style={{ 
+          transform: `rotate(${normalized}deg)`,
+          transformOrigin: 'center center',
+        }}
+        aria-label={`Wind from ${normalized.toFixed(0)}° ${getCardinalDirection(normalized)}`}
+      >
+        <path 
+          d="M12 4 L7 14 L12 11 L17 14 Z" 
+          fill="currentColor"
+        />
+      </svg>
+    </div>
   );
 }
 
