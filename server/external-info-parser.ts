@@ -1,8 +1,30 @@
 import type { Event } from "@shared/schema";
 
+const ALLOWED_DOMAINS = [
+  'manage2sail.com',
+  'www.manage2sail.com',
+  'racingrulesofsailing.org',
+  'www.racingrulesofsailing.org',
+];
+
+const FETCH_TIMEOUT_MS = 10000;
+
+function isValidExternalUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = parsed.hostname.toLowerCase();
+    return ALLOWED_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+  } catch {
+    return false;
+  }
+}
+
 interface Manage2SailInfo {
   eventName?: string;
-  eventDate?: string;
+  dates?: string;
   registrationPeriod?: string;
   club?: string;
   location?: string;
@@ -29,7 +51,7 @@ interface RacingRulesInfo {
 }
 
 export interface ExternalInfo {
-  manage2sail?: Manage2SailInfo;
+  manage2Sail?: Manage2SailInfo;
   racingRules?: RacingRulesInfo;
 }
 
@@ -37,12 +59,23 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
   try {
     const cleanUrl = url.split('#')[0];
     
+    if (!isValidExternalUrl(cleanUrl)) {
+      console.error("Invalid or unauthorized URL:", cleanUrl);
+      return null;
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    
     const response = await fetch(cleanUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(`Failed to fetch Manage2Sail page: ${response.status}`);
@@ -61,7 +94,7 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
 
     const eventDateMatch = html.match(/Event\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
     if (eventDateMatch) {
-      info.eventDate = eventDateMatch[1].trim();
+      info.dates = eventDateMatch[1].trim();
     }
 
     const regMatch = html.match(/Registration\s*:\s*<\/td>\s*<td[^>]*>([^<]+)/i);
@@ -113,12 +146,23 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
 
 export async function parseRacingRulesUrl(url: string): Promise<RacingRulesInfo | null> {
   try {
+    if (!isValidExternalUrl(url)) {
+      console.error("Invalid or unauthorized URL:", url);
+      return null;
+    }
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.error(`Failed to fetch Racing Rules page: ${response.status}`);
@@ -184,7 +228,7 @@ export async function fetchExternalInfo(
   if (manage2SailUrl) {
     promises.push(
       parseManage2SailUrl(manage2SailUrl).then((result) => {
-        if (result) info.manage2sail = result;
+        if (result) info.manage2Sail = result;
       })
     );
   }
