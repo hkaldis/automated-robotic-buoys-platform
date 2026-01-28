@@ -415,41 +415,40 @@ function DocumentsSection({
         {allDocs.length} document{allDocs.length !== 1 ? 's' : ''} available
       </div>
       
-      <ScrollArea className="max-h-[400px]">
-        <div className="space-y-2">
-          {allDocs.map((doc, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-3 rounded-md border hover-elevate"
-            >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <FileText className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{doc.title}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-xs">
-                      {doc.source}
-                    </Badge>
-                    {doc.date && <span>{doc.date}</span>}
-                    {'type' in doc && doc.type && <span>{doc.type}</span>}
-                  </div>
+      <div className="space-y-2">
+        {allDocs.map((doc, index) => (
+          <div
+            key={index}
+            className="flex items-center justify-between p-3 rounded-md border hover-elevate"
+            data-testid={`document-item-${index}`}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <FileText className="h-5 w-5 flex-shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <p className="font-medium truncate">{doc.title}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline" className="text-xs">
+                    {doc.source}
+                  </Badge>
+                  {doc.date && <span>{doc.date}</span>}
+                  {'type' in doc && doc.type && <span>{doc.type}</span>}
                 </div>
               </div>
-              <a
-                href={doc.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-shrink-0 ml-2"
-                data-testid={`link-document-${index}`}
-              >
-                <Button variant="ghost" size="icon">
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </a>
             </div>
-          ))}
-        </div>
-      </ScrollArea>
+            <a
+              href={doc.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0 ml-2"
+              data-testid={`link-document-${index}`}
+            >
+              <Button variant="ghost" size="icon">
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </a>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
