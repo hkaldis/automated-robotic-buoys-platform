@@ -14,7 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus, Pencil, Anchor, ArrowRight, RotateCcw } from "lucide-react";
+import { Calendar, Users, Plus, Trash2, LogOut, Loader2, Play, UserPlus, Pencil, Anchor, ArrowRight, RotateCcw, Globe } from "lucide-react";
+import { EventExternalInfo } from "@/components/EventExternalInfo";
 import type { Event, SailClub, UserEventAccess, Buoy, BuoyInventoryStatus } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
@@ -102,6 +103,10 @@ export default function ClubDashboard() {
   
   // State for inline buoy assignment popover (controlled per event)
   const [openPopoverEventId, setOpenPopoverEventId] = useState<string | null>(null);
+  
+  // State for external info dialog
+  const [externalInfoDialogOpen, setExternalInfoDialogOpen] = useState(false);
+  const [selectedEventForExternalInfo, setSelectedEventForExternalInfo] = useState<Event | null>(null);
 
   const createEventMutation = useMutation({
     mutationFn: async (data: { name: string; type: string; boatClass: string; boatClassId: string | null; sailClubId: string; startDate?: string; endDate?: string }) => {
@@ -666,6 +671,18 @@ export default function ClubDashboard() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                onClick={() => {
+                                  setSelectedEventForExternalInfo(event);
+                                  setExternalInfoDialogOpen(true);
+                                }}
+                                title="External Info"
+                                data-testid={`button-external-info-${event.id}`}
+                              >
+                                <Globe className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => handleEditEvent(event)}
                                 title="Edit Event"
                                 data-testid={`button-edit-event-${event.id}`}
@@ -1099,6 +1116,18 @@ export default function ClubDashboard() {
               </p>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={externalInfoDialogOpen} onOpenChange={setExternalInfoDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {selectedEventForExternalInfo && (
+            <EventExternalInfo
+              eventId={selectedEventForExternalInfo.id}
+              eventName={selectedEventForExternalInfo.name}
+              onClose={() => setExternalInfoDialogOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

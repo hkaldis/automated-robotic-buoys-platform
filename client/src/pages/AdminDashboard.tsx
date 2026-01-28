@@ -14,7 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw, Eye, X, Sailboat } from "lucide-react";
+import { Building2, Users, Plus, Trash2, LogOut, Loader2, Calendar, Play, Pencil, Anchor, ArrowRight, RotateCcw, Eye, X, Sailboat, Globe } from "lucide-react";
+import { EventExternalInfo } from "@/components/EventExternalInfo";
 import type { SailClub, UserRole, Event, Buoy, BuoyAssignment, BuoyInventoryStatus, BoatClass, InsertBoatClass } from "@shared/schema";
 import { useBoatClasses } from "@/hooks/use-api";
 import alconmarksLogo from "@assets/IMG_0084_1_1768808004796.png";
@@ -57,6 +58,8 @@ export default function AdminDashboard() {
   const [editEventEndDate, setEditEventEndDate] = useState("");
   const [editEventManage2SailUrl, setEditEventManage2SailUrl] = useState("");
   const [editEventRacingRulesUrl, setEditEventRacingRulesUrl] = useState("");
+  const [externalInfoDialogOpen, setExternalInfoDialogOpen] = useState(false);
+  const [selectedEventForExternalInfo, setSelectedEventForExternalInfo] = useState<Event | null>(null);
   const [buoyDialogOpen, setBuoyDialogOpen] = useState(false);
   const [assignBuoyDialogOpen, setAssignBuoyDialogOpen] = useState(false);
   const [newBuoyName, setNewBuoyName] = useState("");
@@ -1102,6 +1105,18 @@ export default function AdminDashboard() {
                               data-testid={`button-open-event-${event.id}`}
                             >
                               <Play className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setSelectedEventForExternalInfo(event);
+                                setExternalInfoDialogOpen(true);
+                              }}
+                              title="External Info"
+                              data-testid={`button-external-info-${event.id}`}
+                            >
+                              <Globe className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -2437,6 +2452,18 @@ export default function AdminDashboard() {
                 })()}
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={externalInfoDialogOpen} onOpenChange={setExternalInfoDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          {selectedEventForExternalInfo && (
+            <EventExternalInfo
+              eventId={selectedEventForExternalInfo.id}
+              eventName={selectedEventForExternalInfo.name}
+              onClose={() => setExternalInfoDialogOpen(false)}
+            />
           )}
         </DialogContent>
       </Dialog>
