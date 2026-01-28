@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Loader2, RefreshCw, ExternalLink, FileText, MapPin, Calendar, 
   Mail, Phone, Users, Globe, Clock, Trophy, Sailboat, ClipboardList,
-  ChevronDown, ChevronRight, Building, Link as LinkIcon
+  ChevronDown, ChevronRight, Building, Link as LinkIcon, Bell, Gavel, MessageSquare
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -61,6 +61,40 @@ interface Manage2SailDocument {
   type?: string;
 }
 
+interface Manage2SailProtest {
+  time: string;
+  location?: string;
+  description?: string;
+}
+
+interface Manage2SailHearing {
+  time: string;
+  parties?: string;
+  room?: string;
+  protestNumber?: string;
+}
+
+interface Manage2SailCommunication {
+  date: string;
+  from?: string;
+  subject?: string;
+  message?: string;
+}
+
+interface Manage2SailCalendar {
+  summary: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface Manage2SailNoticeBoard {
+  protestTimes: Manage2SailProtest[];
+  hearingSchedule: Manage2SailHearing[];
+  sportCommunications: Manage2SailCommunication[];
+  calendar?: Manage2SailCalendar;
+}
+
 interface Manage2SailInfo {
   eventId?: string;
   eventName?: string;
@@ -78,6 +112,7 @@ interface Manage2SailInfo {
   classes: Manage2SailClass[];
   results: Manage2SailResults[];
   documents: Manage2SailDocument[];
+  noticeBoard?: Manage2SailNoticeBoard;
   fetchedAt?: string;
 }
 
@@ -419,6 +454,136 @@ function DocumentsSection({
   );
 }
 
+function NoticeBoardSection({ 
+  noticeBoard,
+  eventId
+}: { 
+  noticeBoard?: Manage2SailNoticeBoard;
+  eventId?: string;
+}) {
+  const hasProtests = noticeBoard?.protestTimes && noticeBoard.protestTimes.length > 0;
+  const hasHearings = noticeBoard?.hearingSchedule && noticeBoard.hearingSchedule.length > 0;
+  const hasComms = noticeBoard?.sportCommunications && noticeBoard.sportCommunications.length > 0;
+  const hasCalendar = noticeBoard?.calendar;
+  const hasAnyData = hasProtests || hasHearings || hasComms || hasCalendar;
+
+  return (
+    <div className="space-y-4">
+      {hasCalendar && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Event Calendar
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm">
+              <p className="font-medium">{noticeBoard?.calendar?.summary}</p>
+              {noticeBoard?.calendar?.location && (
+                <p className="text-muted-foreground flex items-center gap-1 mt-1">
+                  <MapPin className="h-3 w-3" />
+                  {noticeBoard.calendar.location}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Gavel className="h-4 w-4" />
+            Protest Times
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {hasProtests ? (
+            <div className="space-y-2">
+              {noticeBoard?.protestTimes.map((protest, i) => (
+                <div key={i} className="text-sm p-2 rounded border">
+                  <p className="font-medium">{protest.time}</p>
+                  {protest.location && <p className="text-muted-foreground">{protest.location}</p>}
+                  {protest.description && <p className="text-muted-foreground">{protest.description}</p>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No protest times scheduled</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            Hearing Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {hasHearings ? (
+            <div className="space-y-2">
+              {noticeBoard?.hearingSchedule.map((hearing, i) => (
+                <div key={i} className="text-sm p-2 rounded border">
+                  <p className="font-medium">{hearing.time}</p>
+                  {hearing.protestNumber && <Badge variant="outline" className="text-xs">{hearing.protestNumber}</Badge>}
+                  {hearing.parties && <p className="text-muted-foreground">{hearing.parties}</p>}
+                  {hearing.room && <p className="text-muted-foreground">Room: {hearing.room}</p>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No hearings scheduled</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" />
+            Sport Communications
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {hasComms ? (
+            <div className="space-y-2">
+              {noticeBoard?.sportCommunications.map((comm, i) => (
+                <div key={i} className="text-sm p-2 rounded border">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium">{comm.subject || 'Communication'}</p>
+                    <span className="text-xs text-muted-foreground">{comm.date}</span>
+                  </div>
+                  {comm.from && <p className="text-xs text-muted-foreground">From: {comm.from}</p>}
+                  {comm.message && <p className="mt-1">{comm.message}</p>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No sport communications</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {eventId && (
+        <div className="pt-2 border-t">
+          <a
+            href={`https://www.manage2sail.com/en-US/event/${eventId}#!/onb`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline flex items-center gap-1"
+            data-testid="link-notice-board"
+          >
+            View Full Notice Board on Manage2Sail <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function EventExternalInfo({ eventId, eventName, onClose }: EventExternalInfoProps) {
   const { toast } = useToast();
   const [isFetching, setIsFetching] = useState(false);
@@ -559,7 +724,7 @@ export function EventExternalInfo({ eventId, eventName, onClose }: EventExternal
       {hasExternalInfo && (
         <div className="flex-1 overflow-hidden pt-4">
           <Tabs defaultValue="details" className="h-full flex flex-col">
-            <TabsList className="grid w-full grid-cols-4 h-12">
+            <TabsList className="grid w-full grid-cols-5 h-12">
               <TabsTrigger value="details" className="text-sm" data-testid="tab-details">
                 <Building className="h-4 w-4 mr-2" />
                 Details
@@ -590,6 +755,10 @@ export function EventExternalInfo({ eventId, eventName, onClose }: EventExternal
                     {totalDocs}
                   </Badge>
                 )}
+              </TabsTrigger>
+              <TabsTrigger value="noticeboard" className="text-sm" data-testid="tab-noticeboard">
+                <Bell className="h-4 w-4 mr-2" />
+                Board
               </TabsTrigger>
             </TabsList>
 
@@ -826,6 +995,13 @@ export function EventExternalInfo({ eventId, eventName, onClose }: EventExternal
               <DocumentsSection 
                 manage2SailDocs={manage2Sail?.documents || []} 
                 racingRulesDocs={racingRules?.documents || []} 
+              />
+            </TabsContent>
+
+            <TabsContent value="noticeboard" className="flex-1 overflow-auto mt-4">
+              <NoticeBoardSection 
+                noticeBoard={manage2Sail?.noticeBoard}
+                eventId={manage2Sail?.eventId}
               />
             </TabsContent>
           </Tabs>

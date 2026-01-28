@@ -100,6 +100,40 @@ interface Manage2SailDocument {
   type?: string;
 }
 
+interface Manage2SailProtest {
+  time: string;
+  location?: string;
+  description?: string;
+}
+
+interface Manage2SailHearing {
+  time: string;
+  parties?: string;
+  room?: string;
+  protestNumber?: string;
+}
+
+interface Manage2SailCommunication {
+  date: string;
+  from?: string;
+  subject?: string;
+  message?: string;
+}
+
+interface Manage2SailCalendar {
+  summary: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+interface Manage2SailNoticeBoard {
+  protestTimes: Manage2SailProtest[];
+  hearingSchedule: Manage2SailHearing[];
+  sportCommunications: Manage2SailCommunication[];
+  calendar?: Manage2SailCalendar;
+}
+
 interface Manage2SailInfo {
   eventId?: string;
   eventName?: string;
@@ -117,6 +151,7 @@ interface Manage2SailInfo {
   classes: Manage2SailClass[];
   results: Manage2SailResults[];
   documents: Manage2SailDocument[];
+  noticeBoard?: Manage2SailNoticeBoard;
   fetchedAt?: string;
 }
 
@@ -524,6 +559,104 @@ async function fetchManage2SailResults(eventId: string, classes: Manage2SailClas
   return allResults;
 }
 
+async function fetchManage2SailNoticeBoard(eventId: string): Promise<Manage2SailNoticeBoard> {
+  const noticeBoard: Manage2SailNoticeBoard = {
+    protestTimes: [],
+    hearingSchedule: [],
+    sportCommunications: [],
+  };
+  
+  const baseApiUrl = `https://www.manage2sail.com/api/event/${eventId}`;
+  
+  // Fetch all notice board APIs in parallel
+  const [protestResponse, hearingResponse, commResponse, calendarResponse] = await Promise.allSettled([
+    fetchWithTimeout(`${baseApiUrl}/protesttimes`),
+    fetchWithTimeout(`${baseApiUrl}/hearingschedule`),
+    fetchWithTimeout(`${baseApiUrl}/sportcommunication`),
+    fetchWithTimeout(`${baseApiUrl}/CalendarItem`),
+  ]);
+  
+  // Parse protest times
+  if (protestResponse.status === 'fulfilled' && protestResponse.value.ok) {
+    try {
+      const data = await protestResponse.value.json();
+      if (data && data.Data && Array.isArray(data.Data)) {
+        for (const item of data.Data) {
+          noticeBoard.protestTimes.push({
+            time: item.Time || item.time || '',
+            location: item.Location || item.location,
+            description: item.Description || item.description,
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Error parsing protest times:', e);
+    }
+  }
+  
+  // Parse hearing schedule
+  if (hearingResponse.status === 'fulfilled' && hearingResponse.value.ok) {
+    try {
+      const data = await hearingResponse.value.json();
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          noticeBoard.hearingSchedule.push({
+            time: item.Time || item.time || item.ScheduledTime || '',
+            parties: item.Parties || item.parties,
+            room: item.Room || item.room,
+            protestNumber: item.ProtestNumber || item.protestNumber || item.Number,
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Error parsing hearing schedule:', e);
+    }
+  }
+  
+  // Parse sport communications
+  if (commResponse.status === 'fulfilled' && commResponse.value.ok) {
+    try {
+      const data = await commResponse.value.json();
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          noticeBoard.sportCommunications.push({
+            date: item.Date || item.date || item.CreatedDate || '',
+            from: item.From || item.from || item.Sender,
+            subject: item.Subject || item.subject || item.Title,
+            message: item.Message || item.message || item.Content,
+          });
+        }
+      }
+    } catch (e) {
+      console.log('Error parsing sport communications:', e);
+    }
+  }
+  
+  // Parse calendar (iCal format)
+  if (calendarResponse.status === 'fulfilled' && calendarResponse.value.ok) {
+    try {
+      const icalText = await calendarResponse.value.text();
+      const summaryMatch = icalText.match(/SUMMARY:([^\r\n]+)/);
+      const locationMatch = icalText.match(/LOCATION:([^\r\n]+)/);
+      const startMatch = icalText.match(/DTSTART:([^\r\n]+)/);
+      const endMatch = icalText.match(/DTEND:([^\r\n]+)/);
+      
+      if (summaryMatch) {
+        noticeBoard.calendar = {
+          summary: summaryMatch[1].trim(),
+          location: locationMatch ? locationMatch[1].trim() : undefined,
+          startDate: startMatch ? startMatch[1].trim() : undefined,
+          endDate: endMatch ? endMatch[1].trim() : undefined,
+        };
+      }
+    } catch (e) {
+      console.log('Error parsing calendar:', e);
+    }
+  }
+  
+  return noticeBoard;
+}
+
 async function fetchManage2SailDocuments(eventId: string, classes: Manage2SailClass[]): Promise<Manage2SailDocument[]> {
   const documents: Manage2SailDocument[] = [];
   
@@ -602,9 +735,10 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
     
     const classes = await fetchManage2SailClasses(eventId);
     
-    const [results, documents] = await Promise.all([
+    const [results, documents, noticeBoard] = await Promise.all([
       fetchManage2SailResults(eventId, classes),
       fetchManage2SailDocuments(eventId, classes),
+      fetchManage2SailNoticeBoard(eventId),
     ]);
     
     const info: Manage2SailInfo = {
@@ -612,10 +746,11 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
       classes,
       results,
       documents,
+      noticeBoard,
       fetchedAt: new Date().toISOString(),
     };
     
-    console.log(`Parsed Manage2Sail: ${classes.length} classes, ${results.length} results, ${documents.length} documents`);
+    console.log(`Parsed Manage2Sail: ${classes.length} classes, ${results.length} results, ${documents.length} documents, noticeBoard: protests=${noticeBoard.protestTimes.length}, hearings=${noticeBoard.hearingSchedule.length}, comms=${noticeBoard.sportCommunications.length}`);
     
     return info;
   } catch (error) {
