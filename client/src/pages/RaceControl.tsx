@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { TopBar } from "@/components/TopBar";
-import { LeafletMap } from "@/components/LeafletMap";
+// Lazy load LeafletMap - heavy component with Leaflet library (bundle-dynamic-imports)
+const LeafletMap = lazy(() => import("@/components/LeafletMap").then(m => ({ default: m.LeafletMap })));
 import { SetupPanel } from "@/components/SetupPanel";
 import { BuoyDetailPanel } from "@/components/BuoyDetailPanel";
 import { MarkEditPanel } from "@/components/MarkEditPanel";
@@ -2985,69 +2986,78 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             />
           )}
           
-          <LeafletMap 
-            buoys={buoys}
-            marks={marks}
-            selectedBuoyId={selectedBuoyId}
-            selectedMarkId={selectedMarkId}
-            weatherData={activeWeatherData}
-            onBuoyClick={handleBuoyClick}
-            onMarkClick={handleMarkClick}
-            onMapClick={handleMapClick}
-            onMarkDragEnd={(markId, lat, lng) => {
-              const mark = marks.find(m => m.id === markId);
-              if (mark) {
-                setLastMarkMove({ markId, prevLat: mark.lat, prevLng: mark.lng, timestamp: Date.now() });
-              }
-              const hasAssignedBuoy = !!(mark?.assignedBuoyId || mark?.gatePortBuoyId || mark?.gateStarboardBuoyId);
-              if (hasAssignedBuoy) {
-                setPendingMarkMove({ markId, lat, lng, hasAssignedBuoy: true });
-              } else {
-                updateMark.mutate({ id: markId, data: { lat, lng } }, {
-                  onSuccess: () => handleMarkMoved(markId, lat, lng),
-                });
-              }
-            }}
-            isPlacingMark={isPlacingMark || !!repositioningMarkId || !!gotoMapClickMarkId || !!gotoMapClickBuoyId}
-            isContinuousPlacement={continuousPlacement}
-            onStopPlacement={handleStopPlacement}
-            finishLinePreviewIds={finishLinePreviewIds}
-            mapOrientation={mapOrientation}
-            onOrientationChange={setMapOrientation}
-            onFetchWeatherAtLocation={handleFetchWeatherAtLocation}
-            isWeatherLoading={weatherByLocation.isPending}
-            onAlignCourseToWind={handleAlignCourseToWind}
-            roundingSequence={roundingSequence}
-            showLabels={showLabels}
-            onToggleLabels={() => setShowLabels(!showLabels)}
-            showWindArrows={showWindArrows}
-            showSidebar={showSidebar}
-            isSidebarCollapsed={isSetupPanelCollapsed}
-            onToggleSidebar={() => setShowSidebar(!showSidebar)}
-            lastMarkMove={lastMarkMove}
-            onUndoMarkMove={() => {
-              if (lastMarkMove) {
-                updateMark.mutate({ id: lastMarkMove.markId, data: { lat: lastMarkMove.prevLat, lng: lastMarkMove.prevLng } }, {
-                  onSuccess: () => handleMarkMoved(lastMarkMove.markId, lastMarkMove.prevLat, lastMarkMove.prevLng),
-                });
-                setLastMarkMove(null);
-              }
-            }}
-            lastCourseTransform={lastCourseTransform}
-            onUndoCourseTransform={handleUndoCourseTransform}
-            onMapMoveEnd={(lat, lng) => setMapCenter({ lat, lng })}
-            mapLayer={mapLayer}
-            showSeaMarks={showSeaMarks}
-            pendingDeployments={pendingDeployments}
-            siblingBuoys={siblingBuoys}
-            showSiblingBuoys={showSiblingBuoys}
-            onLongPress={handleLongPress}
-            trackedBoats={demoMode ? demoBoats.filter(b => 
-              (b.source === 'vakaros' && integrationSettings.vakaros.enabled) || 
-              (b.source === 'tractrac' && integrationSettings.tractrac.enabled)
-            ) : []}
-            showBoats={demoMode && (integrationSettings.vakaros.enabled || integrationSettings.tractrac.enabled)}
-          />
+          <Suspense fallback={
+              <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+                <div className="flex flex-col items-center gap-4">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+            }>
+              <LeafletMap 
+                buoys={buoys}
+                marks={marks}
+                selectedBuoyId={selectedBuoyId}
+                selectedMarkId={selectedMarkId}
+                weatherData={activeWeatherData}
+                onBuoyClick={handleBuoyClick}
+                onMarkClick={handleMarkClick}
+                onMapClick={handleMapClick}
+                onMarkDragEnd={(markId, lat, lng) => {
+                  const mark = marks.find(m => m.id === markId);
+                  if (mark) {
+                    setLastMarkMove({ markId, prevLat: mark.lat, prevLng: mark.lng, timestamp: Date.now() });
+                  }
+                  const hasAssignedBuoy = !!(mark?.assignedBuoyId || mark?.gatePortBuoyId || mark?.gateStarboardBuoyId);
+                  if (hasAssignedBuoy) {
+                    setPendingMarkMove({ markId, lat, lng, hasAssignedBuoy: true });
+                  } else {
+                    updateMark.mutate({ id: markId, data: { lat, lng } }, {
+                      onSuccess: () => handleMarkMoved(markId, lat, lng),
+                    });
+                  }
+                }}
+                isPlacingMark={isPlacingMark || !!repositioningMarkId || !!gotoMapClickMarkId || !!gotoMapClickBuoyId}
+                isContinuousPlacement={continuousPlacement}
+                onStopPlacement={handleStopPlacement}
+                finishLinePreviewIds={finishLinePreviewIds}
+                mapOrientation={mapOrientation}
+                onOrientationChange={setMapOrientation}
+                onFetchWeatherAtLocation={handleFetchWeatherAtLocation}
+                isWeatherLoading={weatherByLocation.isPending}
+                onAlignCourseToWind={handleAlignCourseToWind}
+                roundingSequence={roundingSequence}
+                showLabels={showLabels}
+                onToggleLabels={() => setShowLabels(!showLabels)}
+                showWindArrows={showWindArrows}
+                showSidebar={showSidebar}
+                isSidebarCollapsed={isSetupPanelCollapsed}
+                onToggleSidebar={() => setShowSidebar(!showSidebar)}
+                lastMarkMove={lastMarkMove}
+                onUndoMarkMove={() => {
+                  if (lastMarkMove) {
+                    updateMark.mutate({ id: lastMarkMove.markId, data: { lat: lastMarkMove.prevLat, lng: lastMarkMove.prevLng } }, {
+                      onSuccess: () => handleMarkMoved(lastMarkMove.markId, lastMarkMove.prevLat, lastMarkMove.prevLng),
+                    });
+                    setLastMarkMove(null);
+                  }
+                }}
+                lastCourseTransform={lastCourseTransform}
+                onUndoCourseTransform={handleUndoCourseTransform}
+                onMapMoveEnd={(lat, lng) => setMapCenter({ lat, lng })}
+                mapLayer={mapLayer}
+                showSeaMarks={showSeaMarks}
+                pendingDeployments={pendingDeployments}
+                siblingBuoys={siblingBuoys}
+                showSiblingBuoys={showSiblingBuoys}
+                onLongPress={handleLongPress}
+                trackedBoats={demoMode ? demoBoats.filter(b => 
+                  (b.source === 'vakaros' && integrationSettings.vakaros.enabled) || 
+                  (b.source === 'tractrac' && integrationSettings.tractrac.enabled)
+                ) : []}
+                showBoats={demoMode && (integrationSettings.vakaros.enabled || integrationSettings.tractrac.enabled)}
+              />
+            </Suspense>
           
           {/* Floating Action Bar - always visible critical actions */}
           <FloatingActionBar

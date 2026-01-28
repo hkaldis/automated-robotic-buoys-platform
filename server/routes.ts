@@ -534,9 +534,12 @@ export async function registerRoutes(
       
       // Event managers see only their assigned events from the access table
       if (user.role === "event_manager") {
-        const accessList = await storage.getUserEventAccess(user.id);
+        // async-parallel: Fetch access list and events in parallel
+        const [accessList, allEvents] = await Promise.all([
+          storage.getUserEventAccess(user.id),
+          storage.getEvents(sailClubId)
+        ]);
         const accessibleEventIds = accessList.map(a => a.eventId);
-        const allEvents = await storage.getEvents(sailClubId);
         const filteredEvents = allEvents.filter(e => accessibleEventIds.includes(e.id));
         return res.json(applyFilters(filteredEvents));
       }
@@ -742,12 +745,14 @@ export async function registerRoutes(
       const snapshotCategory = validCategories.includes(category) ? category : "other";
       console.log("[DEBUG] Validated category:", snapshotCategory);
       
-      const course = await storage.getCourse(courseId);
+      // async-parallel: Fetch course and marks in parallel
+      const [course, marks] = await Promise.all([
+        storage.getCourse(courseId),
+        storage.getMarksByCourse(courseId)
+      ]);
       if (!course) {
         return res.status(404).json({ error: "Course not found" });
       }
-      
-      const marks = await storage.getMarksByCourse(courseId);
       
       // Create a map of mark IDs to mark names for rounding sequence conversion
       const markIdToName = new Map<string, string>();
