@@ -33,6 +33,7 @@ function getCardinalDirection(degrees: number): string {
 function WindDirectionIndicator({ degrees, size = 64 }: { degrees: number; size?: number }) {
   const normalized = ((degrees % 360) + 360) % 360;
   const cardinal = getCardinalDirection(normalized);
+  const blowingToward = (normalized + 180) % 360;
   
   return (
     <div 
@@ -45,7 +46,7 @@ function WindDirectionIndicator({ degrees, size = 64 }: { degrees: number; size?
         style={{ 
           width: size * 0.7, 
           height: size * 0.7,
-          transform: `rotate(${normalized}deg)`,
+          transform: `rotate(${blowingToward}deg)`,
         }}
       >
         <Navigation className="w-full h-full drop-shadow-sm" fill="currentColor" />

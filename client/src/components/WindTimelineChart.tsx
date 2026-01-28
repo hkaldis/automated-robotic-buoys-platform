@@ -45,6 +45,7 @@ function getCardinalDirection(degrees: number): string {
 
 function DirectionArrow({ degrees, size = 20 }: { degrees: number; size?: number }) {
   const normalized = ((degrees % 360) + 360) % 360;
+  const blowingToward = (normalized + 180) % 360;
   
   return (
     <div 
@@ -52,11 +53,11 @@ function DirectionArrow({ degrees, size = 20 }: { degrees: number; size?: number
       style={{ 
         width: size, 
         height: size,
-        transform: `rotate(${normalized}deg)`,
+        transform: `rotate(${blowingToward}deg)`,
       }}
       role="img"
       aria-label={`Wind from ${normalized.toFixed(0)}° ${getCardinalDirection(normalized)}`}
-      data-rotation={normalized}
+      data-rotation={blowingToward}
     >
       <Navigation 
         className="w-full h-full drop-shadow-sm" 
