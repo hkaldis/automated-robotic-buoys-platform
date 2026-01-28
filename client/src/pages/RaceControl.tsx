@@ -563,8 +563,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   // Demo weather history for timeline chart
   const demoWeatherHistory = useMemo(() => {
     if (!demoMode) return [];
-    const windDir = activeWeatherData?.windDirection ?? 225;
-    const windSpeed = activeWeatherData?.windSpeed ?? 12;
+    const baseWindDir = activeWeatherData?.windDirection ?? 225;
+    const baseWindSpeed = activeWeatherData?.windSpeed ?? 8;
     const now = Date.now();
     
     // Get demo buoys to generate data for
@@ -573,32 +573,83 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     // Generate 60 minutes of demo history data (one reading every 30 seconds) for each buoy
     const allHistory: typeof apiWeatherHistory = [];
     
+    // Seeded random for consistent patterns per session
+    const seededRandom = (seed: number) => {
+      const x = Math.sin(seed * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    };
+    
     demoBuoysList.forEach((buoy, buoyIndex) => {
-      // Each buoy has slightly different readings to simulate real-world variation
-      const buoyOffset = buoyIndex * 3; // Slight direction offset per buoy
+      // Each buoy has slightly different base readings (spatial variation)
+      const buoyDirOffset = buoyIndex * 2 - 2; // -2, 0, +2 degrees
+      const buoySpeedOffset = (buoyIndex - 1) * 0.3; // -0.3, 0, +0.3 kts
+      
+      // Pre-generate smooth wind patterns
+      const readings: Array<{speed: number; dir: number; gust: number | null}> = [];
       
       for (let i = 0; i < 120; i++) {
+        const timeProgress = i / 120;
+        const seed = buoyIndex * 1000 + i;
+        
+        // Direction: Slow oscillation (10-15 min period) + micro-variations
+        const slowOscillation = Math.sin(timeProgress * Math.PI * 4) * 6; // ~15 min period, +/- 6 deg
+        const mediumOscillation = Math.sin(timeProgress * Math.PI * 12) * 3; // ~5 min period, +/- 3 deg
+        const microNoise = (seededRandom(seed) - 0.5) * 4; // +/- 2 deg noise
+        const windDir = baseWindDir + buoyDirOffset + slowOscillation + mediumOscillation + microNoise;
+        
+        // Speed: Base speed with realistic variations
+        // Wind speed tends to vary in "puffs" - not constant random noise
+        const puffCycle = Math.sin(timeProgress * Math.PI * 20); // Faster puff cycle
+        const puffIntensity = seededRandom(seed + 500) > 0.3 ? puffCycle * 1.5 : 0; // Occasional stronger puffs
+        const baseVariation = Math.sin(timeProgress * Math.PI * 6) * 1.2; // Slower underlying variation
+        const instantNoise = (seededRandom(seed + 100) - 0.5) * 1.0; // Small instant noise
+        const windSpeed = Math.max(2, baseWindSpeed + buoySpeedOffset + baseVariation + puffIntensity + instantNoise);
+        
+        // Gust: Only occurs during puffs, typically 1.5-2.5x the speed increase
+        // Gusts are intermittent, not constant
+        const isGustCondition = seededRandom(seed + 200) > 0.6 && puffIntensity > 0.5;
+        const gustSpeed = isGustCondition 
+          ? Math.min(windSpeed * 1.8, windSpeed + 3 + seededRandom(seed + 300) * 2) // Gust 3-5 kts above
+          : null;
+        
+        readings.push({ speed: windSpeed, dir: windDir, gust: gustSpeed });
+      }
+      
+      // Calculate rolling averages (5-minute = 10 readings at 30-sec intervals)
+      for (let i = 0; i < 120; i++) {
         const timestamp = new Date(now - (119 - i) * 30000);
-        // Simulate oscillating wind with some noise
-        const oscillation = Math.sin(i / 20 * Math.PI) * 8; // ~12 min period oscillation
-        const noise = (Math.random() - 0.5) * 4;
-        const speedNoise = (Math.random() - 0.5) * 2;
-        const gustOffset = Math.random() * 4 + 2; // Gust 2-6 kts higher
-        const currentSpeed = Math.max(4, windSpeed + speedNoise);
+        const reading = readings[i];
+        
+        // 5-minute rolling average (10 readings)
+        const avgWindow = 10;
+        const startIdx = Math.max(0, i - avgWindow + 1);
+        const windowReadings = readings.slice(startIdx, i + 1);
+        
+        // Speed average
+        const avgSpeed = windowReadings.reduce((sum, r) => sum + r.speed, 0) / windowReadings.length;
+        
+        // Direction average (circular mean)
+        const sinSum = windowReadings.reduce((sum, r) => sum + Math.sin(r.dir * Math.PI / 180), 0);
+        const cosSum = windowReadings.reduce((sum, r) => sum + Math.cos(r.dir * Math.PI / 180), 0);
+        const avgDir = ((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360;
+        
+        // Find max gust in window for display
+        const windowGusts = windowReadings.map(r => r.gust).filter((g): g is number => g !== null);
+        const maxGust = windowGusts.length > 0 ? Math.max(...windowGusts) : reading.gust;
         
         allHistory.push({
           id: `demo-${buoy.id}-${i}`,
           buoyId: buoy.id,
           eventId: activeEventId ?? 'demo-event',
-          windDirection: ((windDir + buoyOffset + oscillation + noise + 360) % 360),
-          windSpeed: currentSpeed,
-          gustSpeed: Math.max(6, currentSpeed + gustOffset),
+          windDirection: ((reading.dir + 360) % 360),
+          windSpeed: Math.round(reading.speed * 10) / 10,
+          gustSpeed: maxGust ? Math.round(maxGust * 10) / 10 : null,
           currentDirection: null,
           currentSpeed: null,
           timestamp,
           sensorQuality: 95,
-          rollingAvgDirection: ((windDir + buoyOffset + oscillation + 360) % 360),
-          rollingAvgSpeed: windSpeed,
+          rollingAvgDirection: Math.round(avgDir * 10) / 10,
+          rollingAvgSpeed: Math.round(avgSpeed * 10) / 10,
         });
       }
     });
