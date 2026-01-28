@@ -51,6 +51,7 @@ interface Manage2SailResults {
   classId: string;
   races: Manage2SailRace[];
   overallStandings?: Manage2SailRaceResult[];
+  viewResultsUrl?: string;
 }
 
 interface Manage2SailDocument {
@@ -256,12 +257,37 @@ function ResultsSection({ results }: { results: Manage2SailResults[] }) {
               <span className="font-medium">{classResult.className}</span>
             </div>
             <Badge variant="secondary">
-              {classResult.races.length} race{classResult.races.length !== 1 ? 's' : ''}
+              {classResult.viewResultsUrl ? (
+                <span className="flex items-center gap-1">
+                  <ExternalLink className="h-3 w-3" />
+                  View
+                </span>
+              ) : (
+                `${classResult.races.length} race${classResult.races.length !== 1 ? 's' : ''}`
+              )}
             </Badge>
           </button>
           
           {expandedResults.has(classResult.classId) && (
             <div className="border-t p-3">
+              {classResult.viewResultsUrl && (
+                <div className="mb-4 p-4 bg-muted/30 rounded-md">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Race results are available on Manage2Sail
+                  </p>
+                  <a
+                    href={classResult.viewResultsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-primary hover:underline"
+                    data-testid={`link-view-results-${classResult.classId}`}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View Results on Manage2Sail
+                  </a>
+                </div>
+              )}
+              
               {classResult.overallStandings && classResult.overallStandings.length > 0 && (
                 <div className="mb-4">
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-2">

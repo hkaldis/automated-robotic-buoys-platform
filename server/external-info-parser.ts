@@ -65,6 +65,9 @@ interface Manage2SailClass {
   name: string;
   entriesCount: number;
   entries: Manage2SailEntry[];
+  hasEntries?: boolean;
+  hasResults?: boolean;
+  hasDocuments?: boolean;
 }
 
 interface Manage2SailRaceResult {
@@ -87,6 +90,7 @@ interface Manage2SailResults {
   classId: string;
   races: Manage2SailRace[];
   overallStandings?: Manage2SailRaceResult[];
+  viewResultsUrl?: string;
 }
 
 interface Manage2SailDocument {
@@ -265,28 +269,69 @@ async function fetchManage2SailClassesFromHtml(eventId: string): Promise<Manage2
   
   try {
     const url = `https://www.manage2sail.com/en-US/event/${eventId}`;
+    
+    if (!isValidExternalUrl(url)) {
+      console.error("Invalid URL for HTML fetch:", url);
+      return [];
+    }
+    
     const response = await fetchWithTimeout(url);
     
     if (!response.ok) return classes;
     
     const html = await response.text();
     
-    const classIdRegex = /classId=([a-f0-9-]{36})/gi;
-    const classIds = new Set<string>();
+    // Look for embedded JSON objects with class/regatta data
+    // Format: {"Id":"uuid","Name":"ClassName","HasEntries":true,"HasResults":true,...}
+    const jsonRegex = /\{"Id":"([a-f0-9-]{36})","Name":"([^"]+)"[^}]*"HasEntries":(true|false)[^}]*"HasResults":(true|false)[^}]*"HasDocuments":(true|false)[^}]*\}/gi;
     let match;
     
-    while ((match = classIdRegex.exec(html)) !== null) {
-      classIds.add(match[1]);
+    while ((match = jsonRegex.exec(html)) !== null) {
+      try {
+        const fullMatch = match[0];
+        const classData = JSON.parse(fullMatch);
+        
+        classes.push({
+          id: classData.Id || '',
+          name: classData.Name || 'Unknown Class',
+          entriesCount: 0,
+          hasEntries: classData.HasEntries === true,
+          hasResults: classData.HasResults === true,
+          hasDocuments: classData.HasDocuments === true,
+          entries: [],
+        });
+      } catch (e) {
+        // If JSON parsing fails, extract from regex groups
+        classes.push({
+          id: match[1],
+          name: match[2] || 'Unknown Class',
+          entriesCount: 0,
+          hasEntries: match[3] === 'true',
+          hasResults: match[4] === 'true',
+          hasDocuments: match[5] === 'true',
+          entries: [],
+        });
+      }
     }
     
-    for (const classId of Array.from(classIds)) {
-      const entries = await fetchManage2SailEntries(eventId, classId);
-      if (entries.length > 0) {
+    // Fallback: extract class IDs from links if no embedded JSON found
+    if (classes.length === 0) {
+      const classIdRegex = /classId=([a-f0-9-]{36})/gi;
+      const classIds = new Set<string>();
+      
+      while ((match = classIdRegex.exec(html)) !== null) {
+        classIds.add(match[1]);
+      }
+      
+      for (const classId of Array.from(classIds)) {
         classes.push({
           id: classId,
-          name: entries[0]?.boatType || 'Class',
-          entriesCount: entries.length,
-          entries,
+          name: 'Class',
+          entriesCount: 0,
+          hasEntries: true,
+          hasResults: false,
+          hasDocuments: false,
+          entries: [],
         });
       }
     }
@@ -344,6 +389,22 @@ async function fetchManage2SailResults(eventId: string, classes: Manage2SailClas
   for (const classInfo of classes) {
     if (!classInfo.id) continue;
     
+    // Check if class has results based on embedded HTML data
+    if (classInfo.hasResults) {
+      // Provide a link to view results on Manage2Sail since API requires authentication
+      const resultsUrl = `https://www.manage2sail.com/en-US/event/${eventId}#!/results?classId=${classInfo.id}`;
+      
+      allResults.push({
+        className: classInfo.name,
+        classId: classInfo.id,
+        races: [],
+        overallStandings: [],
+        viewResultsUrl: resultsUrl,
+      });
+      continue;
+    }
+    
+    // Try API as fallback (may work for some events)
     try {
       const apiUrl = `https://www.manage2sail.com/api/event/${eventId}/regattaresult/${classInfo.id}`;
       
@@ -414,9 +475,35 @@ async function fetchManage2SailResults(eventId: string, classes: Manage2SailClas
   return allResults;
 }
 
-async function fetchManage2SailDocuments(eventId: string): Promise<Manage2SailDocument[]> {
+async function fetchManage2SailDocuments(eventId: string, classes: Manage2SailClass[]): Promise<Manage2SailDocument[]> {
   const documents: Manage2SailDocument[] = [];
   
+  // Check if any class has documents from embedded HTML data
+  const hasDocsFromClasses = classes.some(c => c.hasDocuments);
+  
+  if (hasDocsFromClasses) {
+    // Provide a link to view documents on Manage2Sail since API requires authentication
+    documents.push({
+      title: 'View Notice Board on Manage2Sail',
+      url: `https://www.manage2sail.com/en-US/event/${eventId}#!/onb?tab=documents`,
+      type: 'link',
+    });
+    
+    // Also add class-specific document links
+    for (const classInfo of classes) {
+      if (classInfo.hasDocuments && classInfo.id) {
+        documents.push({
+          title: `${classInfo.name} - Documents`,
+          url: `https://www.manage2sail.com/en-US/event/${eventId}#!/onb?tab=documents&classId=${classInfo.id}`,
+          type: 'class_documents',
+        });
+      }
+    }
+    
+    return documents;
+  }
+  
+  // Try API as fallback (may work for some events)
   try {
     const apiUrl = `https://www.manage2sail.com/api/event/${eventId}/documents`;
     
@@ -473,7 +560,7 @@ export async function parseManage2SailUrl(url: string): Promise<Manage2SailInfo 
     
     const [results, documents] = await Promise.all([
       fetchManage2SailResults(eventId, classes),
-      fetchManage2SailDocuments(eventId),
+      fetchManage2SailDocuments(eventId, classes),
     ]);
     
     const info: Manage2SailInfo = {
