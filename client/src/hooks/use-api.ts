@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, invalidateRelatedQueries } from "@/lib/queryClient";
-import type { Buoy, Course, Mark, Event, SailClub, BoatClass } from "@shared/schema";
+import type { Buoy, Course, Mark, Event, SailClub, BoatClass, BuoyWeatherHistory } from "@shared/schema";
 
 export function useSailClubs() {
   return useQuery<SailClub[]>({
@@ -115,6 +115,38 @@ export function useWeatherByLocation() {
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/weather"], data);
     },
+  });
+}
+
+export function useWeatherHistory(buoyId: string | null, minutes: number = 60, enabled: boolean = true) {
+  return useQuery<BuoyWeatherHistory[]>({
+    queryKey: ["/api/weather/buoy", buoyId, minutes],
+    queryFn: async () => {
+      if (!buoyId) return [];
+      const res = await fetch(`/api/weather/buoy/${buoyId}?minutes=${minutes}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch weather history');
+      return res.json();
+    },
+    enabled: enabled && !!buoyId,
+    refetchInterval: 30000,
+  });
+}
+
+export function useEventWeatherHistory(eventId: string | null, minutes: number = 60, enabled: boolean = true) {
+  return useQuery<BuoyWeatherHistory[]>({
+    queryKey: ["/api/weather/event", eventId, minutes],
+    queryFn: async () => {
+      if (!eventId) return [];
+      const res = await fetch(`/api/weather/event/${eventId}?minutes=${minutes}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch event weather history');
+      return res.json();
+    },
+    enabled: enabled && !!eventId,
+    refetchInterval: 30000,
   });
 }
 

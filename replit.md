@@ -54,9 +54,15 @@ The application supports a 6-phase `SetupPanel` for course creation: setting sta
   - **Predictions**: Forecasts upcoming wind shifts based on detected oscillation period
   - **Current Conditions**: Shows current direction/speed vs 5-min rolling average
   - **Multi-Buoy Comparison**: Compares readings across buoys to detect spatial wind differences
-  - **Demo Mode**: Generates realistic simulated analytics for testing without real buoy data
-  - Database: `buoy_weather_history` table stores 10-second samples with wind direction, speed, current data
-  - API: GET `/api/weather/analytics/:eventId` returns WindAnalytics with pattern, favoredSide, shifts, predictions
+  - **Wind Timeline Chart**: Interactive Recharts-based timeline showing 60 minutes of historical wind data with:
+    - Speed chart: Instant speed (area), 5-min rolling average (solid line), gust peaks (dashed orange line)
+    - Direction chart: Instant direction + 5-min rolling average
+    - Buoy selector dropdown to filter by specific buoy
+    - Statistics badges showing avg, max, gust values
+    - Toggle between Speed and Direction views
+  - **Demo Mode**: Generates realistic simulated analytics and timeline history for all buoys
+  - Database: `buoy_weather_history` table stores 10-second samples with wind direction, speed, gust, current data, and rolling averages
+  - API: GET `/api/weather/analytics/:eventId`, GET `/api/weather/event/:eventId?minutes=60`, GET `/api/weather/buoy/:buoyId?minutes=60`
   - UI: `WeatherInsightsPanel` accessed via Wind Insights button in FloatingActionBar, 56px touch targets
 
 ### UI/UX

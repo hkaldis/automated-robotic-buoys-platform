@@ -35,6 +35,7 @@ import {
   useDeleteCourseSnapshot,
   useBoatClasses,
   useSailClubs,
+  useEventWeatherHistory,
   type CourseSnapshot,
   type SnapshotMark,
 } from "@/hooks/use-api";
@@ -413,6 +414,13 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     refetchInterval: 30000,
     staleTime: demoMode ? 0 : 30000,
   });
+
+  // Weather history for timeline chart
+  const { data: apiWeatherHistory = [], isLoading: weatherHistoryLoading } = useEventWeatherHistory(
+    activeEventId ?? null,
+    60, // 60 minutes of history
+    !demoMode && showWindInsightsPanel
+  );
   
   const buoysLoading = activeEventId ? eventBuoysLoading : allBuoysLoading;
   const apiBuoys = activeEventId ? eventBuoys : allBuoys;
@@ -551,6 +559,54 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
     }
     return apiWeatherAnalytics ?? null;
   }, [demoMode, demoWeatherAnalytics, apiWeatherAnalytics]);
+
+  // Demo weather history for timeline chart
+  const demoWeatherHistory = useMemo(() => {
+    if (!demoMode) return [];
+    const windDir = activeWeatherData?.windDirection ?? 225;
+    const windSpeed = activeWeatherData?.windSpeed ?? 12;
+    const now = Date.now();
+    
+    // Get demo buoys to generate data for
+    const demoBuoysList = buoys.length > 0 ? buoys.slice(0, 3) : [{ id: 'demo-buoy-1', name: 'Demo Buoy 1' }];
+    
+    // Generate 60 minutes of demo history data (one reading every 30 seconds) for each buoy
+    const allHistory: typeof apiWeatherHistory = [];
+    
+    demoBuoysList.forEach((buoy, buoyIndex) => {
+      // Each buoy has slightly different readings to simulate real-world variation
+      const buoyOffset = buoyIndex * 3; // Slight direction offset per buoy
+      
+      for (let i = 0; i < 120; i++) {
+        const timestamp = new Date(now - (119 - i) * 30000);
+        // Simulate oscillating wind with some noise
+        const oscillation = Math.sin(i / 20 * Math.PI) * 8; // ~12 min period oscillation
+        const noise = (Math.random() - 0.5) * 4;
+        const speedNoise = (Math.random() - 0.5) * 2;
+        const gustOffset = Math.random() * 4 + 2; // Gust 2-6 kts higher
+        const currentSpeed = Math.max(4, windSpeed + speedNoise);
+        
+        allHistory.push({
+          id: `demo-${buoy.id}-${i}`,
+          buoyId: buoy.id,
+          eventId: activeEventId ?? 'demo-event',
+          windDirection: ((windDir + buoyOffset + oscillation + noise + 360) % 360),
+          windSpeed: currentSpeed,
+          gustSpeed: Math.max(6, currentSpeed + gustOffset),
+          currentDirection: null,
+          currentSpeed: null,
+          timestamp,
+          sensorQuality: 95,
+          rollingAvgDirection: ((windDir + buoyOffset + oscillation + 360) % 360),
+          rollingAvgSpeed: windSpeed,
+        });
+      }
+    });
+    
+    return allHistory;
+  }, [demoMode, activeWeatherData, buoys, activeEventId]);
+
+  const weatherHistory = demoMode ? demoWeatherHistory : apiWeatherHistory;
 
   // Deploy All: Send all assigned buoys to their mark positions
   const [isDeployingAll, setIsDeployingAll] = useState(false);
@@ -3226,6 +3282,9 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
               isLoading={demoMode ? false : weatherAnalyticsLoading}
               error={demoMode ? null : (weatherAnalyticsError ? String(weatherAnalyticsError) : null)}
               onClose={() => setShowWindInsightsPanel(false)}
+              historyData={weatherHistory}
+              historyLoading={demoMode ? false : weatherHistoryLoading}
+              buoys={buoys}
             />
           )}
         </main>

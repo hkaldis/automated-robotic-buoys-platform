@@ -1,16 +1,21 @@
+import { useState } from "react";
 import { X, Wind, ArrowUp, ArrowDown, Minus, TrendingUp, TrendingDown, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { WindAnalytics, ShiftEvent, WindPattern } from "@shared/schema";
+import { WindTimelineChart } from "./WindTimelineChart";
+import type { WindAnalytics, ShiftEvent, WindPattern, Buoy, BuoyWeatherHistory } from "@shared/schema";
 
 interface WeatherInsightsPanelProps {
   analytics: WindAnalytics | null;
   isLoading: boolean;
   error?: string | null;
   onClose: () => void;
+  historyData?: BuoyWeatherHistory[];
+  historyLoading?: boolean;
+  buoys?: Buoy[];
 }
 
 function formatTime(date: Date): string {
@@ -289,10 +294,20 @@ function BuoyComparisonList({ buoys }: { buoys: WindAnalytics["buoyComparison"] 
   );
 }
 
-export function WeatherInsightsPanel({ analytics, isLoading, error, onClose }: WeatherInsightsPanelProps) {
+export function WeatherInsightsPanel({ 
+  analytics, 
+  isLoading, 
+  error, 
+  onClose,
+  historyData = [],
+  historyLoading = false,
+  buoys = [],
+}: WeatherInsightsPanelProps) {
+  const [selectedBuoyId, setSelectedBuoyId] = useState<string | null>(null);
+
   return (
     <div 
-      className="absolute top-4 right-4 z-[1000] w-80 max-h-[calc(100vh-8rem)] overflow-y-auto bg-background rounded-lg border shadow-lg"
+      className="absolute top-4 right-4 z-[1000] w-96 max-h-[calc(100vh-8rem)] overflow-y-auto bg-background rounded-lg border shadow-lg"
       data-testid="panel-weather-insights"
     >
       <div className="sticky top-0 bg-background border-b px-4 py-3 flex items-center justify-between min-h-14">
@@ -329,6 +344,14 @@ export function WeatherInsightsPanel({ analytics, isLoading, error, onClose }: W
           </div>
         ) : (
           <>
+            <WindTimelineChart
+              historyData={historyData}
+              buoys={buoys}
+              selectedBuoyId={selectedBuoyId}
+              onBuoySelect={setSelectedBuoyId}
+              isLoading={historyLoading}
+            />
+
             <div data-testid="card-current-conditions">
               <CurrentConditionsCard conditions={analytics.currentConditions} />
             </div>
