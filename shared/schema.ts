@@ -132,6 +132,36 @@ export const events = pgTable("events", {
   courseId: varchar("course_id"),
   startDate: timestamp("start_date"),  // Event start date (required for filtering)
   endDate: timestamp("end_date"),      // Event end date (optional, for multi-day events)
+  manage2SailUrl: text("manage2sail_url"),  // Optional Manage2Sail event URL
+  racingRulesUrl: text("racing_rules_url"), // Optional Racing Rules of Sailing URL
+  externalInfo: jsonb("external_info").$type<{
+    manage2sail?: {
+      eventName?: string;
+      eventDate?: string;
+      registrationPeriod?: string;
+      club?: string;
+      location?: string;
+      address?: string;
+      city?: string;
+      country?: string;
+      email?: string;
+      phone?: string;
+      classes?: string[];
+      entriesCount?: number;
+      fetchedAt?: string;
+    };
+    racingRules?: {
+      eventName?: string;
+      documents?: Array<{
+        title: string;
+        url: string;
+        date?: string;
+      }>;
+      resultsUrl?: string;
+      eventSiteUrl?: string;
+      fetchedAt?: string;
+    };
+  }>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -367,6 +397,9 @@ export const insertEventSchema = createInsertSchema(events).pick({
   courseId: true,
   startDate: true,
   endDate: true,
+  manage2SailUrl: true,
+  racingRulesUrl: true,
+  externalInfo: true,
 });
 
 export const insertBoatClassSchema = createInsertSchema(boatClasses).pick({
