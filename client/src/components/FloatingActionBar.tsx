@@ -1,4 +1,4 @@
-import { Compass, Play, Square, Undo2, CheckCircle2, Radio } from "lucide-react";
+import { Compass, Play, Square, Undo2, CheckCircle2, Radio, Wind } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ interface FloatingActionBarProps {
   onHoldAll?: () => void;
   onUndo?: () => void;
   onFleetClick?: () => void;
+  onWindInsightsClick?: () => void;
   canAlign?: boolean;
   canDeploy?: boolean;
   canHold?: boolean;
@@ -20,6 +21,7 @@ interface FloatingActionBarProps {
   movingCount?: number;
   needsWindAlignment?: boolean;
   showFleet?: boolean;
+  showWindInsights?: boolean;
   hasFaultOrLowBattery?: boolean;
 }
 
@@ -29,6 +31,7 @@ export function FloatingActionBar({
   onHoldAll,
   onUndo,
   onFleetClick,
+  onWindInsightsClick,
   canAlign = false,
   canDeploy = false,
   canHold = false,
@@ -40,6 +43,7 @@ export function FloatingActionBar({
   movingCount = 0,
   needsWindAlignment = false,
   showFleet = false,
+  showWindInsights = false,
   hasFaultOrLowBattery = false,
 }: FloatingActionBarProps) {
   const allOnStation = totalBuoys > 0 && onStationCount === totalBuoys && movingCount === 0;
@@ -184,6 +188,23 @@ export function FloatingActionBar({
         </TooltipTrigger>
         <TooltipContent side="top">
           <p>{hasFaultOrLowBattery ? "Fleet Status - Attention Required" : "Fleet Status"}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className={cn(showWindInsights && "bg-primary/10 text-primary")}
+            onClick={onWindInsightsClick}
+            data-testid="button-wind-insights-fab"
+          >
+            <Wind className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>Wind Insights</p>
         </TooltipContent>
       </Tooltip>
     </div>

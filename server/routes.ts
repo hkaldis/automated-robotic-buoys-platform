@@ -1604,7 +1604,10 @@ export async function registerRoutes(
   app.get("/api/weather/buoy/:buoyId", requireAuth, async (req, res) => {
     try {
       const { buoyId } = req.params;
-      const minutes = parseInt(req.query.minutes as string) || 60;
+      const minutesParam = Array.isArray(req.query.minutes) 
+        ? req.query.minutes[0] 
+        : req.query.minutes;
+      const minutes = parseInt(minutesParam ?? "60", 10);
       
       const readings = await storage.getWeatherHistory(buoyId, minutes);
       res.json(readings);
@@ -1618,7 +1621,10 @@ export async function registerRoutes(
   app.get("/api/weather/event/:eventId", requireAuth, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const minutes = parseInt(req.query.minutes as string) || 60;
+      const minutesParam = Array.isArray(req.query.minutes) 
+        ? req.query.minutes[0] 
+        : req.query.minutes;
+      const minutes = parseInt(minutesParam ?? "60", 10);
       
       const readings = await storage.getEventWeatherHistory(eventId, minutes);
       res.json(readings);
@@ -1632,12 +1638,15 @@ export async function registerRoutes(
   app.get("/api/weather/analytics/:eventId", requireAuth, async (req, res) => {
     try {
       const { eventId } = req.params;
-      const minutes = parseInt(req.query.minutes as string) || 60;
+      const minutesParam = Array.isArray(req.query.minutes) 
+        ? req.query.minutes[0] 
+        : req.query.minutes;
+      const minutes = parseInt(minutesParam ?? "60", 10);
       
       const readings = await storage.getEventWeatherHistory(eventId, minutes);
       
       // Get buoy info for names
-      const buoyIds = [...new Set(readings.map(r => r.buoyId))];
+      const buoyIds = Array.from(new Set(readings.map(r => r.buoyId)));
       const buoyInfoMap = new Map<string, { id: string; name: string }>();
       for (const buoyId of buoyIds) {
         const buoy = await storage.getBuoy(buoyId);
