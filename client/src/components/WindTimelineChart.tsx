@@ -9,12 +9,11 @@ import {
   ComposedChart,
   Area,
   Line,
-  Scatter,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Wind, Navigation } from "lucide-react";
+import { Wind } from "lucide-react";
 import type { Buoy, BuoyWeatherHistory } from "@shared/schema";
 
 interface WindTimelineChartProps {
@@ -35,37 +34,40 @@ interface ChartDataPoint {
   avgDirection: number | null;
   buoyId: string;
   buoyName: string;
-  showArrow?: boolean;
 }
 
 // Helper to get cardinal direction from degrees
 function getCardinalDirection(degrees: number): string {
   const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
                       'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-  const index = Math.round(degrees / 22.5) % 16;
+  const normalized = ((degrees % 360) + 360) % 360;
+  const index = Math.round(normalized / 22.5) % 16;
   return directions[index];
 }
 
-// Wind arrow component for direction visualization
-// Arrow points in the direction wind is coming FROM (meteorological convention)
-function WindArrow({ direction, size = 16 }: { direction: number; size?: number }) {
-  const rotation = direction;
+// Wind direction arrow component
+// Arrow points UP by default (0°), rotation shows direction wind comes FROM
+// e.g., 180° = arrow points down = wind from the south blowing north
+function DirectionArrow({ degrees, size = 16 }: { degrees: number; size?: number }) {
+  const normalized = ((degrees % 360) + 360) % 360;
   return (
-    <div 
-      className="inline-flex items-center justify-center"
-      style={{ 
-        transform: `rotate(${rotation}deg)`,
-        width: size,
-        height: size,
-      }}
-      title={`Wind from ${direction.toFixed(0)}° (${getCardinalDirection(direction)})`}
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24"
+      style={{ transform: `rotate(${normalized}deg)` }}
+      className="text-primary flex-shrink-0"
+      aria-label={`Wind from ${normalized.toFixed(0)}° ${getCardinalDirection(normalized)}`}
     >
-      <Navigation className="text-primary" style={{ width: size * 0.8, height: size * 0.8 }} />
-    </div>
+      <path 
+        d="M12 2 L8 12 L12 10 L16 12 Z" 
+        fill="currentColor"
+      />
+    </svg>
   );
 }
 
-// Custom tooltip with wind arrow
+// Custom tooltip with wind info
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
   
@@ -80,14 +82,14 @@ function CustomTooltip({ active, payload, label }: any) {
       className="bg-card border border-border rounded-md p-2 shadow-lg text-xs"
       data-testid="tooltip-wind-timeline"
     >
-      <div className="font-medium mb-1">{label}</div>
-      <div className="flex items-center gap-2 mb-1">
-        <WindArrow direction={direction} size={14} />
-        <span>{direction.toFixed(0)}° ({cardinal})</span>
+      <div className="font-medium mb-1.5">{label}</div>
+      <div className="flex items-center gap-2 mb-1.5 pb-1.5 border-b">
+        <DirectionArrow degrees={direction} size={16} />
+        <span className="font-medium">{direction.toFixed(0)}° ({cardinal})</span>
       </div>
       <div className="space-y-0.5 text-muted-foreground">
         {data.speed !== undefined && (
-          <div>Speed: <span className="text-foreground">{data.speed.toFixed(1)} kts</span></div>
+          <div>Speed: <span className="text-foreground font-medium">{data.speed.toFixed(1)} kts</span></div>
         )}
         {data.avgSpeed !== null && (
           <div>Avg: <span className="text-foreground">{data.avgSpeed.toFixed(1)} kts</span></div>
@@ -95,34 +97,8 @@ function CustomTooltip({ active, payload, label }: any) {
         {data.gustSpeed !== null && (
           <div>Gust: <span className="text-orange-500">{data.gustSpeed.toFixed(1)} kts</span></div>
         )}
-        {data.buoyName && data.buoyName !== 'Averaged' && (
-          <div className="text-muted-foreground/70 mt-1">Buoy: {data.buoyName}</div>
-        )}
       </div>
     </div>
-  );
-}
-
-// Custom scatter shape for wind arrows at regular intervals
-function WindArrowShape(props: any) {
-  const { cx, cy, payload } = props;
-  if (!payload.showArrow || !cx || !cy) return null;
-  
-  const direction = payload.avgDirection ?? payload.direction;
-  // Arrow points in direction wind is coming FROM
-  const rotation = direction;
-  
-  return (
-    <g transform={`translate(${cx}, ${cy})`}>
-      <g transform={`rotate(${rotation})`}>
-        <path 
-          d="M0,-10 L4,5 L0,2 L-4,5 Z" 
-          fill="hsl(210 85% 42%)" 
-          stroke="hsl(var(--background))"
-          strokeWidth={0.5}
-        />
-      </g>
-    </g>
   );
 }
 
@@ -139,11 +115,36 @@ export function WindTimelineChart({
     return map;
   }, [buoys]);
 
-  // Get available buoys that have data
+  // Get unique buoy IDs from history data
+  const buoyIdsInHistory = useMemo(() => {
+    return new Set(historyData.map(h => h.buoyId));
+  }, [historyData]);
+
+  // Build available buoys list - prioritize matching by ID, fallback to all buoys
   const availableBuoys = useMemo(() => {
-    const buoyIds = new Set(historyData.map(h => h.buoyId));
-    return buoys.filter(b => buoyIds.has(b.id));
-  }, [historyData, buoys]);
+    // First, try to match buoys with history data
+    if (buoyIdsInHistory.size > 0) {
+      // Try matching by ID
+      const matched = buoys.filter(b => buoyIdsInHistory.has(b.id));
+      if (matched.length > 0) {
+        return matched;
+      }
+      
+      // No ID matches - create synthetic entries from history IDs
+      return Array.from(buoyIdsInHistory).map(id => ({
+        id,
+        name: buoyMap.get(id) || id.replace(/^demo-/, 'Buoy '),
+      }));
+    }
+    
+    // No history data yet - show all buoys from props so user can select
+    // This handles the case when historyData is still loading
+    if (buoys.length > 0) {
+      return buoys.map(b => ({ id: b.id, name: b.name }));
+    }
+    
+    return [];
+  }, [buoyIdsInHistory, buoys, buoyMap]);
 
   const filteredData = useMemo(() => {
     if (!historyData.length) return [];
@@ -172,7 +173,6 @@ export function WindTimelineChart({
         }));
     } else {
       // "All Buoys" - aggregate data by averaging across buoys at similar timestamps
-      // Group readings by minute intervals
       const timeGroups = new Map<string, BuoyWeatherHistory[]>();
       
       historyData.forEach(h => {
@@ -201,7 +201,7 @@ export function WindTimelineChart({
             ? Math.max(...gustSpeeds.map(r => r.gustSpeed!)) 
             : null;
           
-          // Average direction (handling wraparound)
+          // Average direction using circular mean
           const sinSum = readings.reduce((sum, r) => sum + Math.sin(r.windDirection * Math.PI / 180), 0);
           const cosSum = readings.reduce((sum, r) => sum + Math.cos(r.windDirection * Math.PI / 180), 0);
           const avgDir = ((Math.atan2(sinSum, cosSum) * 180 / Math.PI) + 360) % 360;
@@ -234,13 +234,20 @@ export function WindTimelineChart({
       processedData = aggregated;
     }
     
-    // Mark points where arrows should be shown (every ~5 minutes)
-    const arrowInterval = Math.max(1, Math.floor(processedData.length / 12));
-    return processedData.map((d, i) => ({
-      ...d,
-      showArrow: i % arrowInterval === 0 || i === processedData.length - 1,
-    }));
+    return processedData;
   }, [historyData, selectedBuoyId, buoyMap]);
+
+  // Sample direction arrows from the data (show ~12 arrows max)
+  const directionSamples = useMemo(() => {
+    if (filteredData.length < 2) return [];
+    const interval = Math.max(1, Math.floor(filteredData.length / 12));
+    const samples = filteredData.filter((_, i) => i % interval === 0);
+    // Always include last point
+    if (samples.length > 0 && samples[samples.length - 1] !== filteredData[filteredData.length - 1]) {
+      samples.push(filteredData[filteredData.length - 1]);
+    }
+    return samples.slice(0, 15); // Cap at 15 for display
+  }, [filteredData]);
 
   const stats = useMemo(() => {
     if (!filteredData.length) return null;
@@ -255,6 +262,12 @@ export function WindTimelineChart({
     const currentDirection = latest?.avgDirection ?? latest?.direction ?? 0;
     const currentSpeed = latest?.avgSpeed ?? latest?.speed ?? 0;
     
+    // Calculate direction range properly (handling wraparound)
+    const minDir = Math.min(...directions);
+    const maxDir = Math.max(...directions);
+    let dirRange = maxDir - minDir;
+    if (dirRange > 180) dirRange = 360 - dirRange;
+    
     return {
       avgSpeed: avgSpeeds.length 
         ? avgSpeeds.reduce((a, b) => a + b, 0) / avgSpeeds.length 
@@ -262,8 +275,7 @@ export function WindTimelineChart({
       maxSpeed: Math.max(...speeds),
       minSpeed: Math.min(...speeds),
       maxGust: gusts.length ? Math.max(...gusts) : null,
-      avgDirection: directions.reduce((a, b) => a + b, 0) / directions.length,
-      directionRange: Math.max(...directions) - Math.min(...directions),
+      directionRange: dirRange,
       currentDirection,
       currentSpeed,
     };
@@ -294,12 +306,36 @@ export function WindTimelineChart({
 
   if (!filteredData.length) {
     return (
-      <Card>
+      <Card data-testid="card-wind-timeline">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Wind className="h-4 w-4" />
-            Wind Timeline
-          </CardTitle>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Wind className="h-4 w-4" />
+              Wind Timeline
+            </CardTitle>
+            
+            {/* Show dropdown even when no data, so user can select */}
+            {availableBuoys.length > 0 && (
+              <Select
+                value={selectedBuoyId || "all"}
+                onValueChange={handleBuoySelect}
+              >
+                <SelectTrigger className="w-36 h-8" data-testid="select-buoy-filter">
+                  <SelectValue placeholder="Select Buoy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" data-testid="option-all-buoys">
+                    All Buoys (avg)
+                  </SelectItem>
+                  {availableBuoys.map(buoy => (
+                    <SelectItem key={buoy.id} value={buoy.id} data-testid={`option-buoy-${buoy.id}`}>
+                      {buoy.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-48 flex items-center justify-center text-muted-foreground">
@@ -341,24 +377,25 @@ export function WindTimelineChart({
       </CardHeader>
       
       <CardContent className="pt-0">
-        {/* Stats row with current wind direction arrow */}
+        {/* Stats row with current wind info */}
         {stats && (
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            {/* Current wind direction with arrow */}
+            {/* Current wind direction with arrow and degree */}
             <Badge 
               variant="outline" 
-              className="text-xs flex items-center gap-1.5 pr-2"
+              className="text-xs flex items-center gap-1.5 pr-2.5 font-medium"
               data-testid="badge-current-direction"
             >
-              <WindArrow direction={stats.currentDirection} size={14} />
-              <span>{stats.currentDirection.toFixed(0)}° {getCardinalDirection(stats.currentDirection)}</span>
+              <DirectionArrow degrees={stats.currentDirection} size={14} />
+              <span>{stats.currentDirection.toFixed(0)}°</span>
+              <span className="text-muted-foreground font-normal">{getCardinalDirection(stats.currentDirection)}</span>
             </Badge>
             
             <Badge variant="secondary" className="text-xs" data-testid="badge-avg-speed">
-              Avg: {stats.avgSpeed.toFixed(1)} kts
+              {stats.avgSpeed.toFixed(1)} kts avg
             </Badge>
             <Badge variant="secondary" className="text-xs" data-testid="badge-max-speed">
-              Max: {stats.maxSpeed.toFixed(1)} kts
+              {stats.maxSpeed.toFixed(1)} kts max
             </Badge>
             {stats.maxGust && (
               <Badge 
@@ -366,25 +403,46 @@ export function WindTimelineChart({
                 className="text-xs text-orange-600 border-orange-300"
                 data-testid="badge-max-gust"
               >
-                Gust: {stats.maxGust.toFixed(1)} kts
+                {stats.maxGust.toFixed(1)} kts gust
               </Badge>
             )}
-            <Badge 
-              variant="outline" 
-              className="text-xs text-muted-foreground"
-              data-testid="badge-direction-range"
-            >
-              ±{(stats.directionRange / 2).toFixed(0)}° shift
-            </Badge>
           </div>
         )}
 
-        {/* Combined chart with speed and direction arrows */}
-        <div className="h-52" data-testid="chart-wind-timeline">
+        {/* Direction arrows timeline at top */}
+        <div className="mb-2 pb-2 border-b" data-testid="direction-timeline">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+            <span>Wind from</span>
+            <span>±{stats ? (stats.directionRange / 2).toFixed(0) : 0}° shift</span>
+          </div>
+          <div className="flex items-center justify-between">
+            {directionSamples.map((d, i) => {
+              const dir = d.avgDirection ?? d.direction;
+              return (
+                <div 
+                  key={i}
+                  className="flex flex-col items-center gap-0.5"
+                  title={`${d.time}: ${dir.toFixed(0)}° (${getCardinalDirection(dir)})`}
+                  data-testid={`direction-arrow-${i}`}
+                >
+                  <DirectionArrow degrees={dir} size={14} />
+                  <span className="text-[9px] text-muted-foreground">{dir.toFixed(0)}°</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+            <span data-testid="text-time-start">{filteredData[0]?.time}</span>
+            <span data-testid="text-time-end">{filteredData[filteredData.length - 1]?.time}</span>
+          </div>
+        </div>
+
+        {/* Speed chart */}
+        <div className="h-40" data-testid="chart-wind-timeline">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart 
               data={filteredData} 
-              margin={{ top: 20, right: 10, left: -10, bottom: 5 }}
+              margin={{ top: 5, right: 10, left: -15, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
@@ -419,7 +477,7 @@ export function WindTimelineChart({
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
-                name="Avg Speed"
+                name="Avg"
                 connectNulls
               />
               
@@ -435,54 +493,17 @@ export function WindTimelineChart({
                 connectNulls
               />
               
-              {/* Direction arrows as scatter points */}
-              <Scatter
-                dataKey="speed"
-                shape={<WindArrowShape />}
-                name="Direction"
-                legendType="none"
-              />
-              
               <Legend 
                 wrapperStyle={{ fontSize: '11px' }}
                 formatter={(value) => {
                   if (value === 'Speed') return 'Speed';
-                  if (value === 'Avg Speed') return 'Avg (5m)';
+                  if (value === 'Avg') return 'Avg (5m)';
                   if (value === 'Gust') return 'Gust';
                   return value;
                 }}
               />
             </ComposedChart>
           </ResponsiveContainer>
-        </div>
-        
-        {/* Direction mini-timeline showing arrows */}
-        <div className="mt-2 pt-2 border-t">
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-            <span>Wind direction (from)</span>
-            <span className="flex items-center gap-1">
-              <Navigation className="h-3 w-3" /> = direction
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-0.5 overflow-hidden" data-testid="direction-timeline">
-            {filteredData
-              .filter((_, i) => i % Math.max(1, Math.floor(filteredData.length / 20)) === 0)
-              .slice(0, 20)
-              .map((d, i) => (
-                <div 
-                  key={i} 
-                  className="flex flex-col items-center"
-                  title={`${d.time}: ${(d.avgDirection ?? d.direction).toFixed(0)}° (${getCardinalDirection(d.avgDirection ?? d.direction)})`}
-                  data-testid={`direction-arrow-${i}`}
-                >
-                  <WindArrow direction={d.avgDirection ?? d.direction} size={12} />
-                </div>
-              ))}
-          </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
-            <span data-testid="text-time-start">{filteredData[0]?.time}</span>
-            <span data-testid="text-time-end">{filteredData[filteredData.length - 1]?.time}</span>
-          </div>
         </div>
       </CardContent>
     </Card>
