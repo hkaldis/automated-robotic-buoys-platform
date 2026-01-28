@@ -13,6 +13,7 @@ import {
   insertSailClubSchema,
   insertCourseSnapshotSchema,
   insertBoatClassSchema,
+  insertBuoyWeatherHistorySchema,
   snapshotMarkSchema,
   boatClasses,
   type UserRole,
@@ -20,6 +21,7 @@ import {
   type Event as DbEvent,
 } from "@shared/schema";
 import { z } from "zod";
+import { analyzeWeather } from "./weather-analytics";
 import { 
   requireAuth, 
   requireRole, 
@@ -1594,6 +1596,90 @@ export async function registerRoutes(
       courseAdjustmentSettings: settings?.courseAdjustmentSettings,
       integrations: settings?.integrations,
     });
+  });
+
+  // Weather Insights API endpoints
+  
+  // Get weather history for a specific buoy
+  app.get("/api/weather/buoy/:buoyId", requireAuth, async (req, res) => {
+    try {
+      const { buoyId } = req.params;
+      const minutes = parseInt(req.query.minutes as string) || 60;
+      
+      const readings = await storage.getWeatherHistory(buoyId, minutes);
+      res.json(readings);
+    } catch (error) {
+      console.error("Error fetching buoy weather history:", error);
+      res.status(500).json({ error: "Failed to fetch weather history" });
+    }
+  });
+
+  // Get weather history for an event (all buoys)
+  app.get("/api/weather/event/:eventId", requireAuth, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const minutes = parseInt(req.query.minutes as string) || 60;
+      
+      const readings = await storage.getEventWeatherHistory(eventId, minutes);
+      res.json(readings);
+    } catch (error) {
+      console.error("Error fetching event weather history:", error);
+      res.status(500).json({ error: "Failed to fetch weather history" });
+    }
+  });
+
+  // Get weather analytics for an event
+  app.get("/api/weather/analytics/:eventId", requireAuth, async (req, res) => {
+    try {
+      const { eventId } = req.params;
+      const minutes = parseInt(req.query.minutes as string) || 60;
+      
+      const readings = await storage.getEventWeatherHistory(eventId, minutes);
+      
+      // Get buoy info for names
+      const buoyIds = [...new Set(readings.map(r => r.buoyId))];
+      const buoyInfoMap = new Map<string, { id: string; name: string }>();
+      for (const buoyId of buoyIds) {
+        const buoy = await storage.getBuoy(buoyId);
+        if (buoy) {
+          buoyInfoMap.set(buoyId, { id: buoy.id, name: buoy.name });
+        }
+      }
+      
+      const analytics = analyzeWeather(readings, buoyInfoMap);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error analyzing weather:", error);
+      res.status(500).json({ error: "Failed to analyze weather" });
+    }
+  });
+
+  // Record a new weather reading (for buoy data ingestion)
+  app.post("/api/weather/reading", requireAuth, async (req, res) => {
+    try {
+      const parsed = insertBuoyWeatherHistorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Invalid weather reading data", details: parsed.error });
+      }
+      
+      const reading = await storage.createWeatherReading(parsed.data);
+      res.status(201).json(reading);
+    } catch (error) {
+      console.error("Error creating weather reading:", error);
+      res.status(500).json({ error: "Failed to create weather reading" });
+    }
+  });
+
+  // Cleanup old weather history (admin only)
+  app.delete("/api/weather/cleanup", requireAuth, requireRole("super_admin"), async (req, res) => {
+    try {
+      const hours = parseInt(req.query.hours as string) || 24;
+      const deleted = await storage.deleteOldWeatherHistory(hours);
+      res.json({ deleted, message: `Deleted ${deleted} readings older than ${hours} hours` });
+    } catch (error) {
+      console.error("Error cleaning up weather history:", error);
+      res.status(500).json({ error: "Failed to cleanup weather history" });
+    }
   });
 
   return httpServer;
