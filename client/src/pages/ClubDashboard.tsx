@@ -672,10 +672,19 @@ export default function ClubDashboard() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => {
-                                  setSelectedEventForExternalInfo(event);
-                                  setExternalInfoDialogOpen(true);
+                                  const hasExternalLinks = event.manage2SailUrl || event.racingRulesUrl;
+                                  if (hasExternalLinks) {
+                                    setSelectedEventForExternalInfo(event);
+                                    setExternalInfoDialogOpen(true);
+                                  } else {
+                                    toast({
+                                      title: "No External Integrations",
+                                      description: "Add a Manage2Sail or Racing Rules of Sailing link in the event settings to access external information.",
+                                    });
+                                  }
                                 }}
-                                title="External Info"
+                                title={event.manage2SailUrl || event.racingRulesUrl ? "External Info" : "No external integrations configured"}
+                                className={!(event.manage2SailUrl || event.racingRulesUrl) ? "opacity-40" : ""}
                                 data-testid={`button-external-info-${event.id}`}
                               >
                                 <Globe className="h-4 w-4" />
