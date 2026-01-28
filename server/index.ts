@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupSession, seedSuperAdmin, seedBoatClasses } from "./auth";
+import { startWeatherCollection } from "./weather-collection";
 
 const app = express();
 const httpServer = createServer(app);
@@ -71,6 +72,8 @@ app.use((req, res, next) => {
   await seedSuperAdmin();
   await seedBoatClasses();
   await registerRoutes(httpServer, app);
+  
+  startWeatherCollection();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
