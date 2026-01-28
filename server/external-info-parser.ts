@@ -419,14 +419,59 @@ async function fetchManage2SailResults(eventId: string, classes: Manage2SailClas
         const data = await response.json();
         
         const classResults: Manage2SailResults = {
-          className: classInfo.name,
+          className: data.RegattaName || classInfo.name,
           classId: classInfo.id,
           races: [],
           overallStandings: [],
         };
         
-        // Parse ScoringResults if available (common Manage2Sail format)
-        if (data && data.ScoringResults && Array.isArray(data.ScoringResults)) {
+        // Parse EntryResults - the main results format from Manage2Sail
+        // Contains overall standings with per-race breakdown
+        if (data && data.EntryResults && Array.isArray(data.EntryResults)) {
+          for (const entry of data.EntryResults) {
+            classResults.overallStandings?.push({
+              sailNumber: entry.SailNumber || '',
+              boatName: entry.TeamName || entry.Name,
+              position: entry.Rank || 0,
+              points: parseFloat(entry.NetPoints) || parseFloat(entry.TotalPoints) || 0,
+            });
+          }
+          
+          // Build race results from EntryResults data
+          if (data.RaceNames && Array.isArray(data.RaceNames)) {
+            for (const raceInfo of data.RaceNames) {
+              const race: Manage2SailRace = {
+                raceName: raceInfo.Name || `Race ${raceInfo.RaceIndex || raceInfo.Index + 1}`,
+                raceNumber: raceInfo.RaceIndex || raceInfo.Index + 1,
+                results: [],
+              };
+              
+              // Extract results for this race from each entry
+              for (const entry of data.EntryResults) {
+                if (entry.EntryRaceResults && Array.isArray(entry.EntryRaceResults)) {
+                  const raceResult = entry.EntryRaceResults.find(
+                    (r: any) => r.OverallRaceIndex === (raceInfo.RaceIndex || raceInfo.Index + 1)
+                  );
+                  if (raceResult) {
+                    race.results.push({
+                      sailNumber: entry.SailNumber || '',
+                      boatName: entry.TeamName || entry.Name,
+                      position: raceResult.Rank || 0,
+                      points: parseFloat(raceResult.Points) || 0,
+                    });
+                  }
+                }
+              }
+              
+              // Sort by position
+              race.results.sort((a, b) => (a.position || 999) - (b.position || 999));
+              classResults.races.push(race);
+            }
+          }
+        }
+        
+        // Fallback: Parse ScoringResults if available (alternative format)
+        if ((classResults.overallStandings?.length ?? 0) === 0 && data && data.ScoringResults && Array.isArray(data.ScoringResults)) {
           for (const scoring of data.ScoringResults) {
             if (scoring.Results && Array.isArray(scoring.Results)) {
               for (const result of scoring.Results) {
@@ -441,34 +486,8 @@ async function fetchManage2SailResults(eventId: string, classes: Manage2SailClas
           }
         }
         
-        // Parse Races if available
-        if (data && data.Races && Array.isArray(data.Races)) {
-          for (const race of data.Races) {
-            const raceInfo: Manage2SailRace = {
-              raceName: race.RaceName || race.Name || `Race ${race.RaceNumber || ''}`,
-              raceNumber: race.RaceNumber || race.raceNumber,
-              date: race.Date || race.date,
-              results: [],
-            };
-            
-            if (race.Results && Array.isArray(race.Results)) {
-              for (const result of race.Results) {
-                raceInfo.results.push({
-                  sailNumber: result.SailNumber || result.sailNumber || '',
-                  boatName: result.BoatName || result.boatName,
-                  position: result.Position || result.position || result.Rank || 0,
-                  points: result.Points || result.points,
-                  finishTime: result.FinishTime || result.finishTime,
-                });
-              }
-            }
-            
-            classResults.races.push(raceInfo);
-          }
-        }
-        
-        // Parse Standings if available
-        if (data && data.Standings && Array.isArray(data.Standings)) {
+        // Fallback: Parse Standings if available
+        if ((classResults.overallStandings?.length ?? 0) === 0 && data && data.Standings && Array.isArray(data.Standings)) {
           for (const standing of data.Standings) {
             classResults.overallStandings?.push({
               sailNumber: standing.SailNumber || standing.sailNumber || '',
