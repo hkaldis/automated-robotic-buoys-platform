@@ -45,6 +45,17 @@ The application supports a 6-phase `SetupPanel` for course creation: setting sta
   - Rounding sequence saved with mark names (not IDs) for portability
 - **Buoy Inventory Management**: Global buoy inventory system with ownership types (platform_owned, long_rental, event_rental) and status tracking (in_inventory, assigned_club, assigned_event, maintenance, retired). Buoys flow through lifecycle: inventory → club → event → back. Super admin manages global inventory via "Buoys" tab in Admin Dashboard. The `buoyAssignments` table tracks full assignment history with audit trail. API endpoints support assignment, release, and lifecycle transitions with role-based permissions.
 - **Boat Tracking Integrations**: Display competing boats on the map via Vakaros and Tractrac tracking services. Configured in Settings Dialog "Integrations" section with per-service toggles and optional event IDs. In Demo Mode, simulates 10 boats (5 Vakaros blue, 5 Tractrac orange) with realistic sailing movement patterns. Boat markers show heading-oriented triangles with tooltips displaying sail number, speed (kts), and heading (degrees). Integration settings stored in `user_settings.integrations` (jsonb). Supports `showBoatTrails` and `boatRefreshRateSeconds` for future boat trail rendering.
+- **Weather Insights**: Analyzes historical wind data from buoys to detect patterns and predict shifts. Features:
+  - **Pattern Detection**: Identifies oscillating (5-15 min cycles), persistent (gradual drift), stable, or combined patterns with confidence scores
+  - **Favored Side Analysis**: Calculates left/right side advantage based on wind trends and upcoming shifts, using sailing physics
+  - **Shift History**: Tracks headers and lifts with timestamps and magnitude (minor <5°, moderate 5-10°, major >10°)
+  - **Predictions**: Forecasts upcoming wind shifts based on detected oscillation period
+  - **Current Conditions**: Shows current direction/speed vs 5-min rolling average
+  - **Multi-Buoy Comparison**: Compares readings across buoys to detect spatial wind differences
+  - **Demo Mode**: Generates realistic simulated analytics for testing without real buoy data
+  - Database: `buoy_weather_history` table stores 10-second samples with wind direction, speed, current data
+  - API: GET `/api/weather/analytics/:eventId` returns WindAnalytics with pattern, favoredSide, shifts, predictions
+  - UI: `WeatherInsightsPanel` accessed via Wind Insights button in FloatingActionBar, 56px touch targets
 
 ### UI/UX
 The design is tablet-first with large, touch-friendly controls (min 56px targets for critical actions), a visual progress stepper, and maritime-themed aesthetics. Role-specific mark visualizations and adherence to World Sailing standards for course geometry are key.

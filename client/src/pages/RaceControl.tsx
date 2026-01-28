@@ -406,8 +406,8 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
   });
   const siblingBuoys = demoMode ? demoSiblingBuoys : apiSiblingBuoys;
 
-  const { data: apiWeatherAnalytics, isLoading: weatherAnalyticsLoading } = useQuery<WindAnalytics>({
-    queryKey: ['/api/weather/analytics', activeEventId],
+  const { data: apiWeatherAnalytics, isLoading: weatherAnalyticsLoading, error: weatherAnalyticsError } = useQuery<WindAnalytics>({
+    queryKey: [`/api/weather/analytics/${activeEventId}`],
     enabled: !!activeEventId && !demoMode && showWindInsightsPanel,
     refetchInterval: 30000,
   });
@@ -3212,6 +3212,7 @@ export default function RaceControl({ eventId: propEventId }: RaceControlProps) 
             <WeatherInsightsPanel
               analytics={weatherAnalytics ?? null}
               isLoading={weatherAnalyticsLoading}
+              error={weatherAnalyticsError ? String(weatherAnalyticsError) : null}
               onClose={() => setShowWindInsightsPanel(false)}
             />
           )}

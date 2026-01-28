@@ -9,6 +9,7 @@ import type { WindAnalytics, ShiftEvent, WindPattern } from "@shared/schema";
 interface WeatherInsightsPanelProps {
   analytics: WindAnalytics | null;
   isLoading: boolean;
+  error?: string | null;
   onClose: () => void;
 }
 
@@ -288,10 +289,13 @@ function BuoyComparisonList({ buoys }: { buoys: WindAnalytics["buoyComparison"] 
   );
 }
 
-export function WeatherInsightsPanel({ analytics, isLoading, onClose }: WeatherInsightsPanelProps) {
+export function WeatherInsightsPanel({ analytics, isLoading, error, onClose }: WeatherInsightsPanelProps) {
   return (
-    <div className="absolute top-4 right-4 z-[1000] w-80 max-h-[calc(100vh-8rem)] overflow-y-auto bg-background rounded-lg border shadow-lg">
-      <div className="sticky top-0 bg-background border-b px-4 py-3 flex items-center justify-between">
+    <div 
+      className="absolute top-4 right-4 z-[1000] w-80 max-h-[calc(100vh-8rem)] overflow-y-auto bg-background rounded-lg border shadow-lg"
+      data-testid="panel-weather-insights"
+    >
+      <div className="sticky top-0 bg-background border-b px-4 py-3 flex items-center justify-between min-h-14">
         <div className="flex items-center gap-2">
           <Wind className="h-5 w-5 text-primary" />
           <h3 className="font-semibold">Wind Insights</h3>
@@ -308,33 +312,49 @@ export function WeatherInsightsPanel({ analytics, isLoading, onClose }: WeatherI
 
       <div className="p-4 space-y-4">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-8" data-testid="loading-weather-insights">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
+        ) : error ? (
+          <div className="text-center py-8 text-destructive" data-testid="error-weather-insights">
+            <AlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p>Unable to load weather data</p>
+            <p className="text-sm mt-1 text-muted-foreground">Please try again later</p>
+          </div>
         ) : !analytics ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground" data-testid="empty-weather-insights">
             <Wind className="h-12 w-12 mx-auto mb-2 opacity-30" />
             <p>No weather data available</p>
             <p className="text-sm mt-1">Weather readings will appear here once buoys report wind data</p>
           </div>
         ) : (
           <>
-            <CurrentConditionsCard conditions={analytics.currentConditions} />
+            <div data-testid="card-current-conditions">
+              <CurrentConditionsCard conditions={analytics.currentConditions} />
+            </div>
             
-            <FavoredSideCard analysis={analytics.favoredSide} />
+            <div data-testid="card-favored-side">
+              <FavoredSideCard analysis={analytics.favoredSide} />
+            </div>
             
-            <PatternCard pattern={analytics.pattern} />
+            <div data-testid="card-wind-pattern">
+              <PatternCard pattern={analytics.pattern} />
+            </div>
 
-            <PredictionsCard predictions={analytics.predictions} />
+            <div data-testid="card-predictions">
+              <PredictionsCard predictions={analytics.predictions} />
+            </div>
 
             <Separator />
 
-            <div>
+            <div data-testid="list-shift-history">
               <h4 className="text-sm font-medium text-muted-foreground mb-2">Recent Shifts</h4>
               <ShiftHistoryList shifts={analytics.shifts} />
             </div>
 
-            <BuoyComparisonList buoys={analytics.buoyComparison} />
+            <div data-testid="list-buoy-comparison">
+              <BuoyComparisonList buoys={analytics.buoyComparison} />
+            </div>
           </>
         )}
       </div>
